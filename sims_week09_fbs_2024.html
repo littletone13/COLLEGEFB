@@ -1,0 +1,1321 @@
+
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>FBS Week 9 Simulations</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 2rem; background: #fafafa; color: #222; }
+          h1 { margin-bottom: 0.5rem; }
+          section { margin-bottom: 1.5rem; }
+          table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+          th, td { padding: 0.4rem 0.6rem; text-align: center; }
+          ul { margin: 0.4rem 0 0.4rem 1.2rem; }
+        </style>
+      </head>
+      <body>
+        <h1>FBS Week 9 Simulations</h1>
+        <p>Projection run generated via CFBD advanced metrics with opponent-adjusted power updates.</p>
+        <section><h2>Close calls (≤ 3 pts)</h2><ul><li><strong>Hawai'i</strong> vs <strong>Nevada</strong> | Spread +2.7 | Total 53.8 | Home Win 57.2% | Weather Cloudy / 77F / wind 25 mph</li><li><strong>Stanford</strong> vs <strong>Wake Forest</strong> | Spread +2.3 | Total 56.7 | Home Win 56.2% | Weather Cloudy / 68F / wind 6 mph</li><li><strong>Toledo</strong> vs <strong>Bowling Green</strong> | Spread +1.2 | Total 46.0 | Home Win 53.1% | Weather Clear / 58F / wind 7 mph</li><li><strong>Arizona</strong> vs <strong>West Virginia</strong> | Spread -0.1 | Total 60.1 | Home Win 49.7% | Weather Clear / 96F / wind 9 mph</li><li><strong>UNLV</strong> vs <strong>Boise State</strong> | Spread -0.3 | Total 61.2 | Home Win 49.2%</li><li><strong>Akron</strong> vs <strong>Eastern Michigan</strong> | Spread -0.6 | Total 46.4 | Home Win 48.3% | Weather Cloudy / 53F / wind 14 mph</li><li><strong>Florida International</strong> vs <strong>Sam Houston</strong> | Spread -0.7 | Total 41.2 | Home Win 48.1%</li></ul></section><section><h2>Projected shootouts</h2><ul><li><strong>Colorado State</strong> vs <strong>New Mexico</strong> | Spread +7.6 | Total 66.5 | Home Win 69.7% | Weather Fair / 70F / wind 4 mph</li><li><strong>TCU</strong> vs <strong>Texas Tech</strong> | Spread +7.9 | Total 64.8 | Home Win 70.3% | Weather Clear / 83F / wind 7 mph</li><li><strong>Kansas State</strong> vs <strong>Kansas</strong> | Spread +11.6 | Total 63.7 | Home Win 78.4% | Weather Cloudy / 55F / wind 4 mph</li><li><strong>Baylor</strong> vs <strong>Oklahoma State</strong> | Spread +15.0 | Total 63.6 | Home Win 84.4% | Weather Clear / 89F / wind 6 mph</li><li><strong>Western Michigan</strong> vs <strong>Kent State</strong> | Spread +24.6 | Total 62.7 | Home Win 95.2% | Weather Clear / 56F / wind 6 mph</li></ul></section><section><h2>Defensive slogs</h2><ul><li><strong>Houston</strong> vs <strong>Utah</strong> | Spread -6.3 | Total 31.5 | Home Win 33.5% | Weather Fair / 83F / wind 14 mph</li><li><strong>Louisiana Tech</strong> vs <strong>UTEP</strong> | Spread +8.1 | Total 33.9 | Home Win 70.8% | Weather Clear / 69F / wind 5 mph</li><li><strong>Iowa</strong> vs <strong>Northwestern</strong> | Spread +17.1 | Total 38.6 | Home Win 87.7% | Weather Clear / 61F / wind 7 mph</li><li><strong>Florida International</strong> vs <strong>Sam Houston</strong> | Spread -0.7 | Total 41.2 | Home Win 48.1%</li><li><strong>Michigan</strong> vs <strong>Michigan State</strong> | Spread +8.9 | Total 42.9 | Home Win 72.7% | Weather Clear / 38F / wind 0 mph</li></ul></section><section><h2>Upset radar</h2><ul><li><strong>Kennesaw State</strong> vs <strong>Liberty</strong> | Spread -22.4 | Total 45.1 | Home Win 6.4% | Weather Clear / 74F / wind 4 mph</li><li><strong>Ball State</strong> vs <strong>Northern Illinois</strong> | Spread -20.1 | Total 53.6 | Home Win 8.7% | Weather Clear / 61F / wind 10 mph</li><li><strong>Vanderbilt</strong> vs <strong>Texas</strong> | Spread -16.0 | Total 50.5 | Home Win 13.9% | Weather Cloudy / 70F / wind 11 mph</li><li><strong>Tulsa</strong> vs <strong>UTSA</strong> | Spread -15.0 | Total 54.7 | Home Win 15.5% | Weather Clear / 75F / wind 8 mph</li><li><strong>Wisconsin</strong> vs <strong>Penn State</strong> | Spread -13.6 | Total 50.9 | Home Win 17.9% | Weather Cloudy / 47F / wind 5 mph</li></ul></section>
+        <section>
+          <h2>Full Board</h2>
+          <style type="text/css">
+#T_0750d_row0_col3, #T_0750d_row22_col3 {
+  background-color: #c5e67e;
+  color: #000000;
+}
+#T_0750d_row0_col7, #T_0750d_row14_col3 {
+  background-color: #feefa3;
+  color: #000000;
+}
+#T_0750d_row1_col3 {
+  background-color: #fffdbc;
+  color: #000000;
+}
+#T_0750d_row1_col7, #T_0750d_row28_col3 {
+  background-color: #a9da6c;
+  color: #000000;
+}
+#T_0750d_row2_col3, #T_0750d_row31_col7 {
+  background-color: #006837;
+  color: #f1f1f1;
+}
+#T_0750d_row2_col7, #T_0750d_row31_col3 {
+  background-color: #a50026;
+  color: #f1f1f1;
+}
+#T_0750d_row3_col3 {
+  background-color: #e65036;
+  color: #f1f1f1;
+}
+#T_0750d_row3_col7, #T_0750d_row9_col7 {
+  background-color: #05713c;
+  color: #f1f1f1;
+}
+#T_0750d_row4_col3 {
+  background-color: #fafdb8;
+  color: #000000;
+}
+#T_0750d_row4_col7 {
+  background-color: #b7e075;
+  color: #000000;
+}
+#T_0750d_row5_col3 {
+  background-color: #f4fab0;
+  color: #000000;
+}
+#T_0750d_row5_col7 {
+  background-color: #c3e67d;
+  color: #000000;
+}
+#T_0750d_row6_col3 {
+  background-color: #84ca66;
+  color: #000000;
+}
+#T_0750d_row6_col7 {
+  background-color: #f99355;
+  color: #000000;
+}
+#T_0750d_row7_col3 {
+  background-color: #c7e77f;
+  color: #000000;
+}
+#T_0750d_row7_col7 {
+  background-color: #fff2aa;
+  color: #000000;
+}
+#T_0750d_row8_col3 {
+  background-color: #fed07e;
+  color: #000000;
+}
+#T_0750d_row8_col7, #T_0750d_row32_col7, #T_0750d_row48_col3 {
+  background-color: #3ca959;
+  color: #f1f1f1;
+}
+#T_0750d_row9_col3 {
+  background-color: #e44c34;
+  color: #f1f1f1;
+}
+#T_0750d_row10_col3 {
+  background-color: #f7844e;
+  color: #f1f1f1;
+}
+#T_0750d_row10_col7 {
+  background-color: #0d8044;
+  color: #f1f1f1;
+}
+#T_0750d_row11_col3 {
+  background-color: #57b65f;
+  color: #f1f1f1;
+}
+#T_0750d_row11_col7 {
+  background-color: #ea5739;
+  color: #f1f1f1;
+}
+#T_0750d_row12_col3 {
+  background-color: #eff8aa;
+  color: #000000;
+}
+#T_0750d_row12_col7 {
+  background-color: #cfeb85;
+  color: #000000;
+}
+#T_0750d_row13_col3 {
+  background-color: #a2d76a;
+  color: #000000;
+}
+#T_0750d_row13_col7 {
+  background-color: #fdbf6f;
+  color: #000000;
+}
+#T_0750d_row14_col7 {
+  background-color: #7fc866;
+  color: #000000;
+}
+#T_0750d_row15_col3 {
+  background-color: #4bb05c;
+  color: #f1f1f1;
+}
+#T_0750d_row15_col7 {
+  background-color: #e54e35;
+  color: #f1f1f1;
+}
+#T_0750d_row16_col3 {
+  background-color: #fdb365;
+  color: #000000;
+}
+#T_0750d_row16_col7, #T_0750d_row20_col7 {
+  background-color: #18954f;
+  color: #f1f1f1;
+}
+#T_0750d_row17_col3 {
+  background-color: #fa9b58;
+  color: #000000;
+}
+#T_0750d_row17_col7 {
+  background-color: #128a49;
+  color: #f1f1f1;
+}
+#T_0750d_row18_col3 {
+  background-color: #51b35e;
+  color: #f1f1f1;
+}
+#T_0750d_row18_col7 {
+  background-color: #e75337;
+  color: #f1f1f1;
+}
+#T_0750d_row19_col3 {
+  background-color: #f5fbb2;
+  color: #000000;
+}
+#T_0750d_row19_col7 {
+  background-color: #c1e57b;
+  color: #000000;
+}
+#T_0750d_row20_col3 {
+  background-color: #fdb163;
+  color: #000000;
+}
+#T_0750d_row21_col3 {
+  background-color: #fee08b;
+  color: #000000;
+}
+#T_0750d_row21_col7, #T_0750d_row37_col7 {
+  background-color: #5ab760;
+  color: #f1f1f1;
+}
+#T_0750d_row22_col7 {
+  background-color: #fff0a6;
+  color: #000000;
+}
+#T_0750d_row23_col3, #T_0750d_row27_col3, #T_0750d_row34_col3 {
+  background-color: #fed683;
+  color: #000000;
+}
+#T_0750d_row23_col7, #T_0750d_row27_col7 {
+  background-color: #48ae5c;
+  color: #f1f1f1;
+}
+#T_0750d_row24_col3 {
+  background-color: #0a7b41;
+  color: #f1f1f1;
+}
+#T_0750d_row24_col7 {
+  background-color: #b10b26;
+  color: #f1f1f1;
+}
+#T_0750d_row25_col3 {
+  background-color: #d3ec87;
+  color: #000000;
+}
+#T_0750d_row25_col7, #T_0750d_row40_col3 {
+  background-color: #feffbe;
+  color: #000000;
+}
+#T_0750d_row26_col3 {
+  background-color: #fffebe;
+  color: #000000;
+}
+#T_0750d_row26_col7 {
+  background-color: #addc6f;
+  color: #000000;
+}
+#T_0750d_row28_col7 {
+  background-color: #feca79;
+  color: #000000;
+}
+#T_0750d_row29_col3 {
+  background-color: #dcf08f;
+  color: #000000;
+}
+#T_0750d_row29_col7 {
+  background-color: #f1f9ac;
+  color: #000000;
+}
+#T_0750d_row30_col3 {
+  background-color: #f67c4a;
+  color: #f1f1f1;
+}
+#T_0750d_row30_col7 {
+  background-color: #0b7d42;
+  color: #f1f1f1;
+}
+#T_0750d_row32_col3 {
+  background-color: #fece7c;
+  color: #000000;
+}
+#T_0750d_row33_col3 {
+  background-color: #fec877;
+  color: #000000;
+}
+#T_0750d_row33_col7 {
+  background-color: #33a456;
+  color: #f1f1f1;
+}
+#T_0750d_row34_col7, #T_0750d_row51_col3, #T_0750d_row54_col3 {
+  background-color: #45ad5b;
+  color: #f1f1f1;
+}
+#T_0750d_row35_col3, #T_0750d_row49_col7 {
+  background-color: #fdc574;
+  color: #000000;
+}
+#T_0750d_row35_col7 {
+  background-color: #2da155;
+  color: #f1f1f1;
+}
+#T_0750d_row36_col3 {
+  background-color: #2aa054;
+  color: #f1f1f1;
+}
+#T_0750d_row36_col7 {
+  background-color: #d42d27;
+  color: #f1f1f1;
+}
+#T_0750d_row37_col3 {
+  background-color: #fee18d;
+  color: #000000;
+}
+#T_0750d_row38_col3 {
+  background-color: #1e9a51;
+  color: #f1f1f1;
+}
+#T_0750d_row38_col7 {
+  background-color: #cc2627;
+  color: #f1f1f1;
+}
+#T_0750d_row39_col3 {
+  background-color: #fdb567;
+  color: #000000;
+}
+#T_0750d_row39_col7 {
+  background-color: #1b9950;
+  color: #f1f1f1;
+}
+#T_0750d_row40_col7, #T_0750d_row44_col3 {
+  background-color: #afdd70;
+  color: #000000;
+}
+#T_0750d_row41_col3 {
+  background-color: #93d168;
+  color: #000000;
+}
+#T_0750d_row41_col7 {
+  background-color: #fcaa5f;
+  color: #000000;
+}
+#T_0750d_row42_col3 {
+  background-color: #91d068;
+  color: #000000;
+}
+#T_0750d_row42_col7 {
+  background-color: #fca85e;
+  color: #000000;
+}
+#T_0750d_row43_col3 {
+  background-color: #c9e881;
+  color: #000000;
+}
+#T_0750d_row43_col7 {
+  background-color: #fff3ac;
+  color: #000000;
+}
+#T_0750d_row44_col7 {
+  background-color: #fed27f;
+  color: #000000;
+}
+#T_0750d_row45_col3 {
+  background-color: #c21c27;
+  color: #f1f1f1;
+}
+#T_0750d_row45_col7 {
+  background-color: #016a38;
+  color: #f1f1f1;
+}
+#T_0750d_row46_col3 {
+  background-color: #fffab6;
+  color: #000000;
+}
+#T_0750d_row46_col7 {
+  background-color: #9dd569;
+  color: #000000;
+}
+#T_0750d_row47_col3 {
+  background-color: #e3f399;
+  color: #000000;
+}
+#T_0750d_row47_col7 {
+  background-color: #e5f49b;
+  color: #000000;
+}
+#T_0750d_row48_col7 {
+  background-color: #dd3d2d;
+  color: #f1f1f1;
+}
+#T_0750d_row49_col3 {
+  background-color: #a5d86a;
+  color: #000000;
+}
+#T_0750d_row50_col3 {
+  background-color: #feeb9d;
+  color: #000000;
+}
+#T_0750d_row50_col7 {
+  background-color: #78c565;
+  color: #000000;
+}
+#T_0750d_row51_col7 {
+  background-color: #e14430;
+  color: #f1f1f1;
+}
+#T_0750d_row52_col3 {
+  background-color: #e2f397;
+  color: #000000;
+}
+#T_0750d_row52_col7 {
+  background-color: #e6f59d;
+  color: #000000;
+}
+#T_0750d_row53_col3 {
+  background-color: #feeda1;
+  color: #000000;
+}
+#T_0750d_row53_col7 {
+  background-color: #7ac665;
+  color: #000000;
+}
+#T_0750d_row54_col7 {
+  background-color: #e24731;
+  color: #f1f1f1;
+}
+#T_0750d_row55_col3 {
+  background-color: #dff293;
+  color: #000000;
+}
+#T_0750d_row55_col7 {
+  background-color: #eef8a8;
+  color: #000000;
+}
+</style>
+<table id="T_0750d">
+  <thead>
+    <tr>
+      <th id="T_0750d_level0_col0" class="col_heading level0 col0" >Kickoff (UTC)</th>
+      <th id="T_0750d_level0_col1" class="col_heading level0 col1" >Home</th>
+      <th id="T_0750d_level0_col2" class="col_heading level0 col2" >Away</th>
+      <th id="T_0750d_level0_col3" class="col_heading level0 col3" >Spread (H-A)</th>
+      <th id="T_0750d_level0_col4" class="col_heading level0 col4" >Total</th>
+      <th id="T_0750d_level0_col5" class="col_heading level0 col5" >Proj Home</th>
+      <th id="T_0750d_level0_col6" class="col_heading level0 col6" >Proj Away</th>
+      <th id="T_0750d_level0_col7" class="col_heading level0 col7" >Home Win%</th>
+      <th id="T_0750d_level0_col8" class="col_heading level0 col8" >Home ML</th>
+      <th id="T_0750d_level0_col9" class="col_heading level0 col9" >Away ML</th>
+      <th id="T_0750d_level0_col10" class="col_heading level0 col10" >Weather</th>
+      <th id="T_0750d_level0_col11" class="col_heading level0 col11" >Temp (F)</th>
+      <th id="T_0750d_level0_col12" class="col_heading level0 col12" >Wind (mph)</th>
+      <th id="T_0750d_level0_col13" class="col_heading level0 col13" >Total Adj</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td id="T_0750d_row0_col0" class="data row0 col0" >2024-10-22T23:30:00.000Z</td>
+      <td id="T_0750d_row0_col1" class="data row0 col1" >Florida International</td>
+      <td id="T_0750d_row0_col2" class="data row0 col2" >Sam Houston</td>
+      <td id="T_0750d_row0_col3" class="data row0 col3" >-0.7</td>
+      <td id="T_0750d_row0_col4" class="data row0 col4" >41.2</td>
+      <td id="T_0750d_row0_col5" class="data row0 col5" >20.3</td>
+      <td id="T_0750d_row0_col6" class="data row0 col6" >20.9</td>
+      <td id="T_0750d_row0_col7" class="data row0 col7" >48.1</td>
+      <td id="T_0750d_row0_col8" class="data row0 col8" >+108</td>
+      <td id="T_0750d_row0_col9" class="data row0 col9" >-108</td>
+      <td id="T_0750d_row0_col10" class="data row0 col10" >--</td>
+      <td id="T_0750d_row0_col11" class="data row0 col11" >nan</td>
+      <td id="T_0750d_row0_col12" class="data row0 col12" >nan</td>
+      <td id="T_0750d_row0_col13" class="data row0 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row1_col0" class="data row1 col0" >2024-10-23T00:00:00.000Z</td>
+      <td id="T_0750d_row1_col1" class="data row1 col1" >Louisiana Tech</td>
+      <td id="T_0750d_row1_col2" class="data row1 col2" >UTEP</td>
+      <td id="T_0750d_row1_col3" class="data row1 col3" >+8.1</td>
+      <td id="T_0750d_row1_col4" class="data row1 col4" >33.9</td>
+      <td id="T_0750d_row1_col5" class="data row1 col5" >21.0</td>
+      <td id="T_0750d_row1_col6" class="data row1 col6" >12.9</td>
+      <td id="T_0750d_row1_col7" class="data row1 col7" >70.8</td>
+      <td id="T_0750d_row1_col8" class="data row1 col8" >-243</td>
+      <td id="T_0750d_row1_col9" class="data row1 col9" >+243</td>
+      <td id="T_0750d_row1_col10" class="data row1 col10" >Clear</td>
+      <td id="T_0750d_row1_col11" class="data row1 col11" >69</td>
+      <td id="T_0750d_row1_col12" class="data row1 col12" >5</td>
+      <td id="T_0750d_row1_col13" class="data row1 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row2_col0" class="data row2 col0" >2024-10-23T23:00:00.000Z</td>
+      <td id="T_0750d_row2_col1" class="data row2 col1" >Kennesaw State</td>
+      <td id="T_0750d_row2_col2" class="data row2 col2" >Liberty</td>
+      <td id="T_0750d_row2_col3" class="data row2 col3" >-22.4</td>
+      <td id="T_0750d_row2_col4" class="data row2 col4" >45.1</td>
+      <td id="T_0750d_row2_col5" class="data row2 col5" >11.3</td>
+      <td id="T_0750d_row2_col6" class="data row2 col6" >33.8</td>
+      <td id="T_0750d_row2_col7" class="data row2 col7" >6.4</td>
+      <td id="T_0750d_row2_col8" class="data row2 col8" >+1452</td>
+      <td id="T_0750d_row2_col9" class="data row2 col9" >-1452</td>
+      <td id="T_0750d_row2_col10" class="data row2 col10" >Clear</td>
+      <td id="T_0750d_row2_col11" class="data row2 col11" >74</td>
+      <td id="T_0750d_row2_col12" class="data row2 col12" >4</td>
+      <td id="T_0750d_row2_col13" class="data row2 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row3_col0" class="data row3 col0" >2024-10-23T23:30:00.000Z</td>
+      <td id="T_0750d_row3_col1" class="data row3 col1" >Jacksonville State</td>
+      <td id="T_0750d_row3_col2" class="data row3 col2" >Middle Tennessee</td>
+      <td id="T_0750d_row3_col3" class="data row3 col3" >+28.6</td>
+      <td id="T_0750d_row3_col4" class="data row3 col4" >60.5</td>
+      <td id="T_0750d_row3_col5" class="data row3 col5" >44.6</td>
+      <td id="T_0750d_row3_col6" class="data row3 col6" >16.0</td>
+      <td id="T_0750d_row3_col7" class="data row3 col7" >97.4</td>
+      <td id="T_0750d_row3_col8" class="data row3 col8" >-3694</td>
+      <td id="T_0750d_row3_col9" class="data row3 col9" >+3694</td>
+      <td id="T_0750d_row3_col10" class="data row3 col10" >Clear</td>
+      <td id="T_0750d_row3_col11" class="data row3 col11" >65</td>
+      <td id="T_0750d_row3_col12" class="data row3 col12" >0</td>
+      <td id="T_0750d_row3_col13" class="data row3 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row4_col0" class="data row4 col0" >2024-10-24T23:00:00.000Z</td>
+      <td id="T_0750d_row4_col1" class="data row4 col1" >Old Dominion</td>
+      <td id="T_0750d_row4_col2" class="data row4 col2" >Georgia Southern</td>
+      <td id="T_0750d_row4_col3" class="data row4 col3" >+7.0</td>
+      <td id="T_0750d_row4_col4" class="data row4 col4" >59.7</td>
+      <td id="T_0750d_row4_col5" class="data row4 col5" >33.4</td>
+      <td id="T_0750d_row4_col6" class="data row4 col6" >26.3</td>
+      <td id="T_0750d_row4_col7" class="data row4 col7" >68.3</td>
+      <td id="T_0750d_row4_col8" class="data row4 col8" >-216</td>
+      <td id="T_0750d_row4_col9" class="data row4 col9" >+216</td>
+      <td id="T_0750d_row4_col10" class="data row4 col10" >Clear</td>
+      <td id="T_0750d_row4_col11" class="data row4 col11" >64</td>
+      <td id="T_0750d_row4_col12" class="data row4 col12" >8</td>
+      <td id="T_0750d_row4_col13" class="data row4 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row5_col0" class="data row5 col0" >2024-10-24T23:30:00.000Z</td>
+      <td id="T_0750d_row5_col1" class="data row5 col1" >Pittsburgh</td>
+      <td id="T_0750d_row5_col2" class="data row5 col2" >Syracuse</td>
+      <td id="T_0750d_row5_col3" class="data row5 col3" >+6.1</td>
+      <td id="T_0750d_row5_col4" class="data row5 col4" >56.4</td>
+      <td id="T_0750d_row5_col5" class="data row5 col5" >31.3</td>
+      <td id="T_0750d_row5_col6" class="data row5 col6" >25.1</td>
+      <td id="T_0750d_row5_col7" class="data row5 col7" >66.1</td>
+      <td id="T_0750d_row5_col8" class="data row5 col8" >-195</td>
+      <td id="T_0750d_row5_col9" class="data row5 col9" >+195</td>
+      <td id="T_0750d_row5_col10" class="data row5 col10" >Clear</td>
+      <td id="T_0750d_row5_col11" class="data row5 col11" >55</td>
+      <td id="T_0750d_row5_col12" class="data row5 col12" >4</td>
+      <td id="T_0750d_row5_col13" class="data row5 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row6_col0" class="data row6 col0" >2024-10-25T23:30:00.000Z</td>
+      <td id="T_0750d_row6_col1" class="data row6 col1" >Boston College</td>
+      <td id="T_0750d_row6_col2" class="data row6 col2" >Louisville</td>
+      <td id="T_0750d_row6_col3" class="data row6 col3" >-7.4</td>
+      <td id="T_0750d_row6_col4" class="data row6 col4" >56.2</td>
+      <td id="T_0750d_row6_col5" class="data row6 col5" >24.4</td>
+      <td id="T_0750d_row6_col6" class="data row6 col6" >31.8</td>
+      <td id="T_0750d_row6_col7" class="data row6 col7" >30.7</td>
+      <td id="T_0750d_row6_col8" class="data row6 col8" >+225</td>
+      <td id="T_0750d_row6_col9" class="data row6 col9" >-225</td>
+      <td id="T_0750d_row6_col10" class="data row6 col10" >Overcast</td>
+      <td id="T_0750d_row6_col11" class="data row6 col11" >51</td>
+      <td id="T_0750d_row6_col12" class="data row6 col12" >7</td>
+      <td id="T_0750d_row6_col13" class="data row6 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row7_col0" class="data row7 col0" >2024-10-26T02:30:00.000Z</td>
+      <td id="T_0750d_row7_col1" class="data row7 col1" >UNLV</td>
+      <td id="T_0750d_row7_col2" class="data row7 col2" >Boise State</td>
+      <td id="T_0750d_row7_col3" class="data row7 col3" >-0.3</td>
+      <td id="T_0750d_row7_col4" class="data row7 col4" >61.2</td>
+      <td id="T_0750d_row7_col5" class="data row7 col5" >30.4</td>
+      <td id="T_0750d_row7_col6" class="data row7 col6" >30.7</td>
+      <td id="T_0750d_row7_col7" class="data row7 col7" >49.2</td>
+      <td id="T_0750d_row7_col8" class="data row7 col8" >+103</td>
+      <td id="T_0750d_row7_col9" class="data row7 col9" >-103</td>
+      <td id="T_0750d_row7_col10" class="data row7 col10" >--</td>
+      <td id="T_0750d_row7_col11" class="data row7 col11" >nan</td>
+      <td id="T_0750d_row7_col12" class="data row7 col12" >nan</td>
+      <td id="T_0750d_row7_col13" class="data row7 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row8_col0" class="data row8 col0" >2024-10-26T03:00:00.000Z</td>
+      <td id="T_0750d_row8_col1" class="data row8 col1" >USC</td>
+      <td id="T_0750d_row8_col2" class="data row8 col2" >Rutgers</td>
+      <td id="T_0750d_row8_col3" class="data row8 col3" >+15.8</td>
+      <td id="T_0750d_row8_col4" class="data row8 col4" >60.5</td>
+      <td id="T_0750d_row8_col5" class="data row8 col5" >38.1</td>
+      <td id="T_0750d_row8_col6" class="data row8 col6" >22.3</td>
+      <td id="T_0750d_row8_col7" class="data row8 col7" >85.7</td>
+      <td id="T_0750d_row8_col8" class="data row8 col8" >-602</td>
+      <td id="T_0750d_row8_col9" class="data row8 col9" >+602</td>
+      <td id="T_0750d_row8_col10" class="data row8 col10" >Fair</td>
+      <td id="T_0750d_row8_col11" class="data row8 col11" >61</td>
+      <td id="T_0750d_row8_col12" class="data row8 col12" >6</td>
+      <td id="T_0750d_row8_col13" class="data row8 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row9_col0" class="data row9 col0" >2024-10-26T16:00:00.000Z</td>
+      <td id="T_0750d_row9_col1" class="data row9 col1" >Ohio State</td>
+      <td id="T_0750d_row9_col2" class="data row9 col2" >Nebraska</td>
+      <td id="T_0750d_row9_col3" class="data row9 col3" >+29.3</td>
+      <td id="T_0750d_row9_col4" class="data row9 col4" >49.0</td>
+      <td id="T_0750d_row9_col5" class="data row9 col5" >39.1</td>
+      <td id="T_0750d_row9_col6" class="data row9 col6" >9.8</td>
+      <td id="T_0750d_row9_col7" class="data row9 col7" >97.6</td>
+      <td id="T_0750d_row9_col8" class="data row9 col8" >-4112</td>
+      <td id="T_0750d_row9_col9" class="data row9 col9" >+4112</td>
+      <td id="T_0750d_row9_col10" class="data row9 col10" >Cloudy</td>
+      <td id="T_0750d_row9_col11" class="data row9 col11" >61</td>
+      <td id="T_0750d_row9_col12" class="data row9 col12" >15</td>
+      <td id="T_0750d_row9_col13" class="data row9 col13" >-0.9</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row10_col0" class="data row10 col0" >2024-10-26T16:00:00.000Z</td>
+      <td id="T_0750d_row10_col1" class="data row10 col1" >Ole Miss</td>
+      <td id="T_0750d_row10_col2" class="data row10 col2" >Oklahoma</td>
+      <td id="T_0750d_row10_col3" class="data row10 col3" >+23.8</td>
+      <td id="T_0750d_row10_col4" class="data row10 col4" >44.3</td>
+      <td id="T_0750d_row10_col5" class="data row10 col5" >34.0</td>
+      <td id="T_0750d_row10_col6" class="data row10 col6" >10.3</td>
+      <td id="T_0750d_row10_col7" class="data row10 col7" >94.6</td>
+      <td id="T_0750d_row10_col8" class="data row10 col8" >-1750</td>
+      <td id="T_0750d_row10_col9" class="data row10 col9" >+1750</td>
+      <td id="T_0750d_row10_col10" class="data row10 col10" >Fair</td>
+      <td id="T_0750d_row10_col11" class="data row10 col11" >75</td>
+      <td id="T_0750d_row10_col12" class="data row10 col12" >7</td>
+      <td id="T_0750d_row10_col13" class="data row10 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row11_col0" class="data row11 col0" >2024-10-26T16:00:00.000Z</td>
+      <td id="T_0750d_row11_col1" class="data row11 col1" >Navy</td>
+      <td id="T_0750d_row11_col2" class="data row11 col2" >Notre Dame</td>
+      <td id="T_0750d_row11_col3" class="data row11 col3" >-11.6</td>
+      <td id="T_0750d_row11_col4" class="data row11 col4" >51.6</td>
+      <td id="T_0750d_row11_col5" class="data row11 col5" >20.0</td>
+      <td id="T_0750d_row11_col6" class="data row11 col6" >31.6</td>
+      <td id="T_0750d_row11_col7" class="data row11 col7" >21.7</td>
+      <td id="T_0750d_row11_col8" class="data row11 col8" >+360</td>
+      <td id="T_0750d_row11_col9" class="data row11 col9" >-360</td>
+      <td id="T_0750d_row11_col10" class="data row11 col10" >Cloudy</td>
+      <td id="T_0750d_row11_col11" class="data row11 col11" >64</td>
+      <td id="T_0750d_row11_col12" class="data row11 col12" >17</td>
+      <td id="T_0750d_row11_col13" class="data row11 col13" >-1.6</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row12_col0" class="data row12 col0" >2024-10-26T16:00:00.000Z</td>
+      <td id="T_0750d_row12_col1" class="data row12 col1" >Virginia Tech</td>
+      <td id="T_0750d_row12_col2" class="data row12 col2" >Georgia Tech</td>
+      <td id="T_0750d_row12_col3" class="data row12 col3" >+5.3</td>
+      <td id="T_0750d_row12_col4" class="data row12 col4" >53.2</td>
+      <td id="T_0750d_row12_col5" class="data row12 col5" >29.2</td>
+      <td id="T_0750d_row12_col6" class="data row12 col6" >23.9</td>
+      <td id="T_0750d_row12_col7" class="data row12 col7" >64.0</td>
+      <td id="T_0750d_row12_col8" class="data row12 col8" >-178</td>
+      <td id="T_0750d_row12_col9" class="data row12 col9" >+178</td>
+      <td id="T_0750d_row12_col10" class="data row12 col10" >Cloudy</td>
+      <td id="T_0750d_row12_col11" class="data row12 col11" >67</td>
+      <td id="T_0750d_row12_col12" class="data row12 col12" >6</td>
+      <td id="T_0750d_row12_col13" class="data row12 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row13_col0" class="data row13 col0" >2024-10-26T16:00:00.000Z</td>
+      <td id="T_0750d_row13_col1" class="data row13 col1" >Virginia</td>
+      <td id="T_0750d_row13_col2" class="data row13 col2" >North Carolina</td>
+      <td id="T_0750d_row13_col3" class="data row13 col3" >-4.7</td>
+      <td id="T_0750d_row13_col4" class="data row13 col4" >57.2</td>
+      <td id="T_0750d_row13_col5" class="data row13 col5" >26.2</td>
+      <td id="T_0750d_row13_col6" class="data row13 col6" >30.9</td>
+      <td id="T_0750d_row13_col7" class="data row13 col7" >37.6</td>
+      <td id="T_0750d_row13_col8" class="data row13 col8" >+166</td>
+      <td id="T_0750d_row13_col9" class="data row13 col9" >-166</td>
+      <td id="T_0750d_row13_col10" class="data row13 col10" >Cloudy</td>
+      <td id="T_0750d_row13_col11" class="data row13 col11" >70</td>
+      <td id="T_0750d_row13_col12" class="data row13 col12" >9</td>
+      <td id="T_0750d_row13_col13" class="data row13 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row14_col0" class="data row14 col0" >2024-10-26T16:00:00.000Z</td>
+      <td id="T_0750d_row14_col1" class="data row14 col1" >Ohio</td>
+      <td id="T_0750d_row14_col2" class="data row14 col2" >Buffalo</td>
+      <td id="T_0750d_row14_col3" class="data row14 col3" >+11.0</td>
+      <td id="T_0750d_row14_col4" class="data row14 col4" >50.1</td>
+      <td id="T_0750d_row14_col5" class="data row14 col5" >30.5</td>
+      <td id="T_0750d_row14_col6" class="data row14 col6" >19.5</td>
+      <td id="T_0750d_row14_col7" class="data row14 col7" >77.2</td>
+      <td id="T_0750d_row14_col8" class="data row14 col8" >-339</td>
+      <td id="T_0750d_row14_col9" class="data row14 col9" >+339</td>
+      <td id="T_0750d_row14_col10" class="data row14 col10" >Cloudy</td>
+      <td id="T_0750d_row14_col11" class="data row14 col11" >60</td>
+      <td id="T_0750d_row14_col12" class="data row14 col12" >9</td>
+      <td id="T_0750d_row14_col13" class="data row14 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row15_col0" class="data row15 col0" >2024-10-26T16:00:00.000Z</td>
+      <td id="T_0750d_row15_col1" class="data row15 col1" >North Texas</td>
+      <td id="T_0750d_row15_col2" class="data row15 col2" >Tulane</td>
+      <td id="T_0750d_row15_col3" class="data row15 col3" >-12.3</td>
+      <td id="T_0750d_row15_col4" class="data row15 col4" >61.5</td>
+      <td id="T_0750d_row15_col5" class="data row15 col5" >24.6</td>
+      <td id="T_0750d_row15_col6" class="data row15 col6" >36.9</td>
+      <td id="T_0750d_row15_col7" class="data row15 col7" >20.3</td>
+      <td id="T_0750d_row15_col8" class="data row15 col8" >+393</td>
+      <td id="T_0750d_row15_col9" class="data row15 col9" >-393</td>
+      <td id="T_0750d_row15_col10" class="data row15 col10" >Clear</td>
+      <td id="T_0750d_row15_col11" class="data row15 col11" >75</td>
+      <td id="T_0750d_row15_col12" class="data row15 col12" >7</td>
+      <td id="T_0750d_row15_col13" class="data row15 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row16_col0" class="data row16 col0" >2024-10-26T16:00:00.000Z</td>
+      <td id="T_0750d_row16_col1" class="data row16 col1" >Indiana</td>
+      <td id="T_0750d_row16_col2" class="data row16 col2" >Washington</td>
+      <td id="T_0750d_row16_col3" class="data row16 col3" >+19.3</td>
+      <td id="T_0750d_row16_col4" class="data row16 col4" >53.4</td>
+      <td id="T_0750d_row16_col5" class="data row16 col5" >36.4</td>
+      <td id="T_0750d_row16_col6" class="data row16 col6" >17.1</td>
+      <td id="T_0750d_row16_col7" class="data row16 col7" >90.4</td>
+      <td id="T_0750d_row16_col8" class="data row16 col8" >-944</td>
+      <td id="T_0750d_row16_col9" class="data row16 col9" >+944</td>
+      <td id="T_0750d_row16_col10" class="data row16 col10" >Clear</td>
+      <td id="T_0750d_row16_col11" class="data row16 col11" >61</td>
+      <td id="T_0750d_row16_col12" class="data row16 col12" >9</td>
+      <td id="T_0750d_row16_col13" class="data row16 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row17_col0" class="data row17 col0" >2024-10-26T16:00:00.000Z</td>
+      <td id="T_0750d_row17_col1" class="data row17 col1" >Memphis</td>
+      <td id="T_0750d_row17_col2" class="data row17 col2" >Charlotte</td>
+      <td id="T_0750d_row17_col3" class="data row17 col3" >+21.6</td>
+      <td id="T_0750d_row17_col4" class="data row17 col4" >56.0</td>
+      <td id="T_0750d_row17_col5" class="data row17 col5" >38.8</td>
+      <td id="T_0750d_row17_col6" class="data row17 col6" >17.2</td>
+      <td id="T_0750d_row17_col7" class="data row17 col7" >92.8</td>
+      <td id="T_0750d_row17_col8" class="data row17 col8" >-1289</td>
+      <td id="T_0750d_row17_col9" class="data row17 col9" >+1289</td>
+      <td id="T_0750d_row17_col10" class="data row17 col10" >Light Rain</td>
+      <td id="T_0750d_row17_col11" class="data row17 col11" >71</td>
+      <td id="T_0750d_row17_col12" class="data row17 col12" >10</td>
+      <td id="T_0750d_row17_col13" class="data row17 col13" >-1.5</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row18_col0" class="data row18 col0" >2024-10-26T16:45:00.000Z</td>
+      <td id="T_0750d_row18_col1" class="data row18 col1" >Mississippi State</td>
+      <td id="T_0750d_row18_col2" class="data row18 col2" >Arkansas</td>
+      <td id="T_0750d_row18_col3" class="data row18 col3" >-11.9</td>
+      <td id="T_0750d_row18_col4" class="data row18 col4" >61.4</td>
+      <td id="T_0750d_row18_col5" class="data row18 col5" >24.8</td>
+      <td id="T_0750d_row18_col6" class="data row18 col6" >36.7</td>
+      <td id="T_0750d_row18_col7" class="data row18 col7" >21.0</td>
+      <td id="T_0750d_row18_col8" class="data row18 col8" >+376</td>
+      <td id="T_0750d_row18_col9" class="data row18 col9" >-376</td>
+      <td id="T_0750d_row18_col10" class="data row18 col10" >Clear</td>
+      <td id="T_0750d_row18_col11" class="data row18 col11" >82</td>
+      <td id="T_0750d_row18_col12" class="data row18 col12" >5</td>
+      <td id="T_0750d_row18_col13" class="data row18 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row19_col0" class="data row19 col0" >2024-10-26T17:00:00.000Z</td>
+      <td id="T_0750d_row19_col1" class="data row19 col1" >App State</td>
+      <td id="T_0750d_row19_col2" class="data row19 col2" >Georgia State</td>
+      <td id="T_0750d_row19_col3" class="data row19 col3" >+6.3</td>
+      <td id="T_0750d_row19_col4" class="data row19 col4" >61.6</td>
+      <td id="T_0750d_row19_col5" class="data row19 col5" >34.0</td>
+      <td id="T_0750d_row19_col6" class="data row19 col6" >27.6</td>
+      <td id="T_0750d_row19_col7" class="data row19 col7" >66.6</td>
+      <td id="T_0750d_row19_col8" class="data row19 col8" >-199</td>
+      <td id="T_0750d_row19_col9" class="data row19 col9" >+199</td>
+      <td id="T_0750d_row19_col10" class="data row19 col10" >Rain Shower</td>
+      <td id="T_0750d_row19_col11" class="data row19 col11" >64</td>
+      <td id="T_0750d_row19_col12" class="data row19 col12" >6</td>
+      <td id="T_0750d_row19_col13" class="data row19 col13" >-1.5</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row20_col0" class="data row20 col0" >2024-10-26T18:00:00.000Z</td>
+      <td id="T_0750d_row20_col1" class="data row20 col1" >East Carolina</td>
+      <td id="T_0750d_row20_col2" class="data row20 col2" >Temple</td>
+      <td id="T_0750d_row20_col3" class="data row20 col3" >+19.5</td>
+      <td id="T_0750d_row20_col4" class="data row20 col4" >50.7</td>
+      <td id="T_0750d_row20_col5" class="data row20 col5" >35.1</td>
+      <td id="T_0750d_row20_col6" class="data row20 col6" >15.6</td>
+      <td id="T_0750d_row20_col7" class="data row20 col7" >90.6</td>
+      <td id="T_0750d_row20_col8" class="data row20 col8" >-963</td>
+      <td id="T_0750d_row20_col9" class="data row20 col9" >+963</td>
+      <td id="T_0750d_row20_col10" class="data row20 col10" >Clear</td>
+      <td id="T_0750d_row20_col11" class="data row20 col11" >77</td>
+      <td id="T_0750d_row20_col12" class="data row20 col12" >0</td>
+      <td id="T_0750d_row20_col13" class="data row20 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row21_col0" class="data row21 col0" >2024-10-26T18:00:00.000Z</td>
+      <td id="T_0750d_row21_col1" class="data row21 col1" >Miami (OH)</td>
+      <td id="T_0750d_row21_col2" class="data row21 col2" >Central Michigan</td>
+      <td id="T_0750d_row21_col3" class="data row21 col3" >+13.8</td>
+      <td id="T_0750d_row21_col4" class="data row21 col4" >47.9</td>
+      <td id="T_0750d_row21_col5" class="data row21 col5" >30.9</td>
+      <td id="T_0750d_row21_col6" class="data row21 col6" >17.1</td>
+      <td id="T_0750d_row21_col7" class="data row21 col7" >82.4</td>
+      <td id="T_0750d_row21_col8" class="data row21 col8" >-469</td>
+      <td id="T_0750d_row21_col9" class="data row21 col9" >+469</td>
+      <td id="T_0750d_row21_col10" class="data row21 col10" >Cloudy</td>
+      <td id="T_0750d_row21_col11" class="data row21 col11" >65</td>
+      <td id="T_0750d_row21_col12" class="data row21 col12" >7</td>
+      <td id="T_0750d_row21_col13" class="data row21 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row22_col0" class="data row22 col0" >2024-10-26T19:30:00.000Z</td>
+      <td id="T_0750d_row22_col1" class="data row22 col1" >Akron</td>
+      <td id="T_0750d_row22_col2" class="data row22 col2" >Eastern Michigan</td>
+      <td id="T_0750d_row22_col3" class="data row22 col3" >-0.6</td>
+      <td id="T_0750d_row22_col4" class="data row22 col4" >46.4</td>
+      <td id="T_0750d_row22_col5" class="data row22 col5" >22.9</td>
+      <td id="T_0750d_row22_col6" class="data row22 col6" >23.5</td>
+      <td id="T_0750d_row22_col7" class="data row22 col7" >48.3</td>
+      <td id="T_0750d_row22_col8" class="data row22 col8" >+107</td>
+      <td id="T_0750d_row22_col9" class="data row22 col9" >-107</td>
+      <td id="T_0750d_row22_col10" class="data row22 col10" >Cloudy</td>
+      <td id="T_0750d_row22_col11" class="data row22 col11" >53</td>
+      <td id="T_0750d_row22_col12" class="data row22 col12" >14</td>
+      <td id="T_0750d_row22_col13" class="data row22 col13" >-0.6</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row23_col0" class="data row23 col0" >2024-10-26T19:30:00.000Z</td>
+      <td id="T_0750d_row23_col1" class="data row23 col1" >Baylor</td>
+      <td id="T_0750d_row23_col2" class="data row23 col2" >Oklahoma State</td>
+      <td id="T_0750d_row23_col3" class="data row23 col3" >+15.0</td>
+      <td id="T_0750d_row23_col4" class="data row23 col4" >63.6</td>
+      <td id="T_0750d_row23_col5" class="data row23 col5" >39.3</td>
+      <td id="T_0750d_row23_col6" class="data row23 col6" >24.3</td>
+      <td id="T_0750d_row23_col7" class="data row23 col7" >84.4</td>
+      <td id="T_0750d_row23_col8" class="data row23 col8" >-543</td>
+      <td id="T_0750d_row23_col9" class="data row23 col9" >+543</td>
+      <td id="T_0750d_row23_col10" class="data row23 col10" >Clear</td>
+      <td id="T_0750d_row23_col11" class="data row23 col11" >89</td>
+      <td id="T_0750d_row23_col12" class="data row23 col12" >6</td>
+      <td id="T_0750d_row23_col13" class="data row23 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row24_col0" class="data row24 col0" >2024-10-26T19:30:00.000Z</td>
+      <td id="T_0750d_row24_col1" class="data row24 col1" >Ball State</td>
+      <td id="T_0750d_row24_col2" class="data row24 col2" >Northern Illinois</td>
+      <td id="T_0750d_row24_col3" class="data row24 col3" >-20.1</td>
+      <td id="T_0750d_row24_col4" class="data row24 col4" >53.6</td>
+      <td id="T_0750d_row24_col5" class="data row24 col5" >16.8</td>
+      <td id="T_0750d_row24_col6" class="data row24 col6" >36.8</td>
+      <td id="T_0750d_row24_col7" class="data row24 col7" >8.7</td>
+      <td id="T_0750d_row24_col8" class="data row24 col8" >+1047</td>
+      <td id="T_0750d_row24_col9" class="data row24 col9" >-1047</td>
+      <td id="T_0750d_row24_col10" class="data row24 col10" >Clear</td>
+      <td id="T_0750d_row24_col11" class="data row24 col11" >61</td>
+      <td id="T_0750d_row24_col12" class="data row24 col12" >10</td>
+      <td id="T_0750d_row24_col13" class="data row24 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row25_col0" class="data row25 col0" >2024-10-26T19:30:00.000Z</td>
+      <td id="T_0750d_row25_col1" class="data row25 col1" >Toledo</td>
+      <td id="T_0750d_row25_col2" class="data row25 col2" >Bowling Green</td>
+      <td id="T_0750d_row25_col3" class="data row25 col3" >+1.2</td>
+      <td id="T_0750d_row25_col4" class="data row25 col4" >46.0</td>
+      <td id="T_0750d_row25_col5" class="data row25 col5" >23.6</td>
+      <td id="T_0750d_row25_col6" class="data row25 col6" >22.4</td>
+      <td id="T_0750d_row25_col7" class="data row25 col7" >53.1</td>
+      <td id="T_0750d_row25_col8" class="data row25 col8" >-113</td>
+      <td id="T_0750d_row25_col9" class="data row25 col9" >+113</td>
+      <td id="T_0750d_row25_col10" class="data row25 col10" >Clear</td>
+      <td id="T_0750d_row25_col11" class="data row25 col11" >58</td>
+      <td id="T_0750d_row25_col12" class="data row25 col12" >7</td>
+      <td id="T_0750d_row25_col13" class="data row25 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row26_col0" class="data row26 col0" >2024-10-26T19:30:00.000Z</td>
+      <td id="T_0750d_row26_col1" class="data row26 col1" >TCU</td>
+      <td id="T_0750d_row26_col2" class="data row26 col2" >Texas Tech</td>
+      <td id="T_0750d_row26_col3" class="data row26 col3" >+7.9</td>
+      <td id="T_0750d_row26_col4" class="data row26 col4" >64.8</td>
+      <td id="T_0750d_row26_col5" class="data row26 col5" >36.4</td>
+      <td id="T_0750d_row26_col6" class="data row26 col6" >28.5</td>
+      <td id="T_0750d_row26_col7" class="data row26 col7" >70.3</td>
+      <td id="T_0750d_row26_col8" class="data row26 col8" >-237</td>
+      <td id="T_0750d_row26_col9" class="data row26 col9" >+237</td>
+      <td id="T_0750d_row26_col10" class="data row26 col10" >Clear</td>
+      <td id="T_0750d_row26_col11" class="data row26 col11" >83</td>
+      <td id="T_0750d_row26_col12" class="data row26 col12" >7</td>
+      <td id="T_0750d_row26_col13" class="data row26 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row27_col0" class="data row27 col0" >2024-10-26T19:30:00.000Z</td>
+      <td id="T_0750d_row27_col1" class="data row27 col1" >Minnesota</td>
+      <td id="T_0750d_row27_col2" class="data row27 col2" >Maryland</td>
+      <td id="T_0750d_row27_col3" class="data row27 col3" >+15.0</td>
+      <td id="T_0750d_row27_col4" class="data row27 col4" >44.5</td>
+      <td id="T_0750d_row27_col5" class="data row27 col5" >29.7</td>
+      <td id="T_0750d_row27_col6" class="data row27 col6" >14.8</td>
+      <td id="T_0750d_row27_col7" class="data row27 col7" >84.4</td>
+      <td id="T_0750d_row27_col8" class="data row27 col8" >-542</td>
+      <td id="T_0750d_row27_col9" class="data row27 col9" >+542</td>
+      <td id="T_0750d_row27_col10" class="data row27 col10" >Cloudy</td>
+      <td id="T_0750d_row27_col11" class="data row27 col11" >58</td>
+      <td id="T_0750d_row27_col12" class="data row27 col12" >8</td>
+      <td id="T_0750d_row27_col13" class="data row27 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row28_col0" class="data row28 col0" >2024-10-26T19:30:00.000Z</td>
+      <td id="T_0750d_row28_col1" class="data row28 col1" >UCF</td>
+      <td id="T_0750d_row28_col2" class="data row28 col2" >BYU</td>
+      <td id="T_0750d_row28_col3" class="data row28 col3" >-3.9</td>
+      <td id="T_0750d_row28_col4" class="data row28 col4" >52.6</td>
+      <td id="T_0750d_row28_col5" class="data row28 col5" >24.4</td>
+      <td id="T_0750d_row28_col6" class="data row28 col6" >28.2</td>
+      <td id="T_0750d_row28_col7" class="data row28 col7" >39.7</td>
+      <td id="T_0750d_row28_col8" class="data row28 col8" >+152</td>
+      <td id="T_0750d_row28_col9" class="data row28 col9" >-152</td>
+      <td id="T_0750d_row28_col10" class="data row28 col10" >Cloudy</td>
+      <td id="T_0750d_row28_col11" class="data row28 col11" >83</td>
+      <td id="T_0750d_row28_col12" class="data row28 col12" >11</td>
+      <td id="T_0750d_row28_col13" class="data row28 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row29_col0" class="data row29 col0" >2024-10-26T19:30:00.000Z</td>
+      <td id="T_0750d_row29_col1" class="data row29 col1" >Stanford</td>
+      <td id="T_0750d_row29_col2" class="data row29 col2" >Wake Forest</td>
+      <td id="T_0750d_row29_col3" class="data row29 col3" >+2.3</td>
+      <td id="T_0750d_row29_col4" class="data row29 col4" >56.7</td>
+      <td id="T_0750d_row29_col5" class="data row29 col5" >29.5</td>
+      <td id="T_0750d_row29_col6" class="data row29 col6" >27.2</td>
+      <td id="T_0750d_row29_col7" class="data row29 col7" >56.2</td>
+      <td id="T_0750d_row29_col8" class="data row29 col8" >-129</td>
+      <td id="T_0750d_row29_col9" class="data row29 col9" >+129</td>
+      <td id="T_0750d_row29_col10" class="data row29 col10" >Cloudy</td>
+      <td id="T_0750d_row29_col11" class="data row29 col11" >68</td>
+      <td id="T_0750d_row29_col12" class="data row29 col12" >6</td>
+      <td id="T_0750d_row29_col13" class="data row29 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row30_col0" class="data row30 col0" >2024-10-26T19:30:00.000Z</td>
+      <td id="T_0750d_row30_col1" class="data row30 col1" >Western Michigan</td>
+      <td id="T_0750d_row30_col2" class="data row30 col2" >Kent State</td>
+      <td id="T_0750d_row30_col3" class="data row30 col3" >+24.6</td>
+      <td id="T_0750d_row30_col4" class="data row30 col4" >62.7</td>
+      <td id="T_0750d_row30_col5" class="data row30 col5" >43.7</td>
+      <td id="T_0750d_row30_col6" class="data row30 col6" >19.1</td>
+      <td id="T_0750d_row30_col7" class="data row30 col7" >95.2</td>
+      <td id="T_0750d_row30_col8" class="data row30 col8" >-1977</td>
+      <td id="T_0750d_row30_col9" class="data row30 col9" >+1977</td>
+      <td id="T_0750d_row30_col10" class="data row30 col10" >Clear</td>
+      <td id="T_0750d_row30_col11" class="data row30 col11" >56</td>
+      <td id="T_0750d_row30_col12" class="data row30 col12" >6</td>
+      <td id="T_0750d_row30_col13" class="data row30 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row31_col0" class="data row31 col0" >2024-10-26T19:30:00.000Z</td>
+      <td id="T_0750d_row31_col1" class="data row31 col1" >James Madison</td>
+      <td id="T_0750d_row31_col2" class="data row31 col2" >Southern Miss</td>
+      <td id="T_0750d_row31_col3" class="data row31 col3" >+38.1</td>
+      <td id="T_0750d_row31_col4" class="data row31 col4" >45.4</td>
+      <td id="T_0750d_row31_col5" class="data row31 col5" >41.8</td>
+      <td id="T_0750d_row31_col6" class="data row31 col6" >3.7</td>
+      <td id="T_0750d_row31_col7" class="data row31 col7" >99.5</td>
+      <td id="T_0750d_row31_col8" class="data row31 col8" >-19841</td>
+      <td id="T_0750d_row31_col9" class="data row31 col9" >+19841</td>
+      <td id="T_0750d_row31_col10" class="data row31 col10" >Cloudy</td>
+      <td id="T_0750d_row31_col11" class="data row31 col11" >68</td>
+      <td id="T_0750d_row31_col12" class="data row31 col12" >0</td>
+      <td id="T_0750d_row31_col13" class="data row31 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row32_col0" class="data row32 col0" >2024-10-26T19:30:00.000Z</td>
+      <td id="T_0750d_row32_col1" class="data row32 col1" >UConn</td>
+      <td id="T_0750d_row32_col2" class="data row32 col2" >Rice</td>
+      <td id="T_0750d_row32_col3" class="data row32 col3" >+15.9</td>
+      <td id="T_0750d_row32_col4" class="data row32 col4" >43.2</td>
+      <td id="T_0750d_row32_col5" class="data row32 col5" >29.6</td>
+      <td id="T_0750d_row32_col6" class="data row32 col6" >13.7</td>
+      <td id="T_0750d_row32_col7" class="data row32 col7" >85.9</td>
+      <td id="T_0750d_row32_col8" class="data row32 col8" >-609</td>
+      <td id="T_0750d_row32_col9" class="data row32 col9" >+609</td>
+      <td id="T_0750d_row32_col10" class="data row32 col10" >Clear</td>
+      <td id="T_0750d_row32_col11" class="data row32 col11" >61</td>
+      <td id="T_0750d_row32_col12" class="data row32 col12" >16</td>
+      <td id="T_0750d_row32_col13" class="data row32 col13" >-1.2</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row33_col0" class="data row33 col0" >2024-10-26T19:30:00.000Z</td>
+      <td id="T_0750d_row33_col1" class="data row33 col1" >Oregon</td>
+      <td id="T_0750d_row33_col2" class="data row33 col2" >Illinois</td>
+      <td id="T_0750d_row33_col3" class="data row33 col3" >+16.7</td>
+      <td id="T_0750d_row33_col4" class="data row33 col4" >59.0</td>
+      <td id="T_0750d_row33_col5" class="data row33 col5" >37.8</td>
+      <td id="T_0750d_row33_col6" class="data row33 col6" >21.2</td>
+      <td id="T_0750d_row33_col7" class="data row33 col7" >87.0</td>
+      <td id="T_0750d_row33_col8" class="data row33 col8" >-670</td>
+      <td id="T_0750d_row33_col9" class="data row33 col9" >+670</td>
+      <td id="T_0750d_row33_col10" class="data row33 col10" >Clear</td>
+      <td id="T_0750d_row33_col11" class="data row33 col11" >76</td>
+      <td id="T_0750d_row33_col12" class="data row33 col12" >9</td>
+      <td id="T_0750d_row33_col13" class="data row33 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row34_col0" class="data row34 col0" >2024-10-26T19:30:00.000Z</td>
+      <td id="T_0750d_row34_col1" class="data row34 col1" >Alabama</td>
+      <td id="T_0750d_row34_col2" class="data row34 col2" >Missouri</td>
+      <td id="T_0750d_row34_col3" class="data row34 col3" >+15.1</td>
+      <td id="T_0750d_row34_col4" class="data row34 col4" >48.4</td>
+      <td id="T_0750d_row34_col5" class="data row34 col5" >31.8</td>
+      <td id="T_0750d_row34_col6" class="data row34 col6" >16.7</td>
+      <td id="T_0750d_row34_col7" class="data row34 col7" >84.7</td>
+      <td id="T_0750d_row34_col8" class="data row34 col8" >-553</td>
+      <td id="T_0750d_row34_col9" class="data row34 col9" >+553</td>
+      <td id="T_0750d_row34_col10" class="data row34 col10" >Clear</td>
+      <td id="T_0750d_row34_col11" class="data row34 col11" >87</td>
+      <td id="T_0750d_row34_col12" class="data row34 col12" >7</td>
+      <td id="T_0750d_row34_col13" class="data row34 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row35_col0" class="data row35 col0" >2024-10-26T19:30:00.000Z</td>
+      <td id="T_0750d_row35_col1" class="data row35 col1" >Iowa</td>
+      <td id="T_0750d_row35_col2" class="data row35 col2" >Northwestern</td>
+      <td id="T_0750d_row35_col3" class="data row35 col3" >+17.1</td>
+      <td id="T_0750d_row35_col4" class="data row35 col4" >38.6</td>
+      <td id="T_0750d_row35_col5" class="data row35 col5" >27.8</td>
+      <td id="T_0750d_row35_col6" class="data row35 col6" >10.7</td>
+      <td id="T_0750d_row35_col7" class="data row35 col7" >87.7</td>
+      <td id="T_0750d_row35_col8" class="data row35 col8" >-711</td>
+      <td id="T_0750d_row35_col9" class="data row35 col9" >+711</td>
+      <td id="T_0750d_row35_col10" class="data row35 col10" >Clear</td>
+      <td id="T_0750d_row35_col11" class="data row35 col11" >61</td>
+      <td id="T_0750d_row35_col12" class="data row35 col12" >7</td>
+      <td id="T_0750d_row35_col13" class="data row35 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row36_col0" class="data row36 col0" >2024-10-26T19:30:00.000Z</td>
+      <td id="T_0750d_row36_col1" class="data row36 col1" >Tulsa</td>
+      <td id="T_0750d_row36_col2" class="data row36 col2" >UTSA</td>
+      <td id="T_0750d_row36_col3" class="data row36 col3" >-15.0</td>
+      <td id="T_0750d_row36_col4" class="data row36 col4" >54.7</td>
+      <td id="T_0750d_row36_col5" class="data row36 col5" >19.9</td>
+      <td id="T_0750d_row36_col6" class="data row36 col6" >34.9</td>
+      <td id="T_0750d_row36_col7" class="data row36 col7" >15.5</td>
+      <td id="T_0750d_row36_col8" class="data row36 col8" >+544</td>
+      <td id="T_0750d_row36_col9" class="data row36 col9" >-544</td>
+      <td id="T_0750d_row36_col10" class="data row36 col10" >Clear</td>
+      <td id="T_0750d_row36_col11" class="data row36 col11" >75</td>
+      <td id="T_0750d_row36_col12" class="data row36 col12" >8</td>
+      <td id="T_0750d_row36_col13" class="data row36 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row37_col0" class="data row37 col0" >2024-10-26T20:00:00.000Z</td>
+      <td id="T_0750d_row37_col1" class="data row37 col1" >California</td>
+      <td id="T_0750d_row37_col2" class="data row37 col2" >Oregon State</td>
+      <td id="T_0750d_row37_col3" class="data row37 col3" >+13.7</td>
+      <td id="T_0750d_row37_col4" class="data row37 col4" >55.2</td>
+      <td id="T_0750d_row37_col5" class="data row37 col5" >34.4</td>
+      <td id="T_0750d_row37_col6" class="data row37 col6" >20.7</td>
+      <td id="T_0750d_row37_col7" class="data row37 col7" >82.3</td>
+      <td id="T_0750d_row37_col8" class="data row37 col8" >-465</td>
+      <td id="T_0750d_row37_col9" class="data row37 col9" >+465</td>
+      <td id="T_0750d_row37_col10" class="data row37 col10" >Cloudy</td>
+      <td id="T_0750d_row37_col11" class="data row37 col11" >66</td>
+      <td id="T_0750d_row37_col12" class="data row37 col12" >5</td>
+      <td id="T_0750d_row37_col13" class="data row37 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row38_col0" class="data row38 col0" >2024-10-26T20:15:00.000Z</td>
+      <td id="T_0750d_row38_col1" class="data row38 col1" >Vanderbilt</td>
+      <td id="T_0750d_row38_col2" class="data row38 col2" >Texas</td>
+      <td id="T_0750d_row38_col3" class="data row38 col3" >-16.0</td>
+      <td id="T_0750d_row38_col4" class="data row38 col4" >50.5</td>
+      <td id="T_0750d_row38_col5" class="data row38 col5" >17.2</td>
+      <td id="T_0750d_row38_col6" class="data row38 col6" >33.2</td>
+      <td id="T_0750d_row38_col7" class="data row38 col7" >13.9</td>
+      <td id="T_0750d_row38_col8" class="data row38 col8" >+618</td>
+      <td id="T_0750d_row38_col9" class="data row38 col9" >-618</td>
+      <td id="T_0750d_row38_col10" class="data row38 col10" >Cloudy</td>
+      <td id="T_0750d_row38_col11" class="data row38 col11" >70</td>
+      <td id="T_0750d_row38_col12" class="data row38 col12" >11</td>
+      <td id="T_0750d_row38_col13" class="data row38 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row39_col0" class="data row39 col0" >2024-10-26T21:00:00.000Z</td>
+      <td id="T_0750d_row39_col1" class="data row39 col1" >South Alabama</td>
+      <td id="T_0750d_row39_col2" class="data row39 col2" >UL Monroe</td>
+      <td id="T_0750d_row39_col3" class="data row39 col3" >+19.0</td>
+      <td id="T_0750d_row39_col4" class="data row39 col4" >57.2</td>
+      <td id="T_0750d_row39_col5" class="data row39 col5" >38.1</td>
+      <td id="T_0750d_row39_col6" class="data row39 col6" >19.1</td>
+      <td id="T_0750d_row39_col7" class="data row39 col7" >90.0</td>
+      <td id="T_0750d_row39_col8" class="data row39 col8" >-905</td>
+      <td id="T_0750d_row39_col9" class="data row39 col9" >+905</td>
+      <td id="T_0750d_row39_col10" class="data row39 col10" >Clear</td>
+      <td id="T_0750d_row39_col11" class="data row39 col11" >85</td>
+      <td id="T_0750d_row39_col12" class="data row39 col12" >11</td>
+      <td id="T_0750d_row39_col13" class="data row39 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row40_col0" class="data row40 col0" >2024-10-26T21:00:00.000Z</td>
+      <td id="T_0750d_row40_col1" class="data row40 col1" >Colorado State</td>
+      <td id="T_0750d_row40_col2" class="data row40 col2" >New Mexico</td>
+      <td id="T_0750d_row40_col3" class="data row40 col3" >+7.6</td>
+      <td id="T_0750d_row40_col4" class="data row40 col4" >66.5</td>
+      <td id="T_0750d_row40_col5" class="data row40 col5" >37.0</td>
+      <td id="T_0750d_row40_col6" class="data row40 col6" >29.4</td>
+      <td id="T_0750d_row40_col7" class="data row40 col7" >69.7</td>
+      <td id="T_0750d_row40_col8" class="data row40 col8" >-231</td>
+      <td id="T_0750d_row40_col9" class="data row40 col9" >+231</td>
+      <td id="T_0750d_row40_col10" class="data row40 col10" >Fair</td>
+      <td id="T_0750d_row40_col11" class="data row40 col11" >70</td>
+      <td id="T_0750d_row40_col12" class="data row40 col12" >4</td>
+      <td id="T_0750d_row40_col13" class="data row40 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row41_col0" class="data row41 col0" >2024-10-26T23:00:00.000Z</td>
+      <td id="T_0750d_row41_col1" class="data row41 col1" >Arkansas State</td>
+      <td id="T_0750d_row41_col2" class="data row41 col2" >Troy</td>
+      <td id="T_0750d_row41_col3" class="data row41 col3" >-6.1</td>
+      <td id="T_0750d_row41_col4" class="data row41 col4" >61.0</td>
+      <td id="T_0750d_row41_col5" class="data row41 col5" >27.5</td>
+      <td id="T_0750d_row41_col6" class="data row41 col6" >33.5</td>
+      <td id="T_0750d_row41_col7" class="data row41 col7" >34.0</td>
+      <td id="T_0750d_row41_col8" class="data row41 col8" >+194</td>
+      <td id="T_0750d_row41_col9" class="data row41 col9" >-194</td>
+      <td id="T_0750d_row41_col10" class="data row41 col10" >Clear</td>
+      <td id="T_0750d_row41_col11" class="data row41 col11" >66</td>
+      <td id="T_0750d_row41_col12" class="data row41 col12" >9</td>
+      <td id="T_0750d_row41_col13" class="data row41 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row42_col0" class="data row42 col0" >2024-10-26T23:00:00.000Z</td>
+      <td id="T_0750d_row42_col1" class="data row42 col1" >Houston</td>
+      <td id="T_0750d_row42_col2" class="data row42 col2" >Utah</td>
+      <td id="T_0750d_row42_col3" class="data row42 col3" >-6.3</td>
+      <td id="T_0750d_row42_col4" class="data row42 col4" >31.5</td>
+      <td id="T_0750d_row42_col5" class="data row42 col5" >12.6</td>
+      <td id="T_0750d_row42_col6" class="data row42 col6" >18.9</td>
+      <td id="T_0750d_row42_col7" class="data row42 col7" >33.5</td>
+      <td id="T_0750d_row42_col8" class="data row42 col8" >+199</td>
+      <td id="T_0750d_row42_col9" class="data row42 col9" >-199</td>
+      <td id="T_0750d_row42_col10" class="data row42 col10" >Fair</td>
+      <td id="T_0750d_row42_col11" class="data row42 col11" >83</td>
+      <td id="T_0750d_row42_col12" class="data row42 col12" >14</td>
+      <td id="T_0750d_row42_col13" class="data row42 col13" >-0.6</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row43_col0" class="data row43 col0" >2024-10-26T23:00:00.000Z</td>
+      <td id="T_0750d_row43_col1" class="data row43 col1" >Arizona</td>
+      <td id="T_0750d_row43_col2" class="data row43 col2" >West Virginia</td>
+      <td id="T_0750d_row43_col3" class="data row43 col3" >-0.1</td>
+      <td id="T_0750d_row43_col4" class="data row43 col4" >60.1</td>
+      <td id="T_0750d_row43_col5" class="data row43 col5" >30.0</td>
+      <td id="T_0750d_row43_col6" class="data row43 col6" >30.1</td>
+      <td id="T_0750d_row43_col7" class="data row43 col7" >49.7</td>
+      <td id="T_0750d_row43_col8" class="data row43 col8" >+101</td>
+      <td id="T_0750d_row43_col9" class="data row43 col9" >-101</td>
+      <td id="T_0750d_row43_col10" class="data row43 col10" >Clear</td>
+      <td id="T_0750d_row43_col11" class="data row43 col11" >96</td>
+      <td id="T_0750d_row43_col12" class="data row43 col12" >9</td>
+      <td id="T_0750d_row43_col13" class="data row43 col13" >-0.3</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row44_col0" class="data row44 col0" >2024-10-26T23:00:00.000Z</td>
+      <td id="T_0750d_row44_col1" class="data row44 col1" >Wyoming</td>
+      <td id="T_0750d_row44_col2" class="data row44 col2" >Utah State</td>
+      <td id="T_0750d_row44_col3" class="data row44 col3" >-3.3</td>
+      <td id="T_0750d_row44_col4" class="data row44 col4" >57.9</td>
+      <td id="T_0750d_row44_col5" class="data row44 col5" >27.3</td>
+      <td id="T_0750d_row44_col6" class="data row44 col6" >30.6</td>
+      <td id="T_0750d_row44_col7" class="data row44 col7" >41.3</td>
+      <td id="T_0750d_row44_col8" class="data row44 col8" >+142</td>
+      <td id="T_0750d_row44_col9" class="data row44 col9" >-142</td>
+      <td id="T_0750d_row44_col10" class="data row44 col10" >Clear</td>
+      <td id="T_0750d_row44_col11" class="data row44 col11" >59</td>
+      <td id="T_0750d_row44_col12" class="data row44 col12" >8</td>
+      <td id="T_0750d_row44_col13" class="data row44 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row45_col0" class="data row45 col0" >2024-10-26T23:00:00.000Z</td>
+      <td id="T_0750d_row45_col1" class="data row45 col1" >Miami</td>
+      <td id="T_0750d_row45_col2" class="data row45 col2" >Florida State</td>
+      <td id="T_0750d_row45_col3" class="data row45 col3" >+34.5</td>
+      <td id="T_0750d_row45_col4" class="data row45 col4" >60.3</td>
+      <td id="T_0750d_row45_col5" class="data row45 col5" >47.4</td>
+      <td id="T_0750d_row45_col6" class="data row45 col6" >12.9</td>
+      <td id="T_0750d_row45_col7" class="data row45 col7" >99.0</td>
+      <td id="T_0750d_row45_col8" class="data row45 col8" >-10107</td>
+      <td id="T_0750d_row45_col9" class="data row45 col9" >+10107</td>
+      <td id="T_0750d_row45_col10" class="data row45 col10" >Cloudy</td>
+      <td id="T_0750d_row45_col11" class="data row45 col11" >80</td>
+      <td id="T_0750d_row45_col12" class="data row45 col12" >11</td>
+      <td id="T_0750d_row45_col13" class="data row45 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row46_col0" class="data row46 col0" >2024-10-26T23:30:00.000Z</td>
+      <td id="T_0750d_row46_col1" class="data row46 col1" >Michigan</td>
+      <td id="T_0750d_row46_col2" class="data row46 col2" >Michigan State</td>
+      <td id="T_0750d_row46_col3" class="data row46 col3" >+8.9</td>
+      <td id="T_0750d_row46_col4" class="data row46 col4" >42.9</td>
+      <td id="T_0750d_row46_col5" class="data row46 col5" >25.9</td>
+      <td id="T_0750d_row46_col6" class="data row46 col6" >17.0</td>
+      <td id="T_0750d_row46_col7" class="data row46 col7" >72.7</td>
+      <td id="T_0750d_row46_col8" class="data row46 col8" >-266</td>
+      <td id="T_0750d_row46_col9" class="data row46 col9" >+266</td>
+      <td id="T_0750d_row46_col10" class="data row46 col10" >Clear</td>
+      <td id="T_0750d_row46_col11" class="data row46 col11" >38</td>
+      <td id="T_0750d_row46_col12" class="data row46 col12" >0</td>
+      <td id="T_0750d_row46_col13" class="data row46 col13" >-0.2</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row47_col0" class="data row47 col0" >2024-10-26T23:30:00.000Z</td>
+      <td id="T_0750d_row47_col1" class="data row47 col1" >Texas A&M</td>
+      <td id="T_0750d_row47_col2" class="data row47 col2" >LSU</td>
+      <td id="T_0750d_row47_col3" class="data row47 col3" >+3.5</td>
+      <td id="T_0750d_row47_col4" class="data row47 col4" >56.1</td>
+      <td id="T_0750d_row47_col5" class="data row47 col5" >29.8</td>
+      <td id="T_0750d_row47_col6" class="data row47 col6" >26.3</td>
+      <td id="T_0750d_row47_col7" class="data row47 col7" >59.3</td>
+      <td id="T_0750d_row47_col8" class="data row47 col8" >-146</td>
+      <td id="T_0750d_row47_col9" class="data row47 col9" >+146</td>
+      <td id="T_0750d_row47_col10" class="data row47 col10" >Fair</td>
+      <td id="T_0750d_row47_col11" class="data row47 col11" >84</td>
+      <td id="T_0750d_row47_col12" class="data row47 col12" >0</td>
+      <td id="T_0750d_row47_col13" class="data row47 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row48_col0" class="data row48 col0" >2024-10-26T23:30:00.000Z</td>
+      <td id="T_0750d_row48_col1" class="data row48 col1" >Wisconsin</td>
+      <td id="T_0750d_row48_col2" class="data row48 col2" >Penn State</td>
+      <td id="T_0750d_row48_col3" class="data row48 col3" >-13.6</td>
+      <td id="T_0750d_row48_col4" class="data row48 col4" >50.9</td>
+      <td id="T_0750d_row48_col5" class="data row48 col5" >18.7</td>
+      <td id="T_0750d_row48_col6" class="data row48 col6" >32.2</td>
+      <td id="T_0750d_row48_col7" class="data row48 col7" >17.9</td>
+      <td id="T_0750d_row48_col8" class="data row48 col8" >+458</td>
+      <td id="T_0750d_row48_col9" class="data row48 col9" >-458</td>
+      <td id="T_0750d_row48_col10" class="data row48 col10" >Cloudy</td>
+      <td id="T_0750d_row48_col11" class="data row48 col11" >47</td>
+      <td id="T_0750d_row48_col12" class="data row48 col12" >5</td>
+      <td id="T_0750d_row48_col13" class="data row48 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row49_col0" class="data row49 col0" >2024-10-26T23:45:00.000Z</td>
+      <td id="T_0750d_row49_col1" class="data row49 col1" >Kentucky</td>
+      <td id="T_0750d_row49_col2" class="data row49 col2" >Auburn</td>
+      <td id="T_0750d_row49_col3" class="data row49 col3" >-4.3</td>
+      <td id="T_0750d_row49_col4" class="data row49 col4" >45.4</td>
+      <td id="T_0750d_row49_col5" class="data row49 col5" >20.5</td>
+      <td id="T_0750d_row49_col6" class="data row49 col6" >24.9</td>
+      <td id="T_0750d_row49_col7" class="data row49 col7" >38.4</td>
+      <td id="T_0750d_row49_col8" class="data row49 col8" >+160</td>
+      <td id="T_0750d_row49_col9" class="data row49 col9" >-160</td>
+      <td id="T_0750d_row49_col10" class="data row49 col10" >Clear</td>
+      <td id="T_0750d_row49_col11" class="data row49 col11" >55</td>
+      <td id="T_0750d_row49_col12" class="data row49 col12" >6</td>
+      <td id="T_0750d_row49_col13" class="data row49 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row50_col0" class="data row50 col0" >2024-10-27T00:00:00.000Z</td>
+      <td id="T_0750d_row50_col1" class="data row50 col1" >Kansas State</td>
+      <td id="T_0750d_row50_col2" class="data row50 col2" >Kansas</td>
+      <td id="T_0750d_row50_col3" class="data row50 col3" >+11.6</td>
+      <td id="T_0750d_row50_col4" class="data row50 col4" >63.7</td>
+      <td id="T_0750d_row50_col5" class="data row50 col5" >37.7</td>
+      <td id="T_0750d_row50_col6" class="data row50 col6" >26.0</td>
+      <td id="T_0750d_row50_col7" class="data row50 col7" >78.4</td>
+      <td id="T_0750d_row50_col8" class="data row50 col8" >-363</td>
+      <td id="T_0750d_row50_col9" class="data row50 col9" >+363</td>
+      <td id="T_0750d_row50_col10" class="data row50 col10" >Cloudy</td>
+      <td id="T_0750d_row50_col11" class="data row50 col11" >55</td>
+      <td id="T_0750d_row50_col12" class="data row50 col12" >4</td>
+      <td id="T_0750d_row50_col13" class="data row50 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row51_col0" class="data row51 col0" >2024-10-27T00:00:00.000Z</td>
+      <td id="T_0750d_row51_col1" class="data row51 col1" >Duke</td>
+      <td id="T_0750d_row51_col2" class="data row51 col2" >SMU</td>
+      <td id="T_0750d_row51_col3" class="data row51 col3" >-12.9</td>
+      <td id="T_0750d_row51_col4" class="data row51 col4" >44.5</td>
+      <td id="T_0750d_row51_col5" class="data row51 col5" >15.8</td>
+      <td id="T_0750d_row51_col6" class="data row51 col6" >28.7</td>
+      <td id="T_0750d_row51_col7" class="data row51 col7" >19.1</td>
+      <td id="T_0750d_row51_col8" class="data row51 col8" >+422</td>
+      <td id="T_0750d_row51_col9" class="data row51 col9" >-422</td>
+      <td id="T_0750d_row51_col10" class="data row51 col10" >Cloudy</td>
+      <td id="T_0750d_row51_col11" class="data row51 col11" >70</td>
+      <td id="T_0750d_row51_col12" class="data row51 col12" >4</td>
+      <td id="T_0750d_row51_col13" class="data row51 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row52_col0" class="data row52 col0" >2024-10-27T00:00:00.000Z</td>
+      <td id="T_0750d_row52_col1" class="data row52 col1" >Fresno State</td>
+      <td id="T_0750d_row52_col2" class="data row52 col2" >San José State</td>
+      <td id="T_0750d_row52_col3" class="data row52 col3" >+3.3</td>
+      <td id="T_0750d_row52_col4" class="data row52 col4" >44.0</td>
+      <td id="T_0750d_row52_col5" class="data row52 col5" >23.6</td>
+      <td id="T_0750d_row52_col6" class="data row52 col6" >20.4</td>
+      <td id="T_0750d_row52_col7" class="data row52 col7" >58.8</td>
+      <td id="T_0750d_row52_col8" class="data row52 col8" >-143</td>
+      <td id="T_0750d_row52_col9" class="data row52 col9" >+143</td>
+      <td id="T_0750d_row52_col10" class="data row52 col10" >Overcast</td>
+      <td id="T_0750d_row52_col11" class="data row52 col11" >76</td>
+      <td id="T_0750d_row52_col12" class="data row52 col12" >6</td>
+      <td id="T_0750d_row52_col13" class="data row52 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row53_col0" class="data row53 col0" >2024-10-27T02:15:00.000Z</td>
+      <td id="T_0750d_row53_col1" class="data row53 col1" >Colorado</td>
+      <td id="T_0750d_row53_col2" class="data row53 col2" >Cincinnati</td>
+      <td id="T_0750d_row53_col3" class="data row53 col3" >+11.3</td>
+      <td id="T_0750d_row53_col4" class="data row53 col4" >51.8</td>
+      <td id="T_0750d_row53_col5" class="data row53 col5" >31.6</td>
+      <td id="T_0750d_row53_col6" class="data row53 col6" >20.2</td>
+      <td id="T_0750d_row53_col7" class="data row53 col7" >77.8</td>
+      <td id="T_0750d_row53_col8" class="data row53 col8" >-351</td>
+      <td id="T_0750d_row53_col9" class="data row53 col9" >+351</td>
+      <td id="T_0750d_row53_col10" class="data row53 col10" >Clear</td>
+      <td id="T_0750d_row53_col11" class="data row53 col11" >53</td>
+      <td id="T_0750d_row53_col12" class="data row53 col12" >3</td>
+      <td id="T_0750d_row53_col13" class="data row53 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row54_col0" class="data row54 col0" >2024-10-27T02:30:00.000Z</td>
+      <td id="T_0750d_row54_col1" class="data row54 col1" >San Diego State</td>
+      <td id="T_0750d_row54_col2" class="data row54 col2" >Washington State</td>
+      <td id="T_0750d_row54_col3" class="data row54 col3" >-12.8</td>
+      <td id="T_0750d_row54_col4" class="data row54 col4" >62.2</td>
+      <td id="T_0750d_row54_col5" class="data row54 col5" >24.7</td>
+      <td id="T_0750d_row54_col6" class="data row54 col6" >37.5</td>
+      <td id="T_0750d_row54_col7" class="data row54 col7" >19.4</td>
+      <td id="T_0750d_row54_col8" class="data row54 col8" >+417</td>
+      <td id="T_0750d_row54_col9" class="data row54 col9" >-417</td>
+      <td id="T_0750d_row54_col10" class="data row54 col10" >Fog</td>
+      <td id="T_0750d_row54_col11" class="data row54 col11" >64</td>
+      <td id="T_0750d_row54_col12" class="data row54 col12" >0</td>
+      <td id="T_0750d_row54_col13" class="data row54 col13" >+nan</td>
+    </tr>
+    <tr>
+      <td id="T_0750d_row55_col0" class="data row55 col0" >2024-10-27T03:59:00.000Z</td>
+      <td id="T_0750d_row55_col1" class="data row55 col1" >Hawai'i</td>
+      <td id="T_0750d_row55_col2" class="data row55 col2" >Nevada</td>
+      <td id="T_0750d_row55_col3" class="data row55 col3" >+2.7</td>
+      <td id="T_0750d_row55_col4" class="data row55 col4" >53.8</td>
+      <td id="T_0750d_row55_col5" class="data row55 col5" >28.2</td>
+      <td id="T_0750d_row55_col6" class="data row55 col6" >25.5</td>
+      <td id="T_0750d_row55_col7" class="data row55 col7" >57.2</td>
+      <td id="T_0750d_row55_col8" class="data row55 col8" >-133</td>
+      <td id="T_0750d_row55_col9" class="data row55 col9" >+133</td>
+      <td id="T_0750d_row55_col10" class="data row55 col10" >Cloudy</td>
+      <td id="T_0750d_row55_col11" class="data row55 col11" >77</td>
+      <td id="T_0750d_row55_col12" class="data row55 col12" >25</td>
+      <td id="T_0750d_row55_col13" class="data row55 col13" >-3.9</td>
+    </tr>
+  </tbody>
+</table>
+
+        </section>
+      </body>
+    </html>
+    
