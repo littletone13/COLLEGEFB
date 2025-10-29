@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import warnings
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,6 +39,7 @@ import pandas as pd
 import requests
 
 PFF_DATA_DIR = Path("~/Desktop/PFFMODEL_FBS").expanduser()
+PFF_COMBINED_DATA_DIR = Path("~/Desktop/POST WEEK 9 FBS & FCS DATA").expanduser()
 
 
 BASE_URL = "https://api.collegefootballdata.com"
@@ -55,6 +57,49 @@ WEATHER_CLAMP_BOUNDS = (-12.0, 6.0)
 
 MARKET_SPREAD_WEIGHT = 0.8
 MARKET_TOTAL_WEIGHT = 0.8
+
+OFFENSE_POSITIONS = {
+    "QB",
+    "RB",
+    "TB",
+    "HB",
+    "FB",
+    "WR",
+    "TE",
+    "LT",
+    "LG",
+    "C",
+    "RG",
+    "RT",
+    "OL",
+}
+DEFENSE_POSITIONS = {
+    "DL",
+    "DE",
+    "DT",
+    "NT",
+    "EDGE",
+    "LB",
+    "ILB",
+    "OLB",
+    "MLB",
+    "CB",
+    "DB",
+    "S",
+    "FS",
+    "SS",
+    "STAR",
+    "NB",
+}
+STATUS_PENALTIES = {
+    "out": 0.12,
+    "suspended": 0.10,
+    "doubtful": 0.08,
+    "questionable": 0.04,
+    "probable": 0.02,
+}
+
+_INJURY_WARNING_EMITTED = False
 
 
 class CFBDClient:
@@ -137,6 +182,50 @@ def _flatten_fpi(records: list[dict]) -> pd.DataFrame:
     )
 
 
+def _flatten_game_ppa(records: list[dict]) -> pd.DataFrame:
+    rows: list[dict] = []
+    for entry in records:
+        offense = entry.get("offense") or {}
+        defense = entry.get("defense") or {}
+        rows.append(
+            {
+                "game_id": entry.get("gameId"),
+                "team": entry.get("team"),
+                "opponent": entry.get("opponent"),
+                "season": entry.get("season"),
+                "week": entry.get("week"),
+                "season_type": entry.get("seasonType"),
+                "off_ppa_overall": offense.get("overall"),
+                "off_ppa_passing": offense.get("passing"),
+                "off_ppa_rushing": offense.get("rushing"),
+                "def_ppa_overall": defense.get("overall"),
+                "def_ppa_passing": defense.get("passing"),
+                "def_ppa_rushing": defense.get("rushing"),
+            }
+    )
+    return pd.DataFrame(rows)
+
+
+def _load_latest_csv(data_dirs: list[Path], patterns: Iterable[str]) -> pd.DataFrame:
+    candidates: list[Path] = []
+    for directory in data_dirs:
+        if not directory.exists():
+            continue
+        for pattern in patterns:
+            if any(ch in pattern for ch in "*?[]"):
+                paths = list(directory.glob(pattern))
+            else:
+                paths = [directory / pattern]
+            for path in paths:
+                if path.exists():
+                    candidates.append(path)
+    if not candidates:
+        joined = ", ".join(patterns)
+        raise FileNotFoundError(f"No CSV found matching patterns: {joined}")
+    candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return pd.read_csv(candidates[0])
+
+
 def _aggregate_team_metrics(
     df: pd.DataFrame,
     *,
@@ -166,11 +255,48 @@ def _aggregate_team_metrics(
 
 
 def load_pff_team_metrics(data_dir: Path = PFF_DATA_DIR) -> pd.DataFrame:
+    data_dir = data_dir.expanduser()
+    source_dirs: list[Path] = []
+    if PFF_COMBINED_DATA_DIR.exists():
+        source_dirs.append(PFF_COMBINED_DATA_DIR.expanduser())
+    source_dirs.append(data_dir)
+
     try:
-        receiving = pd.read_csv(data_dir / "receiving_summary_FBS.csv")
-        blocking = pd.read_csv(data_dir / "offense_blocking FBS.csv")
-        defense = pd.read_csv(data_dir / "defense_summary FBS.csv")
-        special = pd.read_csv(data_dir / "special_teams_summary_FBS.csv")
+        receiving = _load_latest_csv(
+            source_dirs,
+            [
+                "receiving_summary*FBS*FCS*.csv",
+                "receiving_summary_FBS.csv",
+                "receiving_summaryFBS.csv",
+                "receiving_summary.csv",
+            ],
+        )
+        blocking = _load_latest_csv(
+            source_dirs,
+            [
+                "offense_blocking*FBS*FCS*.csv",
+                "offense_blocking FBS.csv",
+                "offense_blocking_FBS.csv",
+                "offense_blocking.csv",
+            ],
+        )
+        defense = _load_latest_csv(
+            source_dirs,
+            [
+                "defense_summary*FBS*FCS*.csv",
+                "defense_summary FBS.csv",
+                "defense_summary_FBS.csv",
+                "defense_summary.csv",
+            ],
+        )
+        special = _load_latest_csv(
+            source_dirs,
+            [
+                "special_teams_summary*FBS*FCS*.csv",
+                "special_teams_summary_FBS.csv",
+                "special_teams_summary.csv",
+            ],
+        )
     except FileNotFoundError:
         return pd.DataFrame(columns=["team"])
 
@@ -228,10 +354,17 @@ def load_pff_team_metrics(data_dir: Path = PFF_DATA_DIR) -> pd.DataFrame:
     return pff.rename(columns={"team_name": "team"})
 
 
-def fetch_team_metrics(year: int, api_key: Optional[str] = None) -> pd.DataFrame:
+def fetch_team_metrics(
+    year: int,
+    api_key: Optional[str] = None,
+    *,
+    through_week: Optional[int] = None,
+    season_type: str = "regular",
+) -> pd.DataFrame:
     client = CFBDClient(api_key)
 
-    ppa = _flatten_ppa(client.get("/ppa/teams", year=year))
+    ppa_raw = client.get("/ppa/teams", year=year, seasonType=season_type)
+    ppa = _flatten_ppa(ppa_raw)
     sp = _flatten_sp(client.get("/ratings/sp", year=year))
     elo = _flatten_elo(client.get("/ratings/elo", year=year))
     fpi = _flatten_fpi(client.get("/ratings/fpi", year=year))
@@ -239,14 +372,45 @@ def fetch_team_metrics(year: int, api_key: Optional[str] = None) -> pd.DataFrame
     teams = ppa.merge(sp, on="team", how="outer")
     teams = teams.merge(elo, on="team", how="outer")
     teams = teams.merge(fpi, on="team", how="outer")
+
+    try:
+        game_records = client.get("/ppa/games", year=year, seasonType=season_type)
+        games = _flatten_game_ppa(game_records)
+        if through_week is not None:
+            games = games[games["week"].fillna(0) <= through_week]
+        adj = compute_opponent_adjusted_ppa(ppa, games)
+    except requests.HTTPError:
+        adj = pd.DataFrame(columns=["team"])
+
+    if not adj.empty:
+        teams = teams.merge(adj, on="team", how="left")
+
     pff = load_pff_team_metrics()
     if not pff.empty:
         teams = teams.merge(pff, on="team", how="left")
+
+    injuries = fetch_injury_impacts(
+        year,
+        api_key or os.environ.get("CFBD_API_KEY"),
+        week=through_week,
+        season_type=season_type,
+    )
+    if not injuries.empty:
+        teams = teams.merge(injuries, on="team", how="left")
 
     for col in teams.columns:
         if col == "team":
             continue
         teams[col] = pd.to_numeric(teams[col], errors="coerce")
+
+    if "injury_offense_penalty" not in teams.columns:
+        teams["injury_offense_penalty"] = 0.0
+    else:
+        teams["injury_offense_penalty"] = teams["injury_offense_penalty"].fillna(0.0)
+    if "injury_defense_penalty" not in teams.columns:
+        teams["injury_defense_penalty"] = 0.0
+    else:
+        teams["injury_defense_penalty"] = teams["injury_defense_penalty"].fillna(0.0)
 
     return teams
 
@@ -376,6 +540,175 @@ def fetch_market_lines(
     return lookup
 
 
+def compute_opponent_adjusted_ppa(
+    season_ppa: pd.DataFrame,
+    game_ppa: pd.DataFrame,
+) -> pd.DataFrame:
+    if season_ppa.empty or game_ppa.empty:
+        return pd.DataFrame(columns=["team"])
+
+    season_lookup = {}
+    for team_name, row in season_ppa.set_index("team").iterrows():
+        season_lookup[str(team_name).lower()] = row
+
+    def _lookup(team: Optional[str], key: str) -> Optional[float]:
+        if not team:
+            return None
+        record = season_lookup.get(str(team).lower())
+        if record is None:
+            return None
+        value = record.get(key)
+        return float(value) if pd.notna(value) else None
+
+    df = game_ppa.copy()
+    df.dropna(subset=["team", "opponent"], inplace=True)
+
+    df["opp_def_overall"] = df["opponent"].apply(lambda t: _lookup(t, "ppa_defense"))
+    df["opp_def_passing"] = df["opponent"].apply(lambda t: _lookup(t, "ppa_def_pass"))
+    df["opp_def_rushing"] = df["opponent"].apply(lambda t: _lookup(t, "ppa_def_rush"))
+    df["opp_off_overall"] = df["opponent"].apply(lambda t: _lookup(t, "ppa_offense"))
+    df["opp_off_passing"] = df["opponent"].apply(lambda t: _lookup(t, "ppa_passing"))
+    df["opp_off_rushing"] = df["opponent"].apply(lambda t: _lookup(t, "ppa_rushing"))
+
+    for col in [
+        "off_ppa_overall",
+        "off_ppa_passing",
+        "off_ppa_rushing",
+        "def_ppa_overall",
+        "def_ppa_passing",
+        "def_ppa_rushing",
+    ]:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    df["adj_off_overall"] = df["off_ppa_overall"] - df["opp_def_overall"]
+    df["adj_off_passing"] = df["off_ppa_passing"] - df["opp_def_passing"]
+    df["adj_off_rushing"] = df["off_ppa_rushing"] - df["opp_def_rushing"]
+    df["adj_def_overall"] = df["def_ppa_overall"] - df["opp_off_overall"]
+    df["adj_def_passing"] = df["def_ppa_passing"] - df["opp_off_passing"]
+    df["adj_def_rushing"] = df["def_ppa_rushing"] - df["opp_off_rushing"]
+
+    agg = (
+        df.groupby("team")[
+            [
+                "adj_off_overall",
+                "adj_off_passing",
+                "adj_off_rushing",
+                "adj_def_overall",
+                "adj_def_passing",
+                "adj_def_rushing",
+            ]
+        ]
+        .mean()
+        .reset_index()
+    )
+    agg = agg.rename(
+        columns={
+            "adj_off_overall": "adj_ppa_offense",
+            "adj_off_passing": "adj_ppa_offense_pass",
+            "adj_off_rushing": "adj_ppa_offense_rush",
+            "adj_def_overall": "adj_ppa_defense",
+            "adj_def_passing": "adj_ppa_defense_pass",
+            "adj_def_rushing": "adj_ppa_defense_rush",
+        }
+    )
+    return agg
+
+
+def _graphql_request(api_key: str, query: str, variables: dict) -> Optional[dict]:
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+    try:
+        resp = requests.post(
+            BASE_URL + "/graphql",
+            json={"query": query, "variables": variables},
+            headers=headers,
+            timeout=60,
+        )
+    except requests.RequestException:
+        return None
+    content_type = resp.headers.get("content-type", "")
+    if "application/json" not in content_type.lower():
+        return None
+    try:
+        payload = resp.json()
+    except ValueError:
+        return None
+    if payload.get("errors"):
+        first_error = payload["errors"][0]
+        message = first_error.get("message", "unknown GraphQL error")
+        warnings.warn(f"CFBD GraphQL error: {message}", RuntimeWarning)
+        return None
+    return payload.get("data")
+
+
+def fetch_injury_impacts(
+    year: int,
+    api_key: Optional[str],
+    *,
+    week: Optional[int] = None,
+    season_type: str = "regular",
+) -> pd.DataFrame:
+    global _INJURY_WARNING_EMITTED
+    if not api_key:
+        return pd.DataFrame(columns=["team"])
+
+    variables = {
+        "season": year,
+        "seasonType": season_type.upper() if isinstance(season_type, str) else season_type,
+        "week": week,
+    }
+    query = """
+    query TeamInjuries($season: Int!, $seasonType: SeasonType, $week: Int) {
+      teamInjuries(season: $season, seasonType: $seasonType, week: $week) {
+        team
+        status
+        player {
+          name
+          position
+        }
+      }
+    }
+    """
+    data = _graphql_request(api_key, query, variables)
+    entries: list[dict] = []
+    if not data:
+        if not _INJURY_WARNING_EMITTED:
+            warnings.warn(
+                "CFBD GraphQL injuries unavailable; skipping injury adjustments.",
+                RuntimeWarning,
+            )
+            _INJURY_WARNING_EMITTED = True
+        return pd.DataFrame(columns=["team"])
+
+    raw = data.get("teamInjuries") or data.get("injuries") or []
+    for entry in raw:
+        team = entry.get("team")
+        status = (entry.get("status") or "").strip().lower()
+        player = entry.get("player") or entry.get("athlete") or {}
+        position = (player.get("position") or entry.get("position") or "").strip().upper()
+        penalty = STATUS_PENALTIES.get(status, 0.0)
+        if not team or penalty <= 0.0:
+            continue
+        offense_pen = penalty if position in OFFENSE_POSITIONS else 0.0
+        defense_pen = penalty if position in DEFENSE_POSITIONS else 0.0
+        if offense_pen == 0.0 and defense_pen == 0.0:
+            continue
+        entries.append(
+            {
+                "team": team,
+                "injury_offense_penalty": offense_pen,
+                "injury_defense_penalty": defense_pen,
+            }
+        )
+
+    if not entries:
+        return pd.DataFrame(columns=["team"])
+    df = pd.DataFrame(entries)
+    grouped = df.groupby("team")[["injury_offense_penalty", "injury_defense_penalty"]].sum().reset_index()
+    return grouped
 def _coerce_float(value: Optional[float]) -> Optional[float]:
     if value is None or value == "":
         return None
@@ -533,6 +866,12 @@ def build_ratings(teams: pd.DataFrame) -> pd.DataFrame:
         "ppa_defense",
         "ppa_def_pass",
         "ppa_def_rush",
+        "adj_ppa_offense",
+        "adj_ppa_offense_pass",
+        "adj_ppa_offense_rush",
+        "adj_ppa_defense",
+        "adj_ppa_defense_pass",
+        "adj_ppa_defense_rush",
         "sp_rating",
         "sp_offense",
         "sp_defense",
@@ -561,30 +900,39 @@ def build_ratings(teams: pd.DataFrame) -> pd.DataFrame:
             teams[z_col] = teams[z_col].fillna(0.0)
 
     teams["offense_rating"] = (
-        0.30 * teams.get("ppa_offense_z", 0.0)
-        + 0.15 * teams.get("ppa_passing_z", 0.0)
-        + 0.15 * teams.get("ppa_rushing_z", 0.0)
-        + 0.20 * teams.get("sp_offense_z", 0.0)
-        + 0.10 * teams.get("fpi_offense_z", 0.0)
+        0.20 * teams.get("ppa_offense_z", 0.0)
+        + 0.11 * teams.get("ppa_passing_z", 0.0)
+        + 0.11 * teams.get("ppa_rushing_z", 0.0)
+        + 0.18 * teams.get("sp_offense_z", 0.0)
+        + 0.08 * teams.get("fpi_offense_z", 0.0)
         + 0.05 * teams.get("sp_special_z", 0.0)
+        + 0.06 * teams.get("adj_ppa_offense_z", 0.0)
+        + 0.04 * teams.get("adj_ppa_offense_pass_z", 0.0)
+        + 0.04 * teams.get("adj_ppa_offense_rush_z", 0.0)
         + 0.10 * teams.get("receiving_grade_route_z", 0.0)
         + 0.05 * teams.get("receiving_yprr_z", 0.0)
-        + 0.08 * teams.get("blocking_grade_pass_z", 0.0)
-        + 0.05 * teams.get("blocking_grade_run_z", 0.0)
+        + 0.07 * teams.get("blocking_grade_pass_z", 0.0)
+        + 0.04 * teams.get("blocking_grade_run_z", 0.0)
         + 0.02 * teams.get("blocking_pbe_z", 0.0)
     )
 
     teams["defense_rating"] = (
-        -0.35 * teams.get("ppa_defense_z", 0.0)
-        - 0.20 * teams.get("ppa_def_pass_z", 0.0)
-        - 0.15 * teams.get("ppa_def_rush_z", 0.0)
-        - 0.20 * teams.get("sp_defense_z", 0.0)
-        - 0.10 * teams.get("fpi_defense_z", 0.0)
-        - 0.08 * teams.get("defense_grade_overall_z", 0.0)
+        -0.26 * teams.get("ppa_defense_z", 0.0)
+        - 0.16 * teams.get("ppa_def_pass_z", 0.0)
+        - 0.16 * teams.get("ppa_def_rush_z", 0.0)
+        - 0.18 * teams.get("sp_defense_z", 0.0)
+        - 0.09 * teams.get("fpi_defense_z", 0.0)
+        - 0.07 * teams.get("adj_ppa_defense_z", 0.0)
+        - 0.06 * teams.get("adj_ppa_defense_pass_z", 0.0)
+        - 0.06 * teams.get("adj_ppa_defense_rush_z", 0.0)
+        - 0.06 * teams.get("defense_grade_overall_z", 0.0)
         - 0.05 * teams.get("defense_grade_pass_rush_z", 0.0)
         - 0.05 * teams.get("defense_grade_coverage_z", 0.0)
-        - 0.02 * teams.get("defense_grade_run_z", 0.0)
+        - 0.03 * teams.get("defense_grade_run_z", 0.0)
     )
+
+    teams["offense_rating"] = teams["offense_rating"] - teams.get("injury_offense_penalty", 0.0)
+    teams["defense_rating"] = teams["defense_rating"] + teams.get("injury_defense_penalty", 0.0)
 
     teams["power_rating"] = (
         teams["offense_rating"]
@@ -696,6 +1044,173 @@ def fit_probability_sigma(book: RatingBook, games: Iterable[dict]) -> Optional[f
     return float(best_sigma)
 
 
+def _lookup_team_row(ratings: pd.DataFrame, team: str) -> Optional[pd.Series]:
+    if "team" not in ratings.columns:
+        return None
+    team_lower = team.lower()
+    mask = ratings["team"].str.lower() == team_lower
+    if mask.any():
+        return ratings.loc[mask].iloc[0]
+    mask = ratings["team"].str.contains(team, case=False, regex=False)
+    if mask.any():
+        return ratings.loc[mask].iloc[0]
+    return None
+
+
+def refit_scoring_constants(
+    ratings: pd.DataFrame,
+    games: Iterable[dict],
+    power_adjustments: Dict[str, float],
+    constants: RatingConstants,
+) -> RatingConstants:
+    margin_rows: list[tuple[float, float, float, float]] = []
+    margin_targets: list[float] = []
+    total_rows: list[tuple[float, float, float]] = []
+    total_targets: list[float] = []
+
+    for game in games:
+        if game.get("completed") is not True:
+            continue
+        if game.get("homeClassification") != "fbs" or game.get("awayClassification") != "fbs":
+            continue
+        home_points = game.get("homePoints")
+        away_points = game.get("awayPoints")
+        if home_points is None or away_points is None:
+            continue
+        home_team = game["homeTeam"]
+        away_team = game["awayTeam"]
+        home_row = _lookup_team_row(ratings, home_team)
+        away_row = _lookup_team_row(ratings, away_team)
+        if home_row is None or away_row is None:
+            continue
+
+        off_diff = float(home_row.get("offense_rating", 0.0) - away_row.get("offense_rating", 0.0))
+        def_diff = float(home_row.get("defense_rating", 0.0) - away_row.get("defense_rating", 0.0))
+        power_diff = float(
+            home_row.get("power_rating", 0.0)
+            + power_adjustments.get(home_row.get("team", ""), 0.0)
+            - away_row.get("power_rating", 0.0)
+            - power_adjustments.get(away_row.get("team", ""), 0.0)
+        )
+        neutral = bool(game.get("neutralSite"))
+        home_flag = 0.0 if neutral else 1.0
+
+        margin_rows.append((home_flag, off_diff, def_diff, power_diff))
+        margin_targets.append(float(home_points - away_points))
+
+        off_sum = float(home_row.get("offense_rating", 0.0) + away_row.get("offense_rating", 0.0))
+        neg_def_sum = float(-(home_row.get("defense_rating", 0.0) + away_row.get("defense_rating", 0.0)))
+        total_rows.append((1.0, off_sum, neg_def_sum))
+        total_targets.append(float(home_points + away_points))
+
+    if len(margin_rows) < 25 or len(total_rows) < 25:
+        return constants
+
+    X_margin = np.array(margin_rows)
+    y_margin = np.array(margin_targets)
+    try:
+        X_margin_base = X_margin[:, :3]
+        coeff_margin_base, _, _, _ = np.linalg.lstsq(X_margin_base, y_margin, rcond=None)
+    except np.linalg.LinAlgError:
+        return constants
+    residual_margin = y_margin - X_margin_base @ coeff_margin_base
+    power_vec = X_margin[:, 3]
+    denom = float(np.dot(power_vec, power_vec))
+    if denom > 1e-6:
+        power_factor = float(np.dot(power_vec, residual_margin) / denom)
+    else:
+        power_factor = constants.power_factor
+
+    X_total = np.array(total_rows)
+    y_total = np.array(total_targets)
+    try:
+        coeff_total, _, _, _ = np.linalg.lstsq(X_total, y_total, rcond=None)
+    except np.linalg.LinAlgError:
+        return constants
+
+    home_field = float(coeff_margin_base[0])
+    offense_factor_spread = float(coeff_margin_base[1])
+    defense_factor_spread = float(coeff_margin_base[2])
+
+    avg_total = float(coeff_total[0])
+    offense_factor_total = float(coeff_total[1])
+    defense_factor_total = float(coeff_total[2])
+
+    def _fallback(value: float, default: float, low: float, high: float) -> float:
+        if not math.isfinite(value):
+            return default
+        return float(np.clip(value, low, high))
+
+    offense_factor = 0.5 * (offense_factor_spread + offense_factor_total)
+    defense_factor = 0.5 * (defense_factor_spread + defense_factor_total)
+    offense_factor = _fallback(offense_factor, constants.offense_factor, 0.0, 8.0)
+    defense_factor = _fallback(defense_factor, constants.defense_factor, 0.0, 8.0)
+    if offense_factor < 1e-6:
+        offense_factor = constants.offense_factor
+    if defense_factor < 1e-6:
+        defense_factor = constants.defense_factor
+
+    return RatingConstants(
+        avg_total=_fallback(avg_total, constants.avg_total, 30.0, 90.0),
+        home_field_advantage=_fallback(home_field, constants.home_field_advantage, 0.0, 6.0),
+        offense_factor=offense_factor,
+        defense_factor=defense_factor,
+        power_factor=_fallback(power_factor, constants.power_factor, -2.0, 4.0),
+        spread_sigma=constants.spread_sigma,
+    )
+
+
+def fit_linear_calibrations(
+    book: RatingBook,
+    games: Iterable[dict],
+) -> tuple[tuple[float, float], tuple[float, float]]:
+    margins_pred: list[float] = []
+    margins_actual: list[float] = []
+    totals_pred: list[float] = []
+    totals_actual: list[float] = []
+
+    for game in games:
+        if game.get("completed") is not True:
+            continue
+        if game.get("homeClassification") != "fbs" or game.get("awayClassification") != "fbs":
+            continue
+        home_points = game.get("homePoints")
+        away_points = game.get("awayPoints")
+        if home_points is None or away_points is None:
+            continue
+        try:
+            raw = book.predict(
+                game["homeTeam"],
+                game["awayTeam"],
+                neutral_site=game.get("neutralSite", False),
+                calibrated=False,
+            )
+        except KeyError:
+            continue
+        margins_pred.append(raw["spread_home_minus_away"])
+        margins_actual.append(home_points - away_points)
+        totals_pred.append(raw["total_points"])
+        totals_actual.append(home_points + away_points)
+
+    def _fit(pred: list[float], actual: list[float]) -> tuple[float, float]:
+        if len(pred) < 30:
+            return (0.0, 1.0)
+        x = np.array(pred)
+        y = np.array(actual)
+        slope, intercept = np.polyfit(x, y, 1)
+        if not np.isfinite(slope) or abs(slope) < 1e-6:
+            slope = 1.0
+        if not np.isfinite(intercept):
+            intercept = 0.0
+        slope = float(np.clip(slope, 0.3, 1.5))
+        intercept = float(np.clip(intercept, -15.0, 15.0))
+        return (float(intercept), float(slope))
+
+    spread_cal = _fit(margins_pred, margins_actual)
+    total_cal = _fit(totals_pred, totals_actual)
+    return spread_cal, total_cal
+
+
 def build_rating_book(
     year: int,
     *,
@@ -705,7 +1220,11 @@ def build_rating_book(
     constants: Optional[RatingConstants] = None,
 ) -> tuple[pd.DataFrame, RatingBook]:
     constants = constants or RatingConstants()
-    teams_raw = fetch_team_metrics(year, api_key=api_key)
+    teams_raw = fetch_team_metrics(
+        year,
+        api_key=api_key,
+        through_week=adjust_week,
+    )
     ratings = build_ratings(teams_raw)
     adjustments: Dict[str, float] = {}
     if adjust_week is not None and adjust_week > 1:
@@ -719,9 +1238,15 @@ def build_rating_book(
             constants=constants,
             up_to_week=adjust_week,
         )
+    if calibration_games:
+        constants = refit_scoring_constants(ratings, calibration_games, adjustments, constants)
     book = RatingBook(ratings, constants, power_adjustments=adjustments)
     if calibration_games:
-        sigma = fit_probability_sigma(book, calibration_games)
+        games_list = list(calibration_games)
+        spread_cal, total_cal = fit_linear_calibrations(book, games_list)
+        book.spread_calibration = spread_cal
+        book.total_calibration = total_cal
+        sigma = fit_probability_sigma(book, games_list)
         if sigma:
             book.prob_sigma = sigma
     return ratings, book
@@ -751,9 +1276,9 @@ class RatingBook:
         self.teams = teams
         self.constants = constants
         self.power_adjustments = power_adjustments or {}
-        # Calibration parameters derived from training data (Weeks 5-10, 2025).
-        self.spread_calibration = (-0.283736, 1.018197)
-        self.total_calibration = (-11.81207161, 1.16842142)
+        # Defaults before historical calibration is applied.
+        self.spread_calibration = (0.0, 1.0)
+        self.total_calibration = (0.0, 1.0)
         self.prob_sigma = constants.spread_sigma
 
     def _lookup(self, team: str) -> pd.Series:
@@ -775,7 +1300,7 @@ class RatingBook:
             "power_rating": row["power_rating"] + self.power_adjustments.get(row["team"], 0.0),
         }
 
-    def predict(self, home: str, away: str, neutral_site: bool = False) -> Dict[str, float]:
+    def _predict_raw(self, home: str, away: str, neutral_site: bool = False) -> Dict[str, float]:
         home_row = self._lookup(home)
         away_row = self._lookup(away)
         const = self.constants
@@ -801,19 +1326,8 @@ class RatingBook:
 
         total = home_points + away_points
 
-        # Apply linear calibration to align predictions with historical margins/totals.
-        a_s, b_s = self.spread_calibration
-        a_t, b_t = self.total_calibration
-        spread = a_s + b_s * spread
-        total = a_t + b_t * total
-
-        # Recompute implied team totals from calibrated spread/total.
-        home_points = (total + spread) / 2.0
-        away_points = total - home_points
-        win_prob = 0.5 * (1.0 + math.erf(spread / (self.prob_sigma * math.sqrt(2))))
-
-        home_win_prob = win_prob
-        away_win_prob = 1.0 - win_prob
+        home_win_prob = 0.5 * (1.0 + math.erf(spread / (self.prob_sigma * math.sqrt(2))))
+        away_win_prob = 1.0 - home_win_prob
 
         return {
             "home_team": home_row["team"],
@@ -824,9 +1338,48 @@ class RatingBook:
             "total_points": total,
             "home_win_prob": home_win_prob,
             "away_win_prob": away_win_prob,
-            "home_moneyline": _moneyline_from_prob(home_win_prob),
-            "away_moneyline": _moneyline_from_prob(away_win_prob),
         }
+
+    def predict(
+        self,
+        home: str,
+        away: str,
+        neutral_site: bool = False,
+        *,
+        calibrated: bool = True,
+    ) -> Dict[str, float]:
+        raw = self._predict_raw(home, away, neutral_site=neutral_site)
+        if not calibrated:
+            raw = raw.copy()
+            raw["home_moneyline"] = _moneyline_from_prob(raw["home_win_prob"])
+            raw["away_moneyline"] = _moneyline_from_prob(raw["away_win_prob"])
+            return raw
+
+        spread = raw["spread_home_minus_away"]
+        total = raw["total_points"]
+        a_s, b_s = self.spread_calibration
+        a_t, b_t = self.total_calibration
+        spread = a_s + b_s * spread
+        total = a_t + b_t * total
+        home_points = (total + spread) / 2.0
+        away_points = total - home_points
+        home_win_prob = 0.5 * (1.0 + math.erf(spread / (self.prob_sigma * math.sqrt(2))))
+        away_win_prob = 1.0 - home_win_prob
+
+        result = raw.copy()
+        result.update(
+            {
+                "home_points": home_points,
+                "away_points": away_points,
+                "spread_home_minus_away": spread,
+                "total_points": total,
+                "home_win_prob": home_win_prob,
+                "away_win_prob": away_win_prob,
+                "home_moneyline": _moneyline_from_prob(home_win_prob),
+                "away_moneyline": _moneyline_from_prob(away_win_prob),
+            }
+        )
+        return result
 
 
 def parse_args() -> argparse.Namespace:

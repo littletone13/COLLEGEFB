@@ -80,7 +80,10 @@ def load_closing_lines(path: Optional[Path], provider: str, year: int, api_key: 
                     "AwayMoneyline": line.get("awayMoneyline"),
                 }
             )
-    df = pd.DataFrame(records).drop_duplicates(subset="Id", keep="last").set_index("Id")
+    df = pd.DataFrame(records)
+    if df.empty or "Id" not in df.columns:
+        return pd.DataFrame(columns=["Spread", "OverUnder", "HomeMoneyline", "AwayMoneyline"])
+    df = df.drop_duplicates(subset="Id", keep="last").set_index("Id")
     return df
 
 
@@ -100,12 +103,16 @@ def evaluate_season(
     api_key: str,
     hist_path: Optional[Path],
     provider: str,
+    max_week: Optional[int] = None,
 ) -> BacktestResult:
-    teams_raw = fbs.fetch_team_metrics(year, api_key=api_key)
-    ratings = fbs.build_ratings(teams_raw)
-    book = fbs.RatingBook(ratings, fbs.RatingConstants())
-
     games = _fetch_cfbd("/games", api_key=api_key, params={"year": year, "seasonType": "regular"})
+    if max_week is not None:
+        games = [game for game in games if (game.get("week") or 0) <= max_week]
+    ratings, book = fbs.build_rating_book(
+        year,
+        api_key=api_key,
+        calibration_games=games,
+    )
     weather_lookup = {game.get("id"): game.get("weather") for game in games}
     lines = load_closing_lines(hist_path, provider, year, api_key)
 
@@ -205,6 +212,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--historical", type=Path, help="Optional CSV with closing lines (fallback to API).")
     parser.add_argument("--provider", type=str, default="DraftKings", help="Sportsbook provider to filter.")
     parser.add_argument("--api-key", type=str, help="Optional CFBD API key (defaults to CFBD_API_KEY env var).")
+    parser.add_argument("--max-week", type=int, help="Optional limit on the maximum week to include.")
     return parser.parse_args()
 
 
@@ -214,7 +222,13 @@ def main() -> None:
     if not api_key:
         raise RuntimeError("CFBD API key not provided. Use --api-key or set CFBD_API_KEY env var.")
 
-    result = evaluate_season(args.year, api_key=api_key, hist_path=args.historical, provider=args.provider)
+    result = evaluate_season(
+        args.year,
+        api_key=api_key,
+        hist_path=args.historical,
+        provider=args.provider,
+        max_week=args.max_week,
+    )
     print(f"Season {args.year} backtest over {result.games} games")
     print(f"Spread MAE: {result.spread_mae:.2f} pts")
     print(f"Total MAE: {result.total_mae:.2f} pts")

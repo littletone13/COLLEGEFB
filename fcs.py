@@ -16,16 +16,24 @@ from __future__ import annotations
 import argparse
 import math
 import warnings
+from typing import Dict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, Mapping, Optional
 
 import pandas as pd
 import numpy as np
+import requests
 
 import ncaa_stats
 
 DATA_DIR_DEFAULT = Path("~/Desktop/PFFMODEL_FBS/FCS_DATA").expanduser()
+ADJUSTED_DATA_GLOB = "fcs_adjusted*/fcs_adjusted_{kind}_*.csv"
+CFBD_BASE_URL = "https://api.collegefootballdata.com"
+
+FCS_MARKET_SPREAD_WEIGHT = 0.7
+FCS_MARKET_TOTAL_WEIGHT = 0.7
+PFF_COMBINED_DATA_DIR = Path("~/Desktop/POST WEEK 9 FBS & FCS DATA").expanduser()
 
 FCS_SPREAD_CALIBRATION = (0.0, 1.0)
 FCS_TOTAL_CALIBRATION = (0.0, 1.0)
@@ -99,12 +107,185 @@ FCS_SPREAD_REG_WEIGHTS = {
 
 
 def _read_first_available(data_dir: Path, candidates: Iterable[str]) -> pd.DataFrame:
-    for name in candidates:
-        path = (data_dir / name).expanduser()
-        if path.exists():
-            return pd.read_csv(path)
+    directories = []
+    combined = PFF_COMBINED_DATA_DIR.expanduser()
+    if combined.exists():
+        directories.append(combined)
+    directories.append(data_dir.expanduser())
+    for directory in directories:
+        for name in candidates:
+            if any(ch in name for ch in "*?[]"):
+                paths = sorted(
+                    directory.glob(name),
+                    key=lambda p: p.stat().st_mtime if p.exists() else 0,
+                    reverse=True,
+                )
+            else:
+                paths = [(directory / name)]
+            for path in paths:
+                if path.exists():
+                    return pd.read_csv(path)
     joined = ", ".join(candidates)
-    raise FileNotFoundError(f"None of the files were found in {data_dir}: {joined}")
+    raise FileNotFoundError(f"None of the files were found in {data_dir} or supplemental sources: {joined}")
+
+
+def _load_adjusted_metrics(season_year: Optional[int]) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Load ridge-regression opponent-adjusted offense/defense metrics if available."""
+
+    if not season_year:
+        return pd.DataFrame(), pd.DataFrame()
+
+    def _first_matching(kind: str) -> Optional[Path]:
+        patterns = [
+            Path(".") / f"fcs_adjusted_{season_year}/fcs_adjusted_{kind}_{season_year}.csv",
+            Path(".") / f"fcs_adjusted_{season_year}_wk1_9/fcs_adjusted_{kind}_{season_year}.csv",
+        ]
+        matches = [p for p in patterns if p.exists()]
+        if not matches:
+            glob_pattern = ADJUSTED_DATA_GLOB.format(kind=kind)
+            matches = sorted(
+                Path(".").glob(glob_pattern),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
+            matches = [p for p in matches if f"_{season_year}" in p.name]
+        return matches[0] if matches else None
+
+    offense_path = _first_matching("offense")
+    defense_path = _first_matching("defense")
+    offense_df = pd.read_csv(offense_path) if offense_path else pd.DataFrame()
+    defense_df = pd.read_csv(defense_path) if defense_path else pd.DataFrame()
+    return offense_df, defense_df
+
+
+def _coerce_float(value: Optional[float]) -> Optional[float]:
+    if value is None or value == "":
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    filtered = ''.join(ch for ch in str(value) if ch.isdigit() or ch in {'.', '-', '+'})
+    if not filtered:
+        return None
+    try:
+        return float(filtered)
+    except ValueError:
+        return None
+
+
+def fetch_market_lines(
+    year: int,
+    api_key: str,
+    *,
+    week: Optional[int] = None,
+    season_type: str = "regular",
+    classification: str = "fcs",
+    provider: Optional[str] = None,
+) -> list[dict]:
+    headers = {"Authorization": f"Bearer {api_key}"}
+    params: Dict[str, object] = {"year": year}
+    if season_type:
+        params["seasonType"] = season_type
+    if week is not None:
+        params["week"] = week
+    if classification:
+        params["classification"] = classification
+    if provider:
+        params["provider"] = provider.lower()
+
+    resp = requests.get(
+        CFBD_BASE_URL + "/lines",
+        headers=headers,
+        params=params,
+        timeout=60,
+    )
+    if resp.status_code == 401:
+        raise RuntimeError("CFBD API rejected the key when fetching FCS lines (401).")
+    resp.raise_for_status()
+
+    records: list[dict] = []
+    for entry in resp.json():
+        if entry.get("homeClassification") != "fcs" or entry.get("awayClassification") != "fcs":
+            continue
+        lines = entry.get("lines") or []
+        spreads = []
+        totals = []
+        providers: set[str] = set()
+        for line in lines:
+            prov = line.get("provider")
+            if prov:
+                providers.add(prov)
+            spread_raw = _coerce_float(line.get("spread"))
+            if spread_raw is not None:
+                spreads.append(-spread_raw)
+            total_raw = _coerce_float(line.get("overUnder"))
+            if total_raw is not None:
+                totals.append(total_raw)
+        records.append(
+            {
+                "game_id": entry.get("id"),
+                "home_team": entry.get("homeTeam"),
+                "away_team": entry.get("awayTeam"),
+                "spread": float(np.mean(spreads)) if spreads else None,
+                "total": float(np.mean(totals)) if totals else None,
+                "providers": sorted(providers),
+            }
+        )
+    return records
+
+
+def apply_market_prior(
+    result: Dict[str, float],
+    market: Optional[dict],
+    *,
+    spread_weight: float = FCS_MARKET_SPREAD_WEIGHT,
+    total_weight: float = FCS_MARKET_TOTAL_WEIGHT,
+) -> Dict[str, float]:
+    if not market:
+        result.setdefault("market_spread", None)
+        result.setdefault("market_total", None)
+        result.setdefault("market_providers", [])
+        result.setdefault("market_provider_count", 0)
+        result.setdefault("spread_vs_market", None)
+        result.setdefault("total_vs_market", None)
+        return result
+
+    updated = result.copy()
+    spread = updated.get("spread_team_one_minus_team_two")
+    total = updated.get("total_points")
+    if spread is None or total is None:
+        return updated
+
+    market_spread = market.get("spread")
+    market_total = market.get("total")
+    providers = market.get("providers") or []
+
+    if market_spread is not None:
+        w = min(max(spread_weight, 0.0), 1.0)
+        spread = (1.0 - w) * spread + w * market_spread
+    if market_total is not None:
+        w = min(max(total_weight, 0.0), 1.0)
+        total = (1.0 - w) * total + w * market_total
+
+    home_points = (total + spread) / 2.0
+    away_points = total - home_points
+    win_prob = 0.5 * (1.0 + math.erf(spread / (FCS_PROB_SIGMA * math.sqrt(2))))
+    win_prob = min(max(win_prob, 0.0), 1.0)
+
+    updated["spread_team_one_minus_team_two"] = spread
+    updated["total_points"] = max(20.0, total)
+    updated["team_one_points"] = home_points
+    updated["team_two_points"] = away_points
+    updated["team_one_win_prob"] = win_prob
+    updated["team_two_win_prob"] = 1.0 - win_prob
+    updated["team_one_moneyline"] = RatingBook._prob_to_moneyline(win_prob)
+    updated["team_two_moneyline"] = RatingBook._prob_to_moneyline(1.0 - win_prob)
+    updated["market_spread"] = market_spread
+    updated["market_total"] = market_total
+    updated["market_providers"] = providers
+    updated["market_provider_count"] = len(providers)
+    updated["spread_vs_market"] = (spread - market_spread) if market_spread is not None else None
+    updated["total_vs_market"] = (total - market_total) if market_total is not None else None
+    return updated
 
 # --- Aggregation helpers --------------------------------------------------
 
@@ -329,6 +510,7 @@ def load_team_ratings(
     receiving = _read_first_available(
         data_dir,
         (
+            "receiving_summary*FBS*FCS*.csv",
             "receiving_summary_FCS.csv",
             "receiving_summary_FBS.csv",
             "receiving_summary.csv",
@@ -337,6 +519,7 @@ def load_team_ratings(
     blocking = _read_first_available(
         data_dir,
         (
+            "offense_blocking*FBS*FCS*.csv",
             "offense_blocking_FCS.csv",
             "offense_blocking FBS.csv",
             "offense_blocking.csv",
@@ -345,6 +528,7 @@ def load_team_ratings(
     defense = _read_first_available(
         data_dir,
         (
+            "defense_summary*FBS*FCS*.csv",
             "defense_summary_FCS.csv",
             "defense_summary.csv",
             "defense_summary FBS.csv",
@@ -354,11 +538,39 @@ def load_team_ratings(
     special = _read_first_available(
         data_dir,
         (
+            "special_teams_summary*FBS*FCS*.csv",
             "special_teams_summary_FCS.csv",
             "special_teams_summary_FBS.csv",
             "special_teams_summary.csv",
         ),
     )
+
+    adj_offense, adj_defense = _load_adjusted_metrics(season_year)
+    adj_offense = adj_offense.rename(columns={
+        next((c for c in adj_offense.columns if c.startswith("points")), "points_offense"): "adj_points_for",
+        next((c for c in adj_offense.columns if c.startswith("totalYards")), "totalYards_offense"): "adj_total_yards_for",
+        next((c for c in adj_offense.columns if c.startswith("netPassingYards")), "netPassingYards_offense"): "adj_net_passing_for",
+        next((c for c in adj_offense.columns if c.startswith("rushingYards")), "rushingYards_offense"): "adj_rushing_for",
+        next((c for c in adj_offense.columns if c.startswith("yardsPerPass")), "yardsPerPass_offense"): "adj_yppass_for",
+        next((c for c in adj_offense.columns if c.startswith("yardsPerRushAttempt")), "yardsPerRushAttempt_offense"): "adj_yprush_for",
+        next((c for c in adj_offense.columns if c.startswith("turnovers")), "turnovers_offense"): "adj_turnovers_for",
+        next((c for c in adj_offense.columns if c.startswith("thirdDownEff")), "thirdDownEff_offense"): "adj_third_down_for",
+    }) if not adj_offense.empty else adj_offense
+    if not adj_offense.empty and "team" not in adj_offense.columns:
+        adj_offense = adj_offense.rename(columns={adj_offense.columns[1]: "team"})
+
+    adj_defense = adj_defense.rename(columns={
+        next((c for c in adj_defense.columns if c.startswith("points")), "points_defense"): "adj_points_against",
+        next((c for c in adj_defense.columns if c.startswith("totalYards")), "totalYards_defense"): "adj_total_yards_against",
+        next((c for c in adj_defense.columns if c.startswith("netPassingYards")), "netPassingYards_defense"): "adj_net_passing_against",
+        next((c for c in adj_defense.columns if c.startswith("rushingYards")), "rushingYards_defense"): "adj_rushing_against",
+        next((c for c in adj_defense.columns if c.startswith("yardsPerPass")), "yardsPerPass_defense"): "adj_yppass_against",
+        next((c for c in adj_defense.columns if c.startswith("yardsPerRushAttempt")), "yardsPerRushAttempt_defense"): "adj_yprush_against",
+        next((c for c in adj_defense.columns if c.startswith("turnovers")), "turnovers_defense"): "adj_turnovers_against",
+        next((c for c in adj_defense.columns if c.startswith("thirdDownEff")), "thirdDownEff_defense"): "adj_third_down_against",
+    }) if not adj_defense.empty else adj_defense
+    if not adj_defense.empty and "team" not in adj_defense.columns:
+        adj_defense = adj_defense.rename(columns={adj_defense.columns[1]: "team"})
 
     receiving_teams = aggregate_team_metrics(
         receiving,
@@ -437,6 +649,16 @@ def load_team_ratings(
         .join(special_teams, how="outer")
         .reset_index()
     )
+
+    if not adj_offense.empty and "team" in adj_offense.columns:
+        off_cols = [c for c in adj_offense.columns if c.startswith("adj_")]
+        off_df = adj_offense[["team", *off_cols]].drop_duplicates(subset="team")
+        teams = teams.merge(off_df.rename(columns={"team": "team_name"}), on="team_name", how="left")
+
+    if not adj_defense.empty and "team" in adj_defense.columns:
+        def_cols = [c for c in adj_defense.columns if c.startswith("adj_")]
+        def_df = adj_defense[["team", *def_cols]].drop_duplicates(subset="team")
+        teams = teams.merge(def_df.rename(columns={"team": "team_name"}), on="team_name", how="left")
 
     # Append NCAA advanced team metrics when available.
     try:
@@ -528,6 +750,22 @@ def load_team_ratings(
         "punt_return_avg",
         "punt_return_defense_avg",
         "net_punting_avg",
+        "adj_points_for",
+        "adj_total_yards_for",
+        "adj_net_passing_for",
+        "adj_rushing_for",
+        "adj_yppass_for",
+        "adj_yprush_for",
+        "adj_turnovers_for",
+        "adj_third_down_for",
+        "adj_points_against",
+        "adj_total_yards_against",
+        "adj_net_passing_against",
+        "adj_rushing_against",
+        "adj_yppass_against",
+        "adj_yprush_against",
+        "adj_turnovers_against",
+        "adj_third_down_against",
     ])
 
     spread_vals = np.zeros(len(teams), dtype=float)
@@ -538,19 +776,25 @@ def load_team_ratings(
 
     # Composite unit ratings.
     teams["offense_rating"] = (
-        0.18 * teams["receiving_grade_route_z"]
-        + 0.16 * teams["receiving_grade_offense_z"]
-        + 0.10 * teams["receiving_yprr_z"]
-        + 0.20 * teams["blocking_grade_pass_z"]
-        + 0.12 * teams["blocking_grade_run_z"]
-        + 0.08 * teams.get("offense_ypp_z", 0.0)
-        + 0.06 * teams.get("third_down_pct_z", 0.0)
-        + 0.06 * teams.get("team_pass_eff_z", 0.0)
-        + 0.05 * teams.get("points_per_game_z", 0.0)
-        + 0.05 * teams.get("rush_yards_per_game_z", 0.0)
-        + 0.05 * teams.get("pass_yards_per_game_z", 0.0)
-        + 0.05 * teams.get("red_zone_pct_z", 0.0)
-        + 0.04 * teams.get("offense_ypp_adj_z", 0.0)
+        0.15 * teams.get("receiving_grade_route_z", 0.0)
+        + 0.14 * teams.get("receiving_grade_offense_z", 0.0)
+        + 0.08 * teams.get("receiving_yprr_z", 0.0)
+        + 0.16 * teams.get("blocking_grade_pass_z", 0.0)
+        + 0.10 * teams.get("blocking_grade_run_z", 0.0)
+        + 0.08 * teams.get("adj_points_for_z", 0.0)
+        + 0.08 * teams.get("adj_total_yards_for_z", 0.0)
+        + 0.07 * teams.get("adj_yppass_for_z", 0.0)
+        + 0.07 * teams.get("adj_yprush_for_z", 0.0)
+        + 0.05 * teams.get("adj_third_down_for_z", 0.0)
+        - 0.05 * teams.get("adj_turnovers_for_z", 0.0)
+        + 0.05 * teams.get("offense_ypp_z", 0.0)
+        + 0.04 * teams.get("third_down_pct_z", 0.0)
+        + 0.04 * teams.get("team_pass_eff_z", 0.0)
+        + 0.04 * teams.get("points_per_game_z", 0.0)
+        + 0.04 * teams.get("rush_yards_per_game_z", 0.0)
+        + 0.04 * teams.get("pass_yards_per_game_z", 0.0)
+        + 0.03 * teams.get("red_zone_pct_z", 0.0)
+        + 0.03 * teams.get("offense_ypp_adj_z", 0.0)
         + 0.03 * teams.get("points_per_game_adj_z", 0.0)
         + 0.03 * teams.get("team_pass_eff_adj_z", 0.0)
         + 0.03 * teams.get("turnover_margin_avg_z", 0.0)
@@ -563,24 +807,30 @@ def load_team_ratings(
     )
 
     teams["defense_rating"] = (
-        0.28 * teams["defense_grade_overall_z"]
-        + 0.22 * teams["defense_grade_coverage_z"]
-        + 0.20 * teams["defense_grade_run_z"]
-        + 0.15 * teams["defense_grade_pass_rush_z"]
-        - 0.10 * teams["defense_qb_rating_against_z"]
-        - 0.06 * teams["defense_missed_tackle_rate_z"]
-        - 0.12 * teams.get("defense_ypp_allowed_z", 0.0)
-        - 0.10 * teams.get("defense_ypg_allowed_z", 0.0)
-        - 0.10 * teams.get("rush_yards_allowed_per_game_z", 0.0)
-        - 0.10 * teams.get("pass_yards_allowed_per_game_z", 0.0)
-        - 0.08 * teams.get("third_down_def_pct_z", 0.0)
-        - 0.08 * teams.get("opp_pass_eff_z", 0.0)
-        - 0.08 * teams.get("points_allowed_per_game_z", 0.0)
-        - 0.06 * teams.get("red_zone_def_pct_z", 0.0)
-        - 0.06 * teams.get("defense_ypp_allowed_adj_z", 0.0)
+        0.24 * teams.get("defense_grade_overall_z", 0.0)
+        + 0.20 * teams.get("defense_grade_coverage_z", 0.0)
+        + 0.18 * teams.get("defense_grade_run_z", 0.0)
+        + 0.14 * teams.get("defense_grade_pass_rush_z", 0.0)
+        - 0.12 * teams.get("adj_points_against_z", 0.0)
+        - 0.12 * teams.get("adj_total_yards_against_z", 0.0)
+        - 0.08 * teams.get("adj_yppass_against_z", 0.0)
+        - 0.08 * teams.get("adj_yprush_against_z", 0.0)
+        - 0.06 * teams.get("adj_third_down_against_z", 0.0)
+        + 0.06 * teams.get("adj_turnovers_against_z", 0.0)
+        - 0.08 * teams.get("defense_qb_rating_against_z", 0.0)
+        - 0.06 * teams.get("defense_missed_tackle_rate_z", 0.0)
+        - 0.08 * teams.get("defense_ypp_allowed_z", 0.0)
+        - 0.08 * teams.get("defense_ypg_allowed_z", 0.0)
+        - 0.08 * teams.get("rush_yards_allowed_per_game_z", 0.0)
+        - 0.08 * teams.get("pass_yards_allowed_per_game_z", 0.0)
+        - 0.06 * teams.get("third_down_def_pct_z", 0.0)
+        - 0.06 * teams.get("opp_pass_eff_z", 0.0)
+        - 0.06 * teams.get("points_allowed_per_game_z", 0.0)
+        - 0.05 * teams.get("red_zone_def_pct_z", 0.0)
+        - 0.05 * teams.get("defense_ypp_allowed_adj_z", 0.0)
         - 0.05 * teams.get("points_allowed_per_game_adj_z", 0.0)
-        + 0.05 * teams.get("sacks_per_game_z", 0.0)
-        + 0.05 * teams.get("tfl_per_game_z", 0.0)
+        + 0.04 * teams.get("sacks_per_game_z", 0.0)
+        + 0.04 * teams.get("tfl_per_game_z", 0.0)
         + 0.04 * teams.get("turnover_gain_z", 0.0)
     )
 

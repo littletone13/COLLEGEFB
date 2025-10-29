@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import argparse
+import os
+import warnings
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Dict
@@ -90,6 +92,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate FCS projections for a given date window.")
     parser.add_argument("start_date", type=str, help="Anchor date (YYYY-MM-DD) for the slate, e.g., 2025-10-24.")
     parser.add_argument("--days", type=int, default=3, help="Number of days to include starting from start_date (default 3).")
+    parser.add_argument("--week", type=int, help="CFBD week number to align with market lines.")
+    parser.add_argument("--api-key", type=str, help="Optional CFBD API key (defaults to env).")
     parser.add_argument("--output", type=Path, help="Optional CSV output path.")
     parser.add_argument("--html", type=Path, help="Optional HTML summary output path.")
     return parser.parse_args()
@@ -104,9 +108,19 @@ def _format_bullets(rows: pd.DataFrame) -> str:
         return "<p>None.</p>"
     items = []
     for _, row in rows.iterrows():
+        market_bits = []
+        if pd.notna(row.get("market_spread")):
+            market_bits.append(f"Mkt Spread {row['market_spread']:+.1f}")
+        if pd.notna(row.get("spread_vs_market")):
+            market_bits.append(f"Δ {row['spread_vs_market']:+.1f}")
+        if pd.notna(row.get("market_total")):
+            market_bits.append(f"Mkt Total {row['market_total']:.1f}")
+        if pd.notna(row.get("total_vs_market")):
+            market_bits.append(f"Δ {row['total_vs_market']:+.1f}")
+        market_text = f" | {' / '.join(market_bits)}" if market_bits else ""
         items.append(
             f"<li><strong>{row['home_team']}</strong> vs <strong>{row['away_team']}</strong>"
-            f" | Spread {row['spread']:+.1f} | Total {row['total']:.1f} | Home Win {row['home_win_prob']*100:0.1f}%</li>"
+            f" | Spread {row['spread']:+.1f} | Total {row['total']:.1f} | Home Win {row['home_win_prob']*100:0.1f}%{market_text}</li>"
         )
     return "<ul>" + "".join(items) + "</ul>"
 
@@ -123,6 +137,10 @@ def _render_html(df: pd.DataFrame, title: str) -> str:
         "home_win_prob",
         "home_ml",
         "away_ml",
+        "market_spread",
+        "market_total",
+        "spread_vs_market",
+        "total_vs_market",
     ]].copy()
     table.columns = [
         "Kickoff",
@@ -135,8 +153,14 @@ def _render_html(df: pd.DataFrame, title: str) -> str:
         "Home Win%",
         "Home ML",
         "Away ML",
+        "Market Spread",
+        "Market Total",
+        "Spread Δ",
+        "Total Δ",
     ]
     table["Home Win%"] = table["Home Win%"] * 100
+    for col in ["Market Spread", "Market Total", "Spread Δ", "Total Δ"]:
+        table[col] = pd.to_numeric(table[col], errors="coerce")
     styled = (
         table.style
         .background_gradient(subset=["Spread (H-A)"], cmap="RdYlGn_r")
@@ -149,6 +173,10 @@ def _render_html(df: pd.DataFrame, title: str) -> str:
             "Home Win%": "{:.1f}",
             "Home ML": "{:+.0f}",
             "Away ML": "{:+.0f}",
+            "Market Spread": "{:+.1f}",
+            "Market Total": "{:.1f}",
+            "Spread Δ": "{:+.1f}",
+            "Total Δ": "{:+.1f}",
         })
         .hide(axis="index")
     )
@@ -217,6 +245,25 @@ def main() -> None:
             return alias
         matches = difflib.get_close_matches(raw, pff_names, n=1, cutoff=0.5)
         return matches[0] if matches else None
+
+    api_key = args.api_key or os.environ.get("CFBD_API_KEY")
+    market_lookup: Dict[tuple[str, str], dict] = {}
+    if api_key and args.week is not None:
+        try:
+            market_entries = fcs.fetch_market_lines(
+                season_year,
+                api_key,
+                week=args.week,
+                season_type="regular",
+            )
+            for entry in market_entries:
+                mapped_home = map_team(entry.get("home_team"))
+                mapped_away = map_team(entry.get("away_team"))
+                if not mapped_home or not mapped_away:
+                    continue
+                market_lookup[(mapped_home, mapped_away)] = entry
+        except Exception as exc:  # pragma: no cover - network failures
+            warnings.warn(f"Unable to fetch market lines: {exc}")
 
     def resolve_entry(entry: dict) -> str | None:
         team = entry.get("team") or {}
@@ -309,6 +356,12 @@ def main() -> None:
         "home_win_prob": [],
         "home_ml": [],
         "away_ml": [],
+        "market_spread": [],
+        "market_total": [],
+        "market_provider_count": [],
+        "market_providers": [],
+        "spread_vs_market": [],
+        "total_vs_market": [],
     }
 
     for _, row in slate.iterrows():
@@ -318,6 +371,8 @@ def main() -> None:
             result = book.predict(home_team, away_team, neutral_site=False)
         except KeyError:
             continue
+        market_entry = market_lookup.get((home_team, away_team))
+        result = fcs.apply_market_prior(result, market_entry)
         base_home = result.get("home_team") or result.get("team_one")
         base_away = result.get("away_team") or result.get("team_two")
         display_home = DISPLAY_NAME_OVERRIDES.get(base_home, base_home)
@@ -332,6 +387,13 @@ def main() -> None:
         projections["home_win_prob"].append(result.get("home_win_prob") or result.get("team_one_win_prob"))
         projections["home_ml"].append(result.get("home_moneyline") or result.get("team_one_moneyline"))
         projections["away_ml"].append(result.get("away_moneyline") or result.get("team_two_moneyline"))
+        projections["market_spread"].append(result.get("market_spread"))
+        projections["market_total"].append(result.get("market_total"))
+        projections["market_provider_count"].append(result.get("market_provider_count"))
+        providers = result.get("market_providers") or []
+        projections["market_providers"].append(", ".join(providers) if providers else None)
+        projections["spread_vs_market"].append(result.get("spread_vs_market"))
+        projections["total_vs_market"].append(result.get("total_vs_market"))
 
     df = pd.DataFrame(projections)
     if df.empty:

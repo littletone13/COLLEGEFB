@@ -49,6 +49,11 @@ def parse_args() -> argparse.Namespace:
         type=str,
         help="CFBD API key (falls back to CFBD_API_KEY env var).",
     )
+    parser.add_argument(
+        "--max-week",
+        type=int,
+        help="Optional limit on maximum week to include when evaluating seasons.",
+    )
     return parser.parse_args()
 
 
@@ -91,10 +96,18 @@ def map_team(name: Optional[str]) -> Optional[str]:
     return match[0] if match else None
 
 
-def evaluate_season(year: int, data_dir: Path, api_key: str, season_type: str) -> List[Dict[str, object]]:
+def evaluate_season(
+    year: int,
+    data_dir: Path,
+    api_key: str,
+    season_type: str,
+    max_week: Optional[int] = None,
+) -> List[Dict[str, object]]:
     ratings = fcs.load_team_ratings(data_dir=data_dir, season_year=year)
     book = fcs.RatingBook(ratings, fcs.RatingConstants())
     games = fetch_cfbd_games(year, api_key, season_type)
+    if max_week is not None:
+        games = [game for game in games if (game.get("week") or 0) <= max_week]
     if not games:
         return []
 
@@ -170,7 +183,7 @@ def main() -> None:
 
     all_rows: List[Dict[str, object]] = []
     for season in range(start, end + 1):
-        rows = evaluate_season(season, data_dir, api_key, args.season_type)
+        rows = evaluate_season(season, data_dir, api_key, args.season_type, max_week=args.max_week)
         if not rows:
             print(f"No games processed for season {season}; check data availability.")
             continue
