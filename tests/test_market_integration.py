@@ -6,6 +6,7 @@ import pytest
 
 import market_anchor
 import oddslogic_loader
+from cfb.config import load_config
 
 
 def test_build_closing_lookup_prefers_sharp_provider():
@@ -197,3 +198,9 @@ def test_coverage_summary_handles_multi_classification():
     assert fcs_row["pct_single_provider"] == 1.0
 
     assert set(providers["sportsbook_name"]) == {"Circa", "Pinnacle", "South Point"}
+
+
+def test_load_config_defaults(tmp_path):
+    config = load_config()
+    assert pytest.approx(config["fbs"]["market"]["spread_weight"]) == 0.4
+    assert "weather" in config["fbs"]

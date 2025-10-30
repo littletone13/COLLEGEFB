@@ -40,6 +40,9 @@ import requests
 
 import market_anchor
 import oddslogic_loader
+from cfb import market as market_utils
+from cfb import weather as weather_utils
+from cfb.config import load_config
 
 PFF_DATA_DIR = Path("~/Desktop/PFFMODEL_FBS").expanduser()
 PFF_COMBINED_DATA_DIR = Path("~/Desktop/POST WEEK 9 FBS & FCS DATA").expanduser()
@@ -47,7 +50,15 @@ PFF_COMBINED_DATA_DIR = Path("~/Desktop/POST WEEK 9 FBS & FCS DATA").expanduser(
 
 BASE_URL = "https://api.collegefootballdata.com"
 
-WEATHER_REG_COEFFS = {
+CONFIG = load_config()
+FBS_CONFIG = CONFIG.get("fbs", {})
+_MARKET_CONFIG = FBS_CONFIG.get("market", {})
+_WEATHER_CONFIG = FBS_CONFIG.get("weather", {})
+
+MARKET_SPREAD_WEIGHT = float(_MARKET_CONFIG.get("spread_weight", 0.4))
+MARKET_TOTAL_WEIGHT = float(_MARKET_CONFIG.get("total_weight", 0.4))
+
+_DEFAULT_WEATHER_COEFFS = {
     "wind_high": -0.3462,
     "cold": -0.0546,
     "heat": -0.1730,
@@ -56,10 +67,19 @@ WEATHER_REG_COEFFS = {
     "humid": -0.1960,
     "dewpos": -0.0554,
 }
-WEATHER_CLAMP_BOUNDS = (-12.0, 6.0)
 
-MARKET_SPREAD_WEIGHT = 0.4
-MARKET_TOTAL_WEIGHT = 0.4
+_configured_coeffs = _WEATHER_CONFIG.get("coeffs", {}) if isinstance(_WEATHER_CONFIG.get("coeffs", {}), dict) else {}
+WEATHER_COEFFS = {key: float(_configured_coeffs.get(key, value)) for key, value in _DEFAULT_WEATHER_COEFFS.items()}
+for key, value in _configured_coeffs.items():
+    if key not in WEATHER_COEFFS:
+        WEATHER_COEFFS[key] = float(value)
+
+_configured_bounds = _WEATHER_CONFIG.get("clamp_bounds", (-12.0, 6.0))
+if isinstance(_configured_bounds, (list, tuple)) and len(_configured_bounds) == 2:
+    WEATHER_CLAMP_BOUNDS = (float(_configured_bounds[0]), float(_configured_bounds[1]))
+else:
+    WEATHER_CLAMP_BOUNDS = (-12.0, 6.0)
+WEATHER_MAX_TOTAL_ADJ = float(_WEATHER_CONFIG.get("max_total_adjustment", 10.0))
 
 ODDSLOGIC_ARCHIVE_DIR = Path(os.environ.get("ODDSLOGIC_ARCHIVE_DIR", "oddslogic_ncaa_all"))
 
@@ -789,42 +809,6 @@ def _moneyline_from_prob(prob: float) -> Optional[float]:
     return -100.0 * prob / (1 - prob) if prob >= 0.5 else 100.0 * (1 - prob) / prob
 
 
-def _weather_features(weather: dict) -> dict:
-    temp = _coerce_float(weather.get("temperature"))
-    wind = _coerce_float(weather.get("windSpeed"))
-    humidity = _coerce_float(weather.get("humidity"))
-    dew_point = _coerce_float(weather.get("dewPoint"))
-    condition_raw = (
-        weather.get("displayValue")
-        or weather.get("condition")
-        or weather.get("weatherCondition")
-        or weather.get("summary")
-        or ""
-    )
-    condition = str(condition_raw).lower()
-    features = {
-        "wind_high": max((wind or 0.0) - 10.0, 0.0),
-        "cold": max(50.0 - (temp or 50.0), 0.0),
-        "heat": max((temp or 50.0) - 85.0, 0.0),
-        "rain": 1.0 if ("rain" in condition or (_coerce_float(weather.get("precipitation")) or 0.0) > 0) else 0.0,
-        "snow": 1.0 if ("snow" in condition or (_coerce_float(weather.get("snowfall")) or 0.0) > 0) else 0.0,
-        "humid": max((humidity or 0.0) - 75.0, 0.0),
-        "dewpos": max((dew_point or 0.0) - 65.0, 0.0),
-    }
-    return features
-
-
-def _weather_effect_delta(weather: Optional[dict]) -> float:
-    if not weather:
-        return 0.0
-    feats = _weather_features(weather)
-    delta = sum(WEATHER_REG_COEFFS.get(name, 0.0) * value for name, value in feats.items())
-    # Do not allow positive adjustments (weather should not inflate totals).
-    delta = min(delta, 0.0)
-    lo, hi = WEATHER_CLAMP_BOUNDS
-    return max(lo, min(hi, delta))
-
-
 def apply_market_prior(
     result: Dict[str, float],
     market: Optional[dict],
@@ -833,96 +817,23 @@ def apply_market_prior(
     spread_weight: float = MARKET_SPREAD_WEIGHT,
     total_weight: float = MARKET_TOTAL_WEIGHT,
 ) -> Dict[str, float]:
-    """Blend model projections with market lines when available."""
-
-    updated = result.copy()
-    spread = updated["spread_home_minus_away"]
-    total = updated["total_points"]
-    market_spread = None
-    market_total = None
-    provider_list: list[str] = []
-    provider_map: Dict[str, dict] = {}
-
-    if market:
-        market_spread = market.get("spread")
-        market_total = market.get("total")
-        provider_map = market.get("provider_lines") or {}
-        provider_list = sorted(provider_map) if provider_map else market.get("providers", [])
-
-        if market_spread is not None:
-            w = min(max(spread_weight, 0.0), 1.0)
-            spread = (1.0 - w) * spread + w * market_spread
-        if market_total is not None:
-            w = min(max(total_weight, 0.0), 1.0)
-            total = (1.0 - w) * total + w * market_total
-
-    if not provider_list:
-        provider_list = []
-
-    home_points = (total + spread) / 2.0
-    away_points = total - home_points
-    win_prob = 0.5 * (1.0 + math.erf(spread / (prob_sigma * math.sqrt(2))))
-
-    updated["spread_home_minus_away"] = spread
-    updated["total_points"] = total
-    updated["home_points"] = home_points
-    updated["away_points"] = away_points
-    updated["home_win_prob"] = win_prob
-    updated["away_win_prob"] = 1.0 - win_prob
-    updated["home_moneyline"] = _moneyline_from_prob(win_prob)
-    updated["away_moneyline"] = _moneyline_from_prob(1.0 - win_prob)
-    updated["market_spread"] = market_spread
-    updated["market_total"] = market_total
-    updated["market_provider_lines"] = provider_map
-    updated["market_providers"] = provider_list
-    updated["market_provider_count"] = len(provider_list)
-    updated["spread_vs_market"] = (
-        spread - market_spread if market_spread is not None else None
+    return market_utils.apply_market_prior(
+        result,
+        market,
+        prob_sigma=prob_sigma,
+        spread_weight=spread_weight,
+        total_weight=total_weight,
     )
-    updated["total_vs_market"] = (
-        total - market_total if market_total is not None else None
-    )
-    return updated
 
 
 def apply_weather_adjustment(result: Dict[str, float], weather: Optional[dict]) -> Dict[str, float]:
-    if not weather:
-        return result
-
-    temp = _coerce_float(weather.get("temperature"))
-    wind = _coerce_float(weather.get("windSpeed"))
-    condition_raw = (
-        weather.get("displayValue")
-        or weather.get("condition")
-        or weather.get("weatherCondition")
-        or weather.get("summary")
-        or ""
+    return weather_utils.apply_weather_adjustment(
+        result,
+        weather,
+        coeffs=WEATHER_COEFFS,
+        clamp_bounds=WEATHER_CLAMP_BOUNDS,
+        max_total_adjustment=WEATHER_MAX_TOTAL_ADJ,
     )
-    condition = str(condition_raw).lower()
-
-    total_adj = _weather_effect_delta(weather)
-
-    total_adj = max(min(total_adj, 10.0), -10.0)
-    if abs(total_adj) < 1e-6:
-        return result
-
-    spread = result["spread_home_minus_away"]
-    base_total = result["total_points"] + total_adj
-    total = max(20.0, base_total)
-    home_points = (total + spread) / 2.0
-    away_points = total - home_points
-
-    adjusted = result.copy()
-    adjusted["total_points"] = total
-    adjusted["home_points"] = home_points
-    adjusted["away_points"] = away_points
-    adjusted["weather_total_adj"] = total_adj
-    adjusted["weather_condition"] = condition
-    adjusted["weather_temp"] = temp
-    adjusted["weather_wind"] = wind
-    if adjusted.get("market_total") is not None:
-        adjusted["total_vs_market"] = adjusted["total_points"] - adjusted["market_total"]
-    return adjusted
 
 
 def build_ratings(teams: pd.DataFrame) -> pd.DataFrame:
