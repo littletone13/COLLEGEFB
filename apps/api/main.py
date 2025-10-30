@@ -13,6 +13,7 @@ from cfb.sim import fbs as fbs_sim
 from cfb.sim import fcs as fcs_sim
 from cfb.io import oddslogic as oddslogic_io
 from cfb.market import edges as edge_utils
+import pandas as pd
 
 ARCHIVE_DIR = Path(os.environ.get("ODDSLOGIC_ARCHIVE_DIR", "oddslogic_ncaa_all")).expanduser()
 
@@ -24,6 +25,13 @@ def _require_api_key(provided: Optional[str]) -> None:
     if expected and provided != expected:
         raise HTTPException(status_code=401, detail="Invalid API key")
 
+
+def _to_records(df: pd.DataFrame) -> list[dict]:
+    if df.empty:
+        return []
+    safe = df.astype(object)
+    safe = safe.where(pd.notna(safe), None)
+    return safe.to_dict(orient="records")
 
 @app.get("/fbs/week")
 async def simulate_fbs_week(
@@ -64,7 +72,7 @@ async def simulate_fbs_week(
     if config.spread_edge_min > 0 or config.total_edge_min > 0 or config.min_provider_count > 0:
         df = df.loc[mask]
     return {
-        "games": df.to_dict(orient="records"),
+        "games": _to_records(df),
         "meta": {
             "total_games": total_games,
             "returned_games": int(df.shape[0]),
@@ -115,7 +123,7 @@ async def simulate_fcs_window(
         df = df.loc[mask]
 
     return {
-        "games": df.to_dict(orient="records"),
+        "games": _to_records(df),
         "meta": {
             "total_games": total_games,
             "returned_games": int(df.shape[0]),
