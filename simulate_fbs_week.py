@@ -9,7 +9,7 @@ from typing import Dict
 
 import pandas as pd
 
-import fbs
+from cfb.sim import fbs as sim_fbs
 
 
 def parse_args() -> argparse.Namespace:
@@ -216,115 +216,19 @@ def main() -> None:
     if not api_key:
         raise RuntimeError("CFBD API key required. Set CFBD_API_KEY or pass --api-key.")
 
-    games = fbs.fetch_games(args.year, api_key, season_type=args.season_type)
-    cal_games = [g for g in games if g.get('completed') and g.get('week', 0) < args.week]
-    ratings, book = fbs.build_rating_book(
+    df = sim_fbs.simulate_week(
         args.year,
+        args.week,
         api_key=api_key,
-        adjust_week=args.week,
-        calibration_games=cal_games,
-    )
-
-    weather_lookup = fbs.fetch_game_weather(
-        args.year,
-        api_key,
-        week=args.week,
         season_type=args.season_type,
-    )
-
-    market_lookup = fbs.fetch_market_lines(
-        args.year,
-        api_key,
-        week=args.week,
-        season_type=args.season_type,
-        classification="fbs",
+        include_completed=args.include_completed,
+        neutral_default=args.neutral_default,
         providers=[p.strip() for p in args.providers.split(",") if p.strip()] if args.providers else None,
     )
 
-    projections: Dict[str, list] = {
-        "game_id": [],
-        "week": [],
-        "start_date": [],
-        "home_team": [],
-        "away_team": [],
-        "neutral": [],
-        "spread_home_minus_away": [],
-        "total_points": [],
-        "home_points": [],
-        "away_points": [],
-        "home_win_prob": [],
-        "home_moneyline": [],
-        "away_moneyline": [],
-        "market_spread": [],
-        "market_total": [],
-        "market_provider_count": [],
-        "market_providers": [],
-        "market_provider_lines": [],
-        "spread_vs_market": [],
-        "total_vs_market": [],
-        "weather_condition": [],
-        "weather_temp": [],
-        "weather_wind": [],
-        "weather_total_adj": [],
-    }
-
-    for game in games:
-        if game.get("week") != args.week:
-            continue
-        if game.get("homeClassification") != "fbs" or game.get("awayClassification") != "fbs":
-            continue
-        if game.get("completed") and not args.include_completed:
-            continue
-        neutral = game.get("neutralSite")
-        if neutral is None:
-            neutral = args.neutral_default
-        try:
-            result = book.predict(game["homeTeam"], game["awayTeam"], neutral_site=neutral)
-        except KeyError:
-            continue
-        market = market_lookup.get(game.get("id"))
-        result = fbs.apply_market_prior(result, market, prob_sigma=book.prob_sigma)
-
-        weather = weather_lookup.get(game.get("id")) or game.get("weather") or {}
-        result = fbs.apply_weather_adjustment(result, weather)
-        projections["game_id"].append(game["id"])
-        projections["week"].append(game.get("week"))
-        projections["start_date"].append(game.get("startDate"))
-        projections["home_team"].append(result["home_team"])
-        projections["away_team"].append(result["away_team"])
-        projections["neutral"].append(neutral)
-        projections["spread_home_minus_away"].append(result["spread_home_minus_away"])
-        projections["total_points"].append(result["total_points"])
-        projections["home_points"].append(result["home_points"])
-        projections["away_points"].append(result["away_points"])
-        projections["home_win_prob"].append(result["home_win_prob"])
-        projections["home_moneyline"].append(result["home_moneyline"])
-        projections["away_moneyline"].append(result["away_moneyline"])
-        projections["market_spread"].append(result.get("market_spread"))
-        projections["market_total"].append(result.get("market_total"))
-        providers = result.get("market_providers") or []
-        projections["market_provider_count"].append(len(providers))
-        projections["market_providers"].append(", ".join(providers))
-        provider_lines = result.get("market_provider_lines") or {}
-        projections["market_provider_lines"].append(
-            json.dumps(provider_lines, sort_keys=True) if provider_lines else None
-        )
-        projections["spread_vs_market"].append(result.get("spread_vs_market"))
-        projections["total_vs_market"].append(result.get("total_vs_market"))
-        projections["weather_condition"].append(
-            result.get("weather_condition")
-            or weather.get("weatherCondition")
-            or weather.get("condition")
-        )
-        projections["weather_temp"].append(weather.get("temperature"))
-        projections["weather_wind"].append(weather.get("windSpeed"))
-        projections["weather_total_adj"].append(result.get("weather_total_adj"))
-
-    if not projections["game_id"]:
+    if df.empty:
         print("No upcoming games found for the specified week.")
         return
-
-    df = pd.DataFrame(projections)
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(args.output, index=False)

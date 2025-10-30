@@ -30,5 +30,5 @@ fcs:
     home_field_advantage: 4.9105
     offense_factor: 0.7333
     defense_factor: 0.2318
-    power_factor: 1.4226
+    special_teams_factor: 1.4226
     spread_sigma: 16.0
