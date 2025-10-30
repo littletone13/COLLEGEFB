@@ -17,6 +17,7 @@ import argparse
 import difflib
 import math
 import warnings
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Dict, Iterable, Mapping, Optional
 
@@ -479,19 +480,39 @@ def load_team_ratings(
     defense = defense_df.rename(columns={"team": "team_name"})[["team_name", "points_defense"]]
     merged = offense.merge(defense, on="team_name", how="inner")
 
-    merged["team_name"] = merged["team_name"].str.upper()
-    merged = merged[merged["team_name"].isin(FCS_TEAM_SET)].copy()
-    if merged.empty:
-        raise RuntimeError("No FCS teams found in adjusted metrics; verify data sources.")
-
+    records: list[dict] = []
     offense_mean = merged["points_offense"].mean()
     defense_mean = merged["points_defense"].mean()
 
-    merged["offense_rating"] = merged["points_offense"] - offense_mean
-    merged["defense_rating"] = defense_mean - merged["points_defense"]
-    merged["special_rating"] = 0.0
-    merged["power_rating"] = merged["offense_rating"] + merged["defense_rating"]
-    merged["spread_rating"] = merged["power_rating"]
+    for row in merged.itertuples():
+        raw_name = row.team_name
+        alias = alias_map(raw_name)
+        normalized = alias_normalize(raw_name)
+        candidate = alias or normalized
+        if candidate not in FCS_TEAM_SET:
+            matches = difflib.get_close_matches(candidate, FCS_TEAM_SET, n=1, cutoff=0.7)
+            if matches:
+                candidate = matches[0]
+        if candidate not in FCS_TEAM_SET:
+            continue
+        offense_rating = row.points_offense - offense_mean
+        defense_rating = defense_mean - row.points_defense
+        power_rating = offense_rating + defense_rating
+        records.append(
+            {
+                "team_name": candidate,
+                "offense_rating": offense_rating,
+                "defense_rating": defense_rating,
+                "special_rating": 0.0,
+                "power_rating": power_rating,
+                "spread_rating": power_rating,
+            }
+        )
+
+    if not records:
+        raise RuntimeError("Adjusted metrics could not be mapped to FCS team names.")
+
+    merged = pd.DataFrame(records)
 
     cols = [
         "team_name",

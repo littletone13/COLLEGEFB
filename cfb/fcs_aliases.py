@@ -6,6 +6,11 @@ import re
 from typing import Optional
 
 RAW_TEAM_NAME_ALIASES = {
+    "ABILENE CHRISTIAN": "ABILENE CH",
+    "ARKANSAS PINE BLUFF": "ARKAPB",
+    "CENTRAL ARKANSAS": "CENT ARK",
+    "CENTRAL CONNECTICUT STATE": "CENT CT ST",
+    "CHARLESTON SOUTHERN": "CHARLES SO",
     "LONG ISLAND": "LIUSHAR",
     "LONG ISLAND UNIVERSITY": "LIUSHAR",
     "LONG ISLAND UNIVERSITY SHARKS": "LIUSHAR",
@@ -64,6 +69,25 @@ RAW_TEAM_NAME_ALIASES = {
     "UTAH TECH": "UTAHTC",
     "UT RIO GRANDE VALLEY": "TXGV",
     "INCARNATE WORD": "INCAR WORD",
+    "EASTERN ILLINOIS": "E ILLINOIS",
+    "EAST TENNESSEE STATE": "E TENN ST",
+    "FLORIDA A&M": "FL A&M",
+    "MISSISSIPPI VALLEY STATE": "MS VLY ST",
+    "NORTHERN IOWA": "N IOWA",
+    "NORTHWESTERN STATE": "NWSTATE",
+    "PENNSYLVANIA": "PENN",
+    "SE LOUISIANA": "SE LA",
+    "SOUTHEAST LOUISIANA": "SE LA",
+    "SOUTHEAST MISSOURI STATE": "SE MO ST",
+    "SOUTHERN UTAH": "SO UTAH",
+    "ST THOMAS": "STTHOM",
+    "ST. THOMAS": "STTHOM",
+    "TARLETON STATE": "TARLETON",
+    "VIRGINIA MILITARY INSTITUTE": "VA MILT IN",
+    "VMI": "VA MILT IN",
+    "CENTRAL CONNECTICUT": "CENT CT ST",
+    "ST THOMAS MN": "STTHOM",
+    "ST THOMAS (MN)": "STTHOM",
 }
 
 TEAM_NAME_ALIASES = {re.sub(r"[^A-Z0-9 ]", "", key.upper()).strip(): value for key, value in RAW_TEAM_NAME_ALIASES.items()}
@@ -75,7 +99,8 @@ DISPLAY_NAME_OVERRIDES = {
 
 
 def normalize_label(label: str) -> str:
-    return re.sub(r"[^A-Z0-9 ]", "", label.upper()).strip()
+    cleaned = label.upper().replace("-", " ")
+    return re.sub(r"[^A-Z0-9 ]", "", cleaned).strip()
 
 
 def map_team(label: Optional[str]) -> Optional[str]:
