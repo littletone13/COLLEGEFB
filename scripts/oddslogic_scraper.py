@@ -607,6 +607,115 @@ def dump_raw(path: Path, payload: str) -> None:
         f.write(payload)
 
 
+def run_scrape(
+    start_date: dt.date,
+    end_date: dt.date,
+    output_dir: Path | str,
+    *,
+    sleep: float = 1.0,
+    refresh_sportsbooks: bool = False,
+    verbose: bool = True,
+) -> list[dict]:
+    if end_date < start_date:
+        raise ValueError("end_date must be on or after start_date")
+
+    output_dir = Path(output_dir)
+    raw_dir = output_dir / "raw"
+    csv_dir = output_dir / "csv"
+    mapping_path = output_dir / "sportsbooks.json"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    csv_dir.mkdir(parents=True, exist_ok=True)
+
+    sportsbook_map: Dict[int, Sportsbook]
+    needs_refresh = refresh_sportsbooks
+    if mapping_path.exists() and not needs_refresh:
+        try:
+            with mapping_path.open("r", encoding="utf-8") as f:
+                cached = json.load(f)
+            sportsbook_map = {
+                int(sid): Sportsbook(**data) for sid, data in cached.items()
+            }
+            if verbose:
+                print("Loaded sportsbook metadata from cache.", flush=True)
+        except (json.JSONDecodeError, TypeError, ValueError, OSError):
+            if verbose:
+                print("Cached sportsbooks.json unreadable; refetching…", flush=True)
+            needs_refresh = True
+    if not mapping_path.exists() or needs_refresh:
+        if verbose:
+            print("Fetching sportsbook metadata…", flush=True)
+        raw_sportsbooks = http_get(SPORTSBOOKS_ENDPOINT)
+        if not raw_sportsbooks:
+            raise RuntimeError("Empty sportsbooks payload")
+        sportsbook_map = parse_sportsbooks(raw_sportsbooks)
+        with mapping_path.open("w", encoding="utf-8") as f:
+            json.dump({sid: sb.__dict__ for sid, sb in sportsbook_map.items()}, f, indent=2)
+
+    summary: list[dict] = []
+
+    for current_date in daterange(start_date, end_date):
+        date_str = current_date.isoformat()
+        if verbose:
+            print(f"Processing {date_str}…", flush=True)
+
+        schedule_raw = http_get(SCHEDULE_ENDPOINT.format(date=date_str))
+        schedule = parse_schedule(schedule_raw)
+        schedule_path = raw_dir / f"schedule_{date_str}.txt"
+        dump_raw(schedule_path, schedule_raw)
+
+        lines_raw = http_get(LINES_ENDPOINT.format(date=date_str))
+        lines_path = raw_dir / f"lines-all_{date_str}.txt"
+        csv_path = csv_dir / f"oddslogic_lines_{date_str}.csv"
+        if not lines_raw:
+            if verbose:
+                print(f"  ! No lines feed for {date_str}")
+            summary.append(
+                {
+                    "date": current_date,
+                    "records": 0,
+                    "csv_path": None,
+                    "lines_path": None,
+                    "schedule_path": schedule_path,
+                }
+            )
+            time.sleep(sleep)
+            continue
+
+        records = parse_lines_payload(lines_raw, sportsbook_map, schedule)
+        if not records:
+            print(f"  ! Parsed zero line records for {date_str}", file=sys.stderr)
+            summary.append(
+                {
+                    "date": current_date,
+                    "records": 0,
+                    "csv_path": None,
+                    "lines_path": None,
+                    "schedule_path": schedule_path,
+                }
+            )
+            time.sleep(sleep)
+            continue
+
+        dump_raw(lines_path, lines_raw)
+        write_csv(csv_path, records, date_str)
+        if verbose:
+            print(f"  ✓ wrote {len(records):,} records")
+        summary.append(
+            {
+                "date": current_date,
+                "records": len(records),
+                "csv_path": csv_path,
+                "lines_path": lines_path,
+                "schedule_path": schedule_path,
+            }
+        )
+        time.sleep(sleep)
+
+    if verbose:
+        print("Done.")
+    return summary
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Download OddsLogic archive feeds.")
     parser.add_argument("--start", required=True, help="Start date (YYYY-MM-DD)")
@@ -635,63 +744,16 @@ def main() -> int:
         end_date = dt.datetime.strptime(args.end, "%Y-%m-%d").date()
     except ValueError as exc:
         raise SystemExit(f"Invalid date format: {exc}") from exc
-    if end_date < start_date:
-        raise SystemExit("End date must be on or after start date.")
 
-    output_dir: Path = args.out
-    raw_dir = output_dir / "raw"
-    csv_dir = output_dir / "csv"
-    mapping_path = output_dir / "sportsbooks.json"
-    raw_dir.mkdir(parents=True, exist_ok=True)
-    csv_dir.mkdir(parents=True, exist_ok=True)
+    run_scrape(
+        start_date,
+        end_date,
+        args.out,
+        sleep=args.sleep,
+        refresh_sportsbooks=args.refresh_sportsbooks,
+        verbose=True,
+    )
 
-    sportsbook_map: Dict[int, Sportsbook]
-    if mapping_path.exists() and not args.refresh_sportsbooks:
-        try:
-            with mapping_path.open("r", encoding="utf-8") as f:
-                cached = json.load(f)
-            sportsbook_map = {
-                int(sid): Sportsbook(**data) for sid, data in cached.items()
-            }
-            print("Loaded sportsbook metadata from cache.", flush=True)
-        except (json.JSONDecodeError, TypeError, ValueError, OSError):
-            print("Cached sportsbooks.json unreadable; refetching…", flush=True)
-            args.refresh_sportsbooks = True
-    if not mapping_path.exists() or args.refresh_sportsbooks:
-        print("Fetching sportsbook metadata…", flush=True)
-        raw_sportsbooks = http_get(SPORTSBOOKS_ENDPOINT)
-        if not raw_sportsbooks:
-            raise RuntimeError("Empty sportsbooks payload")
-        sportsbook_map = parse_sportsbooks(raw_sportsbooks)
-        with mapping_path.open("w", encoding="utf-8") as f:
-            json.dump({sid: sb.__dict__ for sid, sb in sportsbook_map.items()}, f, indent=2)
-
-    for current_date in daterange(start_date, end_date):
-        date_str = current_date.isoformat()
-        print(f"Processing {date_str}…", flush=True)
-
-        schedule_raw = http_get(SCHEDULE_ENDPOINT.format(date=date_str))
-        schedule = parse_schedule(schedule_raw)
-        dump_raw(raw_dir / f"schedule_{date_str}.txt", schedule_raw)
-
-        lines_raw = http_get(LINES_ENDPOINT.format(date=date_str))
-        if not lines_raw:
-            print(f"  ! No lines feed for {date_str}")
-            time.sleep(args.sleep)
-            continue
-
-        records = parse_lines_payload(lines_raw, sportsbook_map, schedule)
-        if not records:
-            print(f"  ! Parsed zero line records for {date_str}", file=sys.stderr)
-            time.sleep(args.sleep)
-            continue
-
-        dump_raw(raw_dir / f"lines-all_{date_str}.txt", lines_raw)
-        write_csv(csv_dir / f"oddslogic_lines_{date_str}.csv", records, date_str)
-        print(f"  ✓ wrote {len(records):,} records")
-        time.sleep(args.sleep)
-
-    print("Done.")
     return 0
 
 
