@@ -26,13 +26,19 @@ import numpy as np
 import requests
 
 import ncaa_stats
+from cfb import market as market_utils
+from cfb.config import load_config
 
 DATA_DIR_DEFAULT = Path("~/Desktop/PFFMODEL_FBS/FCS_DATA").expanduser()
 ADJUSTED_DATA_GLOB = "fcs_adjusted*/fcs_adjusted_{kind}_*.csv"
 CFBD_BASE_URL = "https://api.collegefootballdata.com"
 
-FCS_MARKET_SPREAD_WEIGHT = 0.7
-FCS_MARKET_TOTAL_WEIGHT = 0.7
+CONFIG = load_config()
+FCS_CONFIG = CONFIG.get("fcs", {}) if isinstance(CONFIG.get("fcs"), dict) else {}
+_MARKET_CONFIG = FCS_CONFIG.get("market", {}) if isinstance(FCS_CONFIG.get("market"), dict) else {}
+
+FCS_MARKET_SPREAD_WEIGHT = float(_MARKET_CONFIG.get("spread_weight", 0.7))
+FCS_MARKET_TOTAL_WEIGHT = float(_MARKET_CONFIG.get("total_weight", 0.7))
 PFF_COMBINED_DATA_DIR = Path("~/Desktop/POST WEEK 9 FBS & FCS DATA").expanduser()
 
 FCS_SPREAD_CALIBRATION = (0.01194, 0.99456)
@@ -280,55 +286,21 @@ def apply_market_prior(
     spread_weight: float = FCS_MARKET_SPREAD_WEIGHT,
     total_weight: float = FCS_MARKET_TOTAL_WEIGHT,
 ) -> Dict[str, float]:
-    if not market:
-        result.setdefault("market_spread", None)
-        result.setdefault("market_total", None)
-        result.setdefault("market_providers", [])
-        result.setdefault("market_provider_count", 0)
-        result.setdefault("market_provider_lines", {})
-        result.setdefault("spread_vs_market", None)
-        result.setdefault("total_vs_market", None)
-        return result
-
-    updated = result.copy()
-    spread = updated.get("spread_team_one_minus_team_two")
-    total = updated.get("total_points")
-    if spread is None or total is None:
-        return updated
-
-    market_spread = market.get("spread")
-    market_total = market.get("total")
-    provider_lines = market.get("provider_lines") or {}
-    providers = sorted(provider_lines) if provider_lines else (market.get("providers") or [])
-
-    if market_spread is not None:
-        w = min(max(spread_weight, 0.0), 1.0)
-        spread = (1.0 - w) * spread + w * market_spread
-    if market_total is not None:
-        w = min(max(total_weight, 0.0), 1.0)
-        total = (1.0 - w) * total + w * market_total
-
-    home_points = (total + spread) / 2.0
-    away_points = total - home_points
-    win_prob = 0.5 * (1.0 + math.erf(spread / (FCS_PROB_SIGMA * math.sqrt(2))))
-    win_prob = min(max(win_prob, 0.0), 1.0)
-
-    updated["spread_team_one_minus_team_two"] = spread
-    updated["total_points"] = max(20.0, total)
-    updated["team_one_points"] = home_points
-    updated["team_two_points"] = away_points
-    updated["team_one_win_prob"] = win_prob
-    updated["team_two_win_prob"] = 1.0 - win_prob
-    updated["team_one_moneyline"] = RatingBook._prob_to_moneyline(win_prob)
-    updated["team_two_moneyline"] = RatingBook._prob_to_moneyline(1.0 - win_prob)
-    updated["market_spread"] = market_spread
-    updated["market_total"] = market_total
-    updated["market_provider_lines"] = provider_lines
-    updated["market_providers"] = providers
-    updated["market_provider_count"] = len(providers)
-    updated["spread_vs_market"] = (spread - market_spread) if market_spread is not None else None
-    updated["total_vs_market"] = (total - market_total) if market_total is not None else None
-    return updated
+    return market_utils.apply_market_prior(
+        result,
+        market,
+        prob_sigma=FCS_PROB_SIGMA,
+        spread_weight=spread_weight,
+        total_weight=total_weight,
+        spread_key="spread_team_one_minus_team_two",
+        total_key="total_points",
+        home_points_key="team_one_points",
+        away_points_key="team_two_points",
+        win_prob_key="team_one_win_prob",
+        away_win_prob_key="team_two_win_prob",
+        home_moneyline_key="team_one_moneyline",
+        away_moneyline_key="team_two_moneyline",
+    )
 
 # --- Aggregation helpers --------------------------------------------------
 

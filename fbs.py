@@ -30,7 +30,6 @@ import argparse
 import math
 import warnings
 import os
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, Optional
 
@@ -43,12 +42,11 @@ import oddslogic_loader
 from cfb import market as market_utils
 from cfb import weather as weather_utils
 from cfb.config import load_config
+from cfb.io.cfbd import CFBDClient
+from cfb.model import RatingBook, RatingConstants, fit_linear_calibrations, fit_probability_sigma
 
 PFF_DATA_DIR = Path("~/Desktop/PFFMODEL_FBS").expanduser()
 PFF_COMBINED_DATA_DIR = Path("~/Desktop/POST WEEK 9 FBS & FCS DATA").expanduser()
-
-
-BASE_URL = "https://api.collegefootballdata.com"
 
 CONFIG = load_config()
 FBS_CONFIG = CONFIG.get("fbs", {})
@@ -80,6 +78,19 @@ if isinstance(_configured_bounds, (list, tuple)) and len(_configured_bounds) == 
 else:
     WEATHER_CLAMP_BOUNDS = (-12.0, 6.0)
 WEATHER_MAX_TOTAL_ADJ = float(_WEATHER_CONFIG.get("max_total_adjustment", 10.0))
+
+_RATING_CONFIG = FBS_CONFIG.get("ratings", {}) if isinstance(FBS_CONFIG.get("ratings"), dict) else {}
+
+
+def _rating_constants_from_config() -> RatingConstants:
+    return RatingConstants(
+        avg_total=float(_RATING_CONFIG.get("avg_total", 53.5109)),
+        home_field_advantage=float(_RATING_CONFIG.get("home_field_advantage", 3.4066)),
+        offense_factor=float(_RATING_CONFIG.get("offense_factor", 6.2171)),
+        defense_factor=float(_RATING_CONFIG.get("defense_factor", 5.0088)),
+        power_factor=float(_RATING_CONFIG.get("power_factor", 2.1035)),
+        spread_sigma=float(_RATING_CONFIG.get("spread_sigma", 15.0)),
+    )
 
 ODDSLOGIC_ARCHIVE_DIR = Path(os.environ.get("ODDSLOGIC_ARCHIVE_DIR", "oddslogic_ncaa_all"))
 
@@ -125,27 +136,6 @@ STATUS_PENALTIES = {
 }
 
 _INJURY_WARNING_EMITTED = False
-
-
-class CFBDClient:
-    """Minimal helper around CFBD HTTP endpoints."""
-
-    def __init__(self, api_key: Optional[str] = None) -> None:
-        api_key = api_key or os.environ.get("CFBD_API_KEY")
-        if not api_key:
-            raise RuntimeError(
-                "CFBD API key not provided. Set CFBD_API_KEY env var or use --api-key."
-            )
-        self.headers = {"Authorization": f"Bearer {api_key}"}
-
-    def get(self, path: str, **params) -> list[dict]:
-        resp = requests.get(BASE_URL + path, headers=self.headers, params=params, timeout=30)
-        if resp.status_code == 401:
-            raise RuntimeError(
-                "CFBD API rejected the key (401). Double-check the token and Bearer prefix."
-            )
-        resp.raise_for_status()
-        return resp.json()
 
 
 def _flatten_ppa(records: list[dict]) -> pd.DataFrame:
@@ -452,17 +442,8 @@ def add_z_scores(df: pd.DataFrame, columns: Iterable[str]) -> pd.DataFrame:
 
 
 def fetch_games(year: int, api_key: str, *, season_type: str = "regular") -> list[dict]:
-    headers = {"Authorization": f"Bearer {api_key}"}
-    resp = requests.get(
-        BASE_URL + "/games",
-        headers=headers,
-        params={"year": year, "seasonType": season_type},
-        timeout=60,
-    )
-    if resp.status_code == 401:
-        raise RuntimeError("CFBD API rejected the key (401).")
-    resp.raise_for_status()
-    return resp.json()
+    client = CFBDClient(api_key)
+    return client.get("/games", year=year, seasonType=season_type)
 
 
 def fetch_game_weather(
@@ -477,7 +458,7 @@ def fetch_game_weather(
 ) -> Dict[int, dict]:
     """Return a lookup of CFBD weather forecasts keyed by game id."""
 
-    headers = {"Authorization": f"Bearer {api_key}"}
+    client = CFBDClient(api_key)
     params: Dict[str, object] = {"year": year}
     if season_type:
         params["seasonType"] = season_type
@@ -490,16 +471,7 @@ def fetch_game_weather(
     if classification:
         params["classification"] = classification
 
-    resp = requests.get(
-        BASE_URL + "/games/weather",
-        headers=headers,
-        params=params,
-        timeout=60,
-    )
-    if resp.status_code == 401:
-        raise RuntimeError("CFBD API rejected the key when fetching weather (401).")
-    resp.raise_for_status()
-    data = resp.json()
+    data = client.get("/games/weather", **params)
     return {entry.get("id"): entry for entry in data if entry.get("id") is not None}
 
 
@@ -537,7 +509,6 @@ def fetch_market_lines(
         omitted, all providers returned by CFBD are included.
     """
 
-    headers = {"Authorization": f"Bearer {api_key}"}
     params: Dict[str, object] = {"year": year}
     if season_type:
         params["seasonType"] = season_type
@@ -550,21 +521,13 @@ def fetch_market_lines(
     if classification:
         params["classification"] = classification
 
-    resp = requests.get(
-        BASE_URL + "/lines",
-        headers=headers,
-        params=params,
-        timeout=60,
-    )
-    if resp.status_code == 401:
-        raise RuntimeError("CFBD API rejected the key when fetching sportsbook lines (401).")
-    resp.raise_for_status()
+    client = CFBDClient(api_key)
     provider_filter = None
     if providers:
         provider_filter = {str(name).lower() for name in providers if str(name).strip()}
 
     lookup: Dict[int, dict] = {}
-    for entry in resp.json():
+    for entry in client.get("/lines", **params):
         game_id = entry.get("id")
         if not game_id:
             continue
@@ -801,12 +764,6 @@ def _coerce_float(value: Optional[float]) -> Optional[float]:
         return float(filtered)
     except ValueError:
         return None
-
-
-def _moneyline_from_prob(prob: float) -> Optional[float]:
-    if prob <= 0.0 or prob >= 1.0:
-        return None
-    return -100.0 * prob / (1 - prob) if prob >= 0.5 else 100.0 * (1 - prob) / prob
 
 
 def apply_market_prior(
@@ -1184,57 +1141,6 @@ def refit_scoring_constants(
     )
 
 
-def fit_linear_calibrations(
-    book: RatingBook,
-    games: Iterable[dict],
-) -> tuple[tuple[float, float], tuple[float, float]]:
-    margins_pred: list[float] = []
-    margins_actual: list[float] = []
-    totals_pred: list[float] = []
-    totals_actual: list[float] = []
-
-    for game in games:
-        if game.get("completed") is not True:
-            continue
-        if game.get("homeClassification") != "fbs" or game.get("awayClassification") != "fbs":
-            continue
-        home_points = game.get("homePoints")
-        away_points = game.get("awayPoints")
-        if home_points is None or away_points is None:
-            continue
-        try:
-            raw = book.predict(
-                game["homeTeam"],
-                game["awayTeam"],
-                neutral_site=game.get("neutralSite", False),
-                calibrated=False,
-            )
-        except KeyError:
-            continue
-        margins_pred.append(raw["spread_home_minus_away"])
-        margins_actual.append(home_points - away_points)
-        totals_pred.append(raw["total_points"])
-        totals_actual.append(home_points + away_points)
-
-    def _fit(pred: list[float], actual: list[float]) -> tuple[float, float]:
-        if len(pred) < 30:
-            return (0.0, 1.0)
-        x = np.array(pred)
-        y = np.array(actual)
-        slope, intercept = np.polyfit(x, y, 1)
-        if not np.isfinite(slope) or abs(slope) < 1e-6:
-            slope = 1.0
-        if not np.isfinite(intercept):
-            intercept = 0.0
-        slope = float(np.clip(slope, 0.3, 1.5))
-        intercept = float(np.clip(intercept, -15.0, 15.0))
-        return (float(intercept), float(slope))
-
-    spread_cal = _fit(margins_pred, margins_actual)
-    total_cal = _fit(totals_pred, totals_actual)
-    return spread_cal, total_cal
-
-
 def build_rating_book(
     year: int,
     *,
@@ -1244,7 +1150,7 @@ def build_rating_book(
     constants: Optional[RatingConstants] = None,
     market_anchor_config: Optional[market_anchor.MarketAnchorConfig] = None,
 ) -> tuple[pd.DataFrame, RatingBook]:
-    constants = constants or RatingConstants()
+    constants = constants or _rating_constants_from_config()
     calibration_list = list(calibration_games) if calibration_games else []
     teams_raw = fetch_team_metrics(
         year,
@@ -1304,136 +1210,6 @@ def build_rating_book(
         if sigma:
             book.prob_sigma = sigma
     return ratings, book
-
-
-@dataclass
-class RatingConstants:
-    avg_total: float = 53.5109
-    home_field_advantage: float = 3.4066
-    offense_factor: float = 6.2171
-    defense_factor: float = 5.0088
-    power_factor: float = 2.1035
-    spread_sigma: float = 15.0
-
-    @property
-    def avg_team_points(self) -> float:
-        return self.avg_total / 2.0
-
-
-class RatingBook:
-    def __init__(
-        self,
-        teams: pd.DataFrame,
-        constants: RatingConstants,
-        power_adjustments: Optional[Dict[str, float]] = None,
-    ) -> None:
-        self.teams = teams
-        self.constants = constants
-        self.power_adjustments = power_adjustments or {}
-        # Defaults before historical calibration is applied.
-        self.spread_calibration = (0.0, 1.0)
-        self.total_calibration = (0.0, 1.0)
-        self.prob_sigma = constants.spread_sigma
-
-    def _lookup(self, team: str) -> pd.Series:
-        df = self.teams
-        mask = df["team"].str.lower() == team.lower()
-        if mask.sum() == 1:
-            return df.loc[mask].iloc[0]
-        mask = df["team"].str.contains(team, case=False, regex=False)
-        if mask.sum() == 1:
-            return df.loc[mask].iloc[0]
-        raise KeyError(f"Team '{team}' not found; available: {sorted(df['team'].unique())[:10]}...")
-
-    def get_rating(self, team: str) -> Dict[str, float]:
-        row = self._lookup(team)
-        return {
-            "team": row["team"],
-            "offense_rating": row["offense_rating"],
-            "defense_rating": row["defense_rating"],
-            "power_rating": row["power_rating"] + self.power_adjustments.get(row["team"], 0.0),
-        }
-
-    def _predict_raw(self, home: str, away: str, neutral_site: bool = False) -> Dict[str, float]:
-        home_row = self._lookup(home)
-        away_row = self._lookup(away)
-        const = self.constants
-        home_power = home_row["power_rating"] + self.power_adjustments.get(home_row["team"], 0.0)
-        away_power = away_row["power_rating"] + self.power_adjustments.get(away_row["team"], 0.0)
-
-        def expected_points(off_row: pd.Series, def_row: pd.Series, power_diff: float) -> float:
-            return (
-                const.avg_team_points
-                + const.offense_factor * off_row["offense_rating"]
-                - const.defense_factor * def_row["defense_rating"]
-                + const.power_factor * power_diff / 2.0
-            )
-
-        home_points = expected_points(home_row, away_row, home_power - away_power)
-        away_points = expected_points(away_row, home_row, away_power - home_power)
-
-        spread = home_points - away_points
-        if not neutral_site:
-            spread += const.home_field_advantage
-            home_points += const.home_field_advantage / 2.0
-            away_points -= const.home_field_advantage / 2.0
-
-        total = home_points + away_points
-
-        home_win_prob = 0.5 * (1.0 + math.erf(spread / (self.prob_sigma * math.sqrt(2))))
-        away_win_prob = 1.0 - home_win_prob
-
-        return {
-            "home_team": home_row["team"],
-            "away_team": away_row["team"],
-            "home_points": home_points,
-            "away_points": away_points,
-            "spread_home_minus_away": spread,
-            "total_points": total,
-            "home_win_prob": home_win_prob,
-            "away_win_prob": away_win_prob,
-        }
-
-    def predict(
-        self,
-        home: str,
-        away: str,
-        neutral_site: bool = False,
-        *,
-        calibrated: bool = True,
-    ) -> Dict[str, float]:
-        raw = self._predict_raw(home, away, neutral_site=neutral_site)
-        if not calibrated:
-            raw = raw.copy()
-            raw["home_moneyline"] = _moneyline_from_prob(raw["home_win_prob"])
-            raw["away_moneyline"] = _moneyline_from_prob(raw["away_win_prob"])
-            return raw
-
-        spread = raw["spread_home_minus_away"]
-        total = raw["total_points"]
-        a_s, b_s = self.spread_calibration
-        a_t, b_t = self.total_calibration
-        spread = a_s + b_s * spread
-        total = a_t + b_t * total
-        home_points = (total + spread) / 2.0
-        away_points = total - home_points
-        home_win_prob = 0.5 * (1.0 + math.erf(spread / (self.prob_sigma * math.sqrt(2))))
-        away_win_prob = 1.0 - home_win_prob
-
-        result = raw.copy()
-        result.update(
-            {
-                "home_points": home_points,
-                "away_points": away_points,
-                "spread_home_minus_away": spread,
-                "total_points": total,
-                "home_win_prob": home_win_prob,
-                "away_win_prob": away_win_prob,
-                "home_moneyline": _moneyline_from_prob(home_win_prob),
-                "away_moneyline": _moneyline_from_prob(away_win_prob),
-            }
-        )
-        return result
 
 
 def parse_args() -> argparse.Namespace:

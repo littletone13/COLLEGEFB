@@ -13,8 +13,22 @@ fbs:
       dewpos: -0.0554
     clamp_bounds: [-12.0, 6.0]
     max_total_adjustment: 10.0
+  ratings:
+    avg_total: 53.5109
+    home_field_advantage: 3.4066
+    offense_factor: 6.2171
+    defense_factor: 5.0088
+    power_factor: 2.1035
+    spread_sigma: 15.0
 
 fcs:
   market:
     spread_weight: 0.7
     total_weight: 0.7
+  ratings:
+    avg_total: 52.7442
+    home_field_advantage: 4.9105
+    offense_factor: 0.7333
+    defense_factor: 0.2318
+    power_factor: 1.4226
+    spread_sigma: 16.0
