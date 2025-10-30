@@ -386,3 +386,63 @@ def build_closing_lookup(
         entry.pop("_best_key", None)
 
     return closing_lookup
+
+
+def summarize_coverage(
+    df: pd.DataFrame,
+    classification: Optional[Sequence[str] | str] = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Return aggregate coverage stats for OddsLogic spread closings.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Flattened archive dataframe from :func:`load_archive_dataframe`.
+    classification : Optional[Sequence[str] | str]
+        Optional subset of classifications to include (e.g., ``"fbs"``).
+
+    Returns
+    -------
+    tuple[pd.DataFrame, pd.DataFrame]
+        Tuple of ``(coverage_by_classification, provider_coverage)``.
+    """
+
+    class_filter = _normalize_classifications(classification)
+    subset = df.copy()
+    subset = subset[subset["row_type"] == "spread"]
+    if class_filter is not None:
+        subset = subset[subset["classification"].str.lower().isin(class_filter)]
+
+    subset = subset.dropna(subset=["kickoff_date", "home_key", "away_key"])
+    subset = subset.assign(classification=subset["classification"].fillna("unknown"))
+    if subset.empty:
+        return (
+            pd.DataFrame(columns=["classification", "games", "avg_providers", "pct_single_provider"]),
+            pd.DataFrame(columns=["classification", "sportsbook_name", "games"]),
+        )
+
+    game_group = (
+        subset.groupby(["classification", "kickoff_date", "home_key", "away_key"])
+        .agg(provider_count=("sportsbook_id", "nunique"))
+        .reset_index()
+    )
+
+    coverage = (
+        game_group.groupby("classification")
+        .agg(
+            games=("provider_count", "size"),
+            avg_providers=("provider_count", "mean"),
+            pct_single_provider=("provider_count", lambda s: float((s == 1).sum()) / len(s)),
+        )
+        .reset_index()
+    )
+
+    provider_games = (
+        subset.drop_duplicates(["classification", "kickoff_date", "home_key", "away_key", "sportsbook_name"])
+        .groupby(["classification", "sportsbook_name"])
+        .size()
+        .reset_index(name="games")
+        .sort_values(["classification", "games"], ascending=[True, False])
+    )
+
+    return coverage, provider_games

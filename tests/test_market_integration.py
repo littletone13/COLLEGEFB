@@ -135,3 +135,65 @@ def test_market_anchor_weights_sharp_books(monkeypatch):
 
     assert adjustments[home] == pytest.approx(-1.3, rel=1e-3)
     assert adjustments[away] == pytest.approx(1.3, rel=1e-3)
+
+
+def test_coverage_summary_handles_multi_classification():
+    kickoff = dt.date(2024, 8, 24)
+    df = pd.DataFrame(
+        [
+            {
+                "kickoff_date": kickoff,
+                "date": "2024-08-24",
+                "classification": "fbs",
+                "home_key": "TEAMA",
+                "away_key": "TEAMB",
+                "row_type": "spread",
+                "sportsbook_id": 9,
+                "sportsbook_name": "Circa",
+            },
+            {
+                "kickoff_date": kickoff,
+                "date": "2024-08-24",
+                "classification": "fbs",
+                "home_key": "TEAMA",
+                "away_key": "TEAMB",
+                "row_type": "spread",
+                "sportsbook_id": 47,
+                "sportsbook_name": "Pinnacle",
+            },
+            {
+                "kickoff_date": kickoff,
+                "date": "2024-08-24",
+                "classification": "fcs",
+                "home_key": "TEAMX",
+                "away_key": "TEAMY",
+                "row_type": "spread",
+                "sportsbook_id": 13,
+                "sportsbook_name": "South Point",
+            },
+            {
+                "kickoff_date": kickoff,
+                "date": "2024-08-24",
+                "classification": "fcs",
+                "home_key": "TEAMX",
+                "away_key": "TEAMY",
+                "row_type": "total",
+                "sportsbook_id": 13,
+                "sportsbook_name": "South Point",
+            },
+        ]
+    )
+
+    coverage, providers = oddslogic_loader.summarize_coverage(df)
+
+    assert set(coverage["classification"]) == {"fbs", "fcs"}
+    fbs_row = coverage.loc[coverage["classification"] == "fbs"].iloc[0]
+    fcs_row = coverage.loc[coverage["classification"] == "fcs"].iloc[0]
+    assert fbs_row["games"] == 1
+    assert fbs_row["avg_providers"] == pytest.approx(2.0)
+    assert fbs_row["pct_single_provider"] == 0.0
+    assert fcs_row["games"] == 1
+    assert fcs_row["avg_providers"] == pytest.approx(1.0)
+    assert fcs_row["pct_single_provider"] == 1.0
+
+    assert set(providers["sportsbook_name"]) == {"Circa", "Pinnacle", "South Point"}

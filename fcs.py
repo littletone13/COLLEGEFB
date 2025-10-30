@@ -748,23 +748,24 @@ def load_team_ratings(
         teams = teams.merge(ncaa_features[merge_cols], on="team_name", how="left")
 
     # Fill numeric NaNs with column means for stability.
+    teams = teams.copy()
     numeric_cols = teams.select_dtypes(include="number").columns
     teams[numeric_cols] = teams[numeric_cols].apply(lambda col: col.fillna(col.mean()))
 
     # Build z-scores.
-    def add_z(df: pd.DataFrame, cols: Iterable[str]) -> None:
+    def add_z(df: pd.DataFrame, cols: Iterable[str]) -> pd.DataFrame:
         valid_cols = [col for col in cols if col in df.columns]
         if not valid_cols:
-            return
+            return df
         sub = df[valid_cols].apply(pd.to_numeric, errors="coerce")
         means = sub.mean()
         stds = sub.std(ddof=0)
         stds = stds.replace(0.0, np.nan)
-        z_scores = (sub - means).divide(stds).fillna(0.0)
+        z_scores = (sub - means).divide(stds).replace([np.inf, -np.inf], 0.0).fillna(0.0)
         z_scores.columns = [f"{col}_z" for col in valid_cols]
-        df[z_scores.columns] = z_scores
+        return pd.concat([df, z_scores], axis=1)
 
-    add_z(teams, [
+    teams = add_z(teams, [
         "receiving_grade_offense",
         "receiving_grade_route",
         "receiving_grade_pass_block",
@@ -846,14 +847,15 @@ def load_team_ratings(
         "adj_third_down_against",
     ])
 
-    spread_vals = np.zeros(len(teams), dtype=float)
+    spread_components: list[np.ndarray] = []
     for col, weight in FCS_SPREAD_REG_WEIGHTS.items():
         if col in teams.columns:
-            spread_vals += weight * teams[col].fillna(0.0).to_numpy()
-    teams["spread_rating"] = spread_vals
+            spread_components.append(
+                weight * teams[col].fillna(0.0).to_numpy()
+            )
+    spread_vals = np.sum(spread_components, axis=0) if spread_components else np.zeros(len(teams), dtype=float)
 
-    # Composite unit ratings.
-    teams["offense_rating"] = (
+    offense_rating = (
         0.15 * teams.get("receiving_grade_route_z", 0.0)
         + 0.14 * teams.get("receiving_grade_offense_z", 0.0)
         + 0.08 * teams.get("receiving_yprr_z", 0.0)
@@ -884,7 +886,7 @@ def load_team_ratings(
         + 0.02 * teams.get("wr_rec_yards_z", 0.0)
     )
 
-    teams["defense_rating"] = (
+    defense_rating = (
         0.24 * teams.get("defense_grade_overall_z", 0.0)
         + 0.20 * teams.get("defense_grade_coverage_z", 0.0)
         + 0.18 * teams.get("defense_grade_run_z", 0.0)
@@ -912,12 +914,12 @@ def load_team_ratings(
         + 0.04 * teams.get("turnover_gain_z", 0.0)
     )
 
-    teams["special_rating"] = (
-        0.40 * teams["special_grade_misc_z"]
-        + 0.18 * teams["special_grade_return_z"]
-        + 0.12 * teams["special_grade_punt_return_z"]
-        + 0.10 * teams["special_grade_kickoff_z"]
-        + 0.05 * teams["special_grade_fg_offense_z"]
+    special_rating = (
+        0.40 * teams.get("special_grade_misc_z", 0.0)
+        + 0.18 * teams.get("special_grade_return_z", 0.0)
+        + 0.12 * teams.get("special_grade_punt_return_z", 0.0)
+        + 0.10 * teams.get("special_grade_kickoff_z", 0.0)
+        + 0.05 * teams.get("special_grade_fg_offense_z", 0.0)
         + 0.05 * teams.get("kick_return_avg_z", 0.0)
         - 0.05 * teams.get("kick_return_defense_avg_z", 0.0)
         + 0.05 * teams.get("punt_return_avg_z", 0.0)
@@ -925,10 +927,14 @@ def load_team_ratings(
         + 0.05 * teams.get("net_punting_avg_z", 0.0)
     )
 
-    teams["power_rating"] = (
-        teams["offense_rating"]
-        + teams["defense_rating"]
-        + 0.2 * teams["special_rating"]
+    power_rating = offense_rating + defense_rating + 0.2 * special_rating
+
+    teams = teams.assign(
+        spread_rating=spread_vals,
+        offense_rating=offense_rating,
+        defense_rating=defense_rating,
+        special_rating=special_rating,
+        power_rating=power_rating,
     )
 
     return teams
