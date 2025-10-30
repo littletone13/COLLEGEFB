@@ -416,3 +416,12 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Local OddsLogic archives (large datasets not meant for version control)
+oddslogic_archive_current/
+oddslogic_ncaa_2022/
+oddslogic_ncaa_2023/
+oddslogic_ncaa_2024/
+oddslogic_ncaa_2025/
+oddslogic_ncaa_all/
+oddslogic_ncaa_demo/

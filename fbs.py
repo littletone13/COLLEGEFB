@@ -38,6 +38,9 @@ import numpy as np
 import pandas as pd
 import requests
 
+import market_anchor
+import oddslogic_loader
+
 PFF_DATA_DIR = Path("~/Desktop/PFFMODEL_FBS").expanduser()
 PFF_COMBINED_DATA_DIR = Path("~/Desktop/POST WEEK 9 FBS & FCS DATA").expanduser()
 
@@ -45,18 +48,20 @@ PFF_COMBINED_DATA_DIR = Path("~/Desktop/POST WEEK 9 FBS & FCS DATA").expanduser(
 BASE_URL = "https://api.collegefootballdata.com"
 
 WEATHER_REG_COEFFS = {
-    "wind_high": -0.1425,
-    "cold": -0.0161,
-    "heat": -0.2142,
-    "rain": 0.0,  # Historical fit was positive; clamp to zero to avoid inflating totals
-    "snow": -0.0911,
-    "humid": -0.0574,
-    "dewpos": -0.0187,
+    "wind_high": -0.3462,
+    "cold": -0.0546,
+    "heat": -0.1730,
+    "rain": 0.0,  # Clamp to zero to prevent weather nudges from inflating totals
+    "snow": -0.0500,
+    "humid": -0.1960,
+    "dewpos": -0.0554,
 }
 WEATHER_CLAMP_BOUNDS = (-12.0, 6.0)
 
-MARKET_SPREAD_WEIGHT = 0.8
-MARKET_TOTAL_WEIGHT = 0.8
+MARKET_SPREAD_WEIGHT = 0.4
+MARKET_TOTAL_WEIGHT = 0.4
+
+ODDSLOGIC_ARCHIVE_DIR = Path(os.environ.get("ODDSLOGIC_ARCHIVE_DIR", "oddslogic_ncaa_all"))
 
 OFFENSE_POSITIONS = {
     "QB",
@@ -487,8 +492,30 @@ def fetch_market_lines(
     team: Optional[str] = None,
     conference: Optional[str] = None,
     classification: Optional[str] = None,
+    providers: Optional[Iterable[str]] = None,
 ) -> Dict[int, dict]:
-    """Return aggregated sportsbook lines keyed by game id."""
+    """Return aggregated sportsbook lines keyed by game id.
+
+    Parameters
+    ----------
+    year : int
+        Season year to query.
+    api_key : str
+        CFBD API key (Bearer token without the prefix).
+    week : Optional[int], optional
+        Week filter. Defaults to None (all weeks).
+    season_type : str, optional
+        Season type (regular/postseason). Defaults to regular.
+    team : Optional[str], optional
+        Filter to a specific team.
+    conference : Optional[str], optional
+        Filter to a specific conference.
+    classification : Optional[str], optional
+        Team classification ("fbs" or "fcs").
+    providers : Optional[Iterable[str]], optional
+        Subset of sportsbook providers to retain. Case-insensitive. When
+        omitted, all providers returned by CFBD are included.
+    """
 
     headers = {"Authorization": f"Bearer {api_key}"}
     params: Dict[str, object] = {"year": year}
@@ -512,30 +539,63 @@ def fetch_market_lines(
     if resp.status_code == 401:
         raise RuntimeError("CFBD API rejected the key when fetching sportsbook lines (401).")
     resp.raise_for_status()
+    provider_filter = None
+    if providers:
+        provider_filter = {str(name).lower() for name in providers if str(name).strip()}
+
     lookup: Dict[int, dict] = {}
     for entry in resp.json():
         game_id = entry.get("id")
         if not game_id:
             continue
         lines = entry.get("lines") or []
-        spreads = []
-        totals = []
-        providers: set[str] = set()
+        provider_names: set[str] = set()
+        provider_lines: Dict[str, dict] = {}
         for line in lines:
             provider = line.get("provider")
-            if provider:
-                providers.add(provider)
+            provider_normalized = str(provider or "").strip()
+            if not provider_normalized:
+                continue
+            if provider_filter and provider_normalized.lower() not in provider_filter:
+                continue
+            provider_names.add(provider_normalized)
+
             spread_raw = _coerce_float(line.get("spread"))
-            if spread_raw is not None:
-                # CFBD spreads are away-centric; convert to home-minus-away.
-                spreads.append(-spread_raw)
             total_raw = _coerce_float(line.get("overUnder"))
-            if total_raw is not None:
-                totals.append(total_raw)
+            home_ml = _coerce_float(line.get("homeMoneyline"))
+            away_ml = _coerce_float(line.get("awayMoneyline"))
+            last_updated = line.get("lastUpdated") or line.get("updated")
+
+            provider_lines[provider_normalized] = {
+                "spread_home": -spread_raw if spread_raw is not None else None,
+                "spread_away": spread_raw,
+                "total": total_raw,
+                "home_moneyline": home_ml,
+                "away_moneyline": away_ml,
+                "last_updated": last_updated,
+            }
+        if provider_filter and not provider_names:
+            continue
+
+        spread_values = [
+            info.get("spread_home") for info in provider_lines.values() if info.get("spread_home") is not None
+        ]
+        total_values = [
+            info.get("total") for info in provider_lines.values() if info.get("total") is not None
+        ]
+        spread_value: Optional[float] = float(np.mean(spread_values)) if spread_values else None
+        total_value: Optional[float] = float(np.mean(total_values)) if total_values else None
+
         lookup[game_id] = {
-            "spread": float(np.mean(spreads)) if spreads else None,
-            "total": float(np.mean(totals)) if totals else None,
-            "providers": sorted(providers),
+            "game_id": game_id,
+            "home_team": entry.get("homeTeam"),
+            "away_team": entry.get("awayTeam"),
+            "start_date": entry.get("startDate"),
+            "neutral_site": entry.get("neutralSite"),
+            "spread": spread_value,
+            "total": total_value,
+            "providers": sorted(provider_names),
+            "provider_lines": provider_lines,
         }
     return lookup
 
@@ -781,11 +841,13 @@ def apply_market_prior(
     market_spread = None
     market_total = None
     provider_list: list[str] = []
+    provider_map: Dict[str, dict] = {}
 
     if market:
         market_spread = market.get("spread")
         market_total = market.get("total")
-        provider_list = market.get("providers", [])
+        provider_map = market.get("provider_lines") or {}
+        provider_list = sorted(provider_map) if provider_map else market.get("providers", [])
 
         if market_spread is not None:
             w = min(max(spread_weight, 0.0), 1.0)
@@ -793,6 +855,9 @@ def apply_market_prior(
         if market_total is not None:
             w = min(max(total_weight, 0.0), 1.0)
             total = (1.0 - w) * total + w * market_total
+
+    if not provider_list:
+        provider_list = []
 
     home_points = (total + spread) / 2.0
     away_points = total - home_points
@@ -808,7 +873,9 @@ def apply_market_prior(
     updated["away_moneyline"] = _moneyline_from_prob(1.0 - win_prob)
     updated["market_spread"] = market_spread
     updated["market_total"] = market_total
+    updated["market_provider_lines"] = provider_map
     updated["market_providers"] = provider_list
+    updated["market_provider_count"] = len(provider_list)
     updated["spread_vs_market"] = (
         spread - market_spread if market_spread is not None else None
     )
@@ -1004,6 +1071,52 @@ def compute_power_adjustments(
             continue
         clipped[team] = value
     return clipped
+
+
+def compute_market_anchor_adjustments(
+    book: RatingBook,
+    games: Iterable[dict],
+    *,
+    config: market_anchor.MarketAnchorConfig,
+    up_to_week: Optional[int] = None,
+) -> Dict[str, float]:
+    classification = (config.classification or "").lower()
+    anchor_candidates: list[dict] = []
+    for game in games:
+        if game.get("completed") is not True:
+            continue
+        if up_to_week is not None and (game.get("week") or 0) >= up_to_week:
+            continue
+        home_cls = (game.get("homeClassification") or "").lower()
+        away_cls = (game.get("awayClassification") or "").lower()
+        if classification == "fbs":
+            if home_cls != "fbs" or away_cls != "fbs":
+                continue
+        elif classification == "fcs":
+            if home_cls != "fcs" or away_cls != "fcs":
+                continue
+        elif classification:
+            if home_cls != classification or away_cls != classification:
+                continue
+        start_dt = game.get("startDate") or game.get("startTime")
+        if not start_dt:
+            continue
+        try:
+            pred = book.predict(game["homeTeam"], game["awayTeam"], neutral_site=game.get("neutralSite", False))
+        except KeyError:
+            continue
+        anchor_candidates.append(
+            {
+                "id": game.get("id"),
+                "startDate": start_dt,
+                "homeTeam": game["homeTeam"],
+                "awayTeam": game["awayTeam"],
+                "model_spread": pred["spread_home_minus_away"],
+            }
+        )
+    if not anchor_candidates:
+        return {}
+    return market_anchor.derive_power_adjustments(anchor_candidates, config=config)
 
 
 def fit_probability_sigma(book: RatingBook, games: Iterable[dict]) -> Optional[float]:
@@ -1218,8 +1331,10 @@ def build_rating_book(
     adjust_week: Optional[int] = None,
     calibration_games: Optional[Iterable[dict]] = None,
     constants: Optional[RatingConstants] = None,
+    market_anchor_config: Optional[market_anchor.MarketAnchorConfig] = None,
 ) -> tuple[pd.DataFrame, RatingBook]:
     constants = constants or RatingConstants()
+    calibration_list = list(calibration_games) if calibration_games else []
     teams_raw = fetch_team_metrics(
         year,
         api_key=api_key,
@@ -1227,26 +1342,54 @@ def build_rating_book(
     )
     ratings = build_ratings(teams_raw)
     adjustments: Dict[str, float] = {}
+    games_for_anchor: list[dict] = calibration_list.copy()
+    cfbd_games: list[dict] = []
     if adjust_week is not None and adjust_week > 1:
         key = api_key or os.environ.get("CFBD_API_KEY")
         if not key:
             raise RuntimeError("CFBD API key required for opponent adjustments.")
-        games = fetch_games(year, key)
+        cfbd_games = fetch_games(year, key)
         adjustments = compute_power_adjustments(
             ratings,
-            games,
+            cfbd_games,
             constants=constants,
             up_to_week=adjust_week,
         )
-    if calibration_games:
-        constants = refit_scoring_constants(ratings, calibration_games, adjustments, constants)
-    book = RatingBook(ratings, constants, power_adjustments=adjustments)
-    if calibration_games:
-        games_list = list(calibration_games)
-        spread_cal, total_cal = fit_linear_calibrations(book, games_list)
+        if not games_for_anchor:
+            games_for_anchor = cfbd_games
+
+    anchor_config = market_anchor_config
+    if anchor_config is None:
+        default_archive = ODDSLOGIC_ARCHIVE_DIR
+        if default_archive.exists():
+            anchor_config = market_anchor.MarketAnchorConfig(
+                archive_path=default_archive,
+                classification="fbs",
+            )
+    anchor_adjustments: Dict[str, float] = {}
+    if anchor_config and anchor_config.archive_path.exists():
+        anchor_source = games_for_anchor or cfbd_games
+        if anchor_source:
+            anchor_book = RatingBook(ratings, constants, power_adjustments=adjustments)
+            anchor_adjustments = compute_market_anchor_adjustments(
+                anchor_book,
+                anchor_source,
+                config=anchor_config,
+                up_to_week=adjust_week,
+            )
+
+    combined_adjustments = adjustments.copy()
+    for team, value in anchor_adjustments.items():
+        combined_adjustments[team] = combined_adjustments.get(team, 0.0) + value
+
+    if calibration_list:
+        constants = refit_scoring_constants(ratings, calibration_list, combined_adjustments, constants)
+    book = RatingBook(ratings, constants, power_adjustments=combined_adjustments)
+    if calibration_list:
+        spread_cal, total_cal = fit_linear_calibrations(book, calibration_list)
         book.spread_calibration = spread_cal
         book.total_calibration = total_cal
-        sigma = fit_probability_sigma(book, games_list)
+        sigma = fit_probability_sigma(book, calibration_list)
         if sigma:
             book.prob_sigma = sigma
     return ratings, book
@@ -1254,11 +1397,11 @@ def build_rating_book(
 
 @dataclass
 class RatingConstants:
-    avg_total: float = 56.0
-    home_field_advantage: float = 2.4
-    offense_factor: float = 5.2
-    defense_factor: float = 4.5
-    power_factor: float = 1.2
+    avg_total: float = 53.5109
+    home_field_advantage: float = 3.4066
+    offense_factor: float = 6.2171
+    defense_factor: float = 5.0088
+    power_factor: float = 2.1035
     spread_sigma: float = 15.0
 
     @property

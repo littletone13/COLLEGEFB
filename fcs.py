@@ -35,7 +35,7 @@ FCS_MARKET_SPREAD_WEIGHT = 0.7
 FCS_MARKET_TOTAL_WEIGHT = 0.7
 PFF_COMBINED_DATA_DIR = Path("~/Desktop/POST WEEK 9 FBS & FCS DATA").expanduser()
 
-FCS_SPREAD_CALIBRATION = (0.0, 1.0)
+FCS_SPREAD_CALIBRATION = (0.01194, 0.99456)
 FCS_TOTAL_CALIBRATION = (0.0, 1.0)
 FCS_PROB_SIGMA = 16.0
 FCS_SPREAD_REG_INTERCEPT = 5.013813339075651
@@ -103,6 +103,18 @@ FCS_SPREAD_REG_WEIGHTS = {
     'punt_return_avg_z': 0.253832037,
     'punt_return_defense_avg_z': -0.502303225,
     'net_punting_avg_z': -0.070792218,
+}
+FCS_SPREAD_LINEAR_COEFFS = {
+    "intercept": 2.60184,
+    "spread_rating_diff": 0.55249,
+    "power_diff": 0.72979,
+    "offense_diff": 1.17088,
+    "defense_diff": 0.30222,
+    "special_diff": -0.69429,
+    "sr_x_power": 0.000103,
+    "off_x_def": 0.24222,
+    "power_x_special": -0.09227,
+    "power_sq": 0.11817,
 }
 
 
@@ -180,6 +192,7 @@ def fetch_market_lines(
     season_type: str = "regular",
     classification: str = "fcs",
     provider: Optional[str] = None,
+    providers: Optional[Iterable[str]] = None,
 ) -> list[dict]:
     headers = {"Authorization": f"Bearer {api_key}"}
     params: Dict[str, object] = {"year": year}
@@ -189,8 +202,11 @@ def fetch_market_lines(
         params["week"] = week
     if classification:
         params["classification"] = classification
+    provider_filter: set[str] = set()
+    if providers:
+        provider_filter.update(str(name).strip().lower() for name in providers if str(name).strip())
     if provider:
-        params["provider"] = provider.lower()
+        provider_filter.add(str(provider).strip().lower())
 
     resp = requests.get(
         CFBD_BASE_URL + "/lines",
@@ -207,27 +223,51 @@ def fetch_market_lines(
         if entry.get("homeClassification") != "fcs" or entry.get("awayClassification") != "fcs":
             continue
         lines = entry.get("lines") or []
-        spreads = []
-        totals = []
-        providers: set[str] = set()
+        provider_names: set[str] = set()
+        provider_lines: Dict[str, dict] = {}
         for line in lines:
-            prov = line.get("provider")
-            if prov:
-                providers.add(prov)
+            prov_raw = line.get("provider")
+            provider_name = str(prov_raw or "").strip()
+            if not provider_name:
+                continue
+            if provider_filter and provider_name.lower() not in provider_filter:
+                continue
+
             spread_raw = _coerce_float(line.get("spread"))
-            if spread_raw is not None:
-                spreads.append(-spread_raw)
             total_raw = _coerce_float(line.get("overUnder"))
-            if total_raw is not None:
-                totals.append(total_raw)
+            home_ml = _coerce_float(line.get("homeMoneyline"))
+            away_ml = _coerce_float(line.get("awayMoneyline"))
+            last_updated = line.get("lastUpdated") or line.get("updated")
+
+            provider_names.add(provider_name)
+            provider_lines[provider_name] = {
+                "spread_home": -spread_raw if spread_raw is not None else None,
+                "spread_away": spread_raw,
+                "total": total_raw,
+                "home_moneyline": home_ml,
+                "away_moneyline": away_ml,
+                "last_updated": last_updated,
+            }
+
+        if provider_filter and not provider_names:
+            continue
+        spread_values = [
+            info.get("spread_home") for info in provider_lines.values() if info.get("spread_home") is not None
+        ]
+        total_values = [
+            info.get("total") for info in provider_lines.values() if info.get("total") is not None
+        ]
+
         records.append(
             {
                 "game_id": entry.get("id"),
                 "home_team": entry.get("homeTeam"),
                 "away_team": entry.get("awayTeam"),
-                "spread": float(np.mean(spreads)) if spreads else None,
-                "total": float(np.mean(totals)) if totals else None,
-                "providers": sorted(providers),
+                "start_date": entry.get("startDate"),
+                "spread": float(np.mean(spread_values)) if spread_values else None,
+                "total": float(np.mean(total_values)) if total_values else None,
+                "providers": sorted(provider_names),
+                "provider_lines": provider_lines,
             }
         )
     return records
@@ -245,6 +285,7 @@ def apply_market_prior(
         result.setdefault("market_total", None)
         result.setdefault("market_providers", [])
         result.setdefault("market_provider_count", 0)
+        result.setdefault("market_provider_lines", {})
         result.setdefault("spread_vs_market", None)
         result.setdefault("total_vs_market", None)
         return result
@@ -257,7 +298,8 @@ def apply_market_prior(
 
     market_spread = market.get("spread")
     market_total = market.get("total")
-    providers = market.get("providers") or []
+    provider_lines = market.get("provider_lines") or {}
+    providers = sorted(provider_lines) if provider_lines else (market.get("providers") or [])
 
     if market_spread is not None:
         w = min(max(spread_weight, 0.0), 1.0)
@@ -281,6 +323,7 @@ def apply_market_prior(
     updated["team_two_moneyline"] = RatingBook._prob_to_moneyline(1.0 - win_prob)
     updated["market_spread"] = market_spread
     updated["market_total"] = market_total
+    updated["market_provider_lines"] = provider_lines
     updated["market_providers"] = providers
     updated["market_provider_count"] = len(providers)
     updated["spread_vs_market"] = (spread - market_spread) if market_spread is not None else None
@@ -357,11 +400,11 @@ def aggregate_team_metrics(
 
 @dataclass
 class RatingConstants:
-    avg_total: float = 54.0
-    home_field_advantage: float = 2.5
-    offense_factor: float = 4.2
-    defense_factor: float = 3.5
-    special_teams_factor: float = 0.8
+    avg_total: float = 52.7442
+    home_field_advantage: float = 4.9105
+    offense_factor: float = 0.7333
+    defense_factor: float = 0.2318
+    special_teams_factor: float = 1.4226
     spread_sigma: float = 16.0
 
     @property
@@ -389,6 +432,7 @@ class RatingBook:
         total_calibration: Optional[tuple[float, float]] = None,
         prob_sigma: Optional[float] = None,
         spread_intercept: Optional[float] = None,
+        spread_coeffs: Optional[Dict[str, float]] = None,
     ):
         self.teams = teams
         self.constants = constants
@@ -396,6 +440,7 @@ class RatingBook:
         self.total_calibration = total_calibration or FCS_TOTAL_CALIBRATION
         self.prob_sigma = prob_sigma or FCS_PROB_SIGMA
         self.spread_intercept = spread_intercept if spread_intercept is not None else FCS_SPREAD_REG_INTERCEPT
+        self.spread_coeffs = spread_coeffs or FCS_SPREAD_LINEAR_COEFFS
 
     def get(self, team: str) -> TeamRatings:
         row = self._find_row(team)
@@ -439,7 +484,28 @@ class RatingBook:
         spread_rating_home = getattr(a, "spread_rating", None)
         spread_rating_away = getattr(b, "spread_rating", None)
         if spread_rating_home is not None and spread_rating_away is not None:
-            spread_raw = (spread_rating_home - spread_rating_away) + self.spread_intercept
+            coeffs = self.spread_coeffs or {}
+            spread_diff = spread_rating_home - spread_rating_away
+            power_diff = a.power_rating - b.power_rating
+            offense_diff = a.offense_rating - b.offense_rating
+            defense_diff = b.defense_rating - a.defense_rating
+            special_diff = a.special_teams_rating - b.special_teams_rating
+            sr_power = spread_diff * power_diff
+            off_def = offense_diff * defense_diff
+            power_special = power_diff * special_diff
+            power_sq = power_diff * power_diff
+            spread_raw = (
+                coeffs.get("intercept", self.spread_intercept)
+                + coeffs.get("spread_rating_diff", 1.0) * spread_diff
+                + coeffs.get("power_diff", 0.0) * power_diff
+                + coeffs.get("offense_diff", 0.0) * offense_diff
+                + coeffs.get("defense_diff", 0.0) * defense_diff
+                + coeffs.get("special_diff", 0.0) * special_diff
+                + coeffs.get("sr_x_power", 0.0) * sr_power
+                + coeffs.get("off_x_def", 0.0) * off_def
+                + coeffs.get("power_x_special", 0.0) * power_special
+                + coeffs.get("power_sq", 0.0) * power_sq
+            )
         else:
             spread_raw = a_points - b_points
         if not neutral_site:
@@ -668,7 +734,18 @@ def load_team_ratings(
         ncaa_features = pd.DataFrame(columns=["team_name"])
 
     if not ncaa_features.empty:
-        teams = teams.merge(ncaa_features, on="team_name", how="left")
+        existing = set(teams["team_name"])
+        additional = sorted(set(ncaa_features["team_name"]) - existing)
+        if additional:
+            filler = pd.DataFrame(index=range(len(additional)))
+            for col in teams.columns:
+                if col == "team_name":
+                    filler[col] = additional
+                else:
+                    filler[col] = np.nan
+            teams = pd.concat([teams, filler], ignore_index=True)
+        merge_cols = [col for col in ncaa_features.columns if col not in teams.columns or col == "team_name"]
+        teams = teams.merge(ncaa_features[merge_cols], on="team_name", how="left")
 
     # Fill numeric NaNs with column means for stability.
     numeric_cols = teams.select_dtypes(include="number").columns
@@ -676,15 +753,16 @@ def load_team_ratings(
 
     # Build z-scores.
     def add_z(df: pd.DataFrame, cols: Iterable[str]) -> None:
-        for col in cols:
-            if col not in df.columns:
-                continue
-            mean = df[col].mean()
-            std = df[col].std(ddof=0)
-            if std == 0 or math.isnan(std):
-                df[f"{col}_z"] = 0.0
-            else:
-                df[f"{col}_z"] = (df[col] - mean) / std
+        valid_cols = [col for col in cols if col in df.columns]
+        if not valid_cols:
+            return
+        sub = df[valid_cols].apply(pd.to_numeric, errors="coerce")
+        means = sub.mean()
+        stds = sub.std(ddof=0)
+        stds = stds.replace(0.0, np.nan)
+        z_scores = (sub - means).divide(stds).fillna(0.0)
+        z_scores.columns = [f"{col}_z" for col in valid_cols]
+        df[z_scores.columns] = z_scores
 
     add_z(teams, [
         "receiving_grade_offense",

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from pathlib import Path
 from typing import Dict
@@ -31,6 +32,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--output", type=Path, help="Optional CSV output path.")
     parser.add_argument("--html", type=Path, help="Optional HTML summary output path (shareable).")
+    parser.add_argument(
+        "--providers",
+        type=str,
+        help="Comma-separated sportsbook providers to include (default: all available).",
+    )
     return parser.parse_args()
 
 
@@ -114,6 +120,24 @@ def _render_html(df: pd.DataFrame, *, title: str) -> str:
         "Wind (mph)",
         "Total Adj",
     ]
+    numeric_cols = [
+        "Spread (H-A)",
+        "Total",
+        "Proj Home",
+        "Proj Away",
+        "Home Win%",
+        "Home ML",
+        "Away ML",
+        "Market Spread",
+        "Market Total",
+        "Spread Δ",
+        "Total Δ",
+        "Temp (F)",
+        "Wind (mph)",
+        "Total Adj",
+    ]
+    for col in numeric_cols:
+        table[col] = pd.to_numeric(table[col], errors="coerce")
     table["Home Win%"] = table["Home Win%"] * 100
     table["Weather"] = table["Weather"].apply(
         lambda x: x.title() if isinstance(x, str) and x else "--"
@@ -214,6 +238,7 @@ def main() -> None:
         week=args.week,
         season_type=args.season_type,
         classification="fbs",
+        providers=[p.strip() for p in args.providers.split(",") if p.strip()] if args.providers else None,
     )
 
     projections: Dict[str, list] = {
@@ -234,6 +259,7 @@ def main() -> None:
         "market_total": [],
         "market_provider_count": [],
         "market_providers": [],
+        "market_provider_lines": [],
         "spread_vs_market": [],
         "total_vs_market": [],
         "weather_condition": [],
@@ -279,6 +305,10 @@ def main() -> None:
         providers = result.get("market_providers") or []
         projections["market_provider_count"].append(len(providers))
         projections["market_providers"].append(", ".join(providers))
+        provider_lines = result.get("market_provider_lines") or {}
+        projections["market_provider_lines"].append(
+            json.dumps(provider_lines, sort_keys=True) if provider_lines else None
+        )
         projections["spread_vs_market"].append(result.get("spread_vs_market"))
         projections["total_vs_market"].append(result.get("total_vs_market"))
         projections["weather_condition"].append(

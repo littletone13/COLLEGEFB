@@ -2,16 +2,18 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import difflib
 import os
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 import requests
 
 import fcs
 import ncaa_stats
+import oddslogic_loader
 from simulate_fcs_week import TEAM_NAME_ALIASES, _normalize_label
 
 CFBD_API = "https://api.collegefootballdata.com"
@@ -54,7 +56,24 @@ def parse_args() -> argparse.Namespace:
         type=int,
         help="Optional limit on maximum week to include when evaluating seasons.",
     )
+    parser.add_argument(
+        "--oddslogic-dir",
+        type=Path,
+        help="Optional OddsLogic archive directory to supply multi-book closing lines.",
+    )
+    parser.add_argument(
+        "--providers",
+        type=str,
+        help="Optional comma-separated sportsbook providers to filter when using OddsLogic data.",
+    )
     return parser.parse_args()
+
+
+def _parse_providers(value: Optional[str]) -> Optional[list[str]]:
+    if not value:
+        return None
+    providers = [part.strip() for part in value.split(",") if part.strip()]
+    return providers or None
 
 
 def fetch_cfbd_games(year: int, api_key: str, season_type: str) -> List[dict]:
@@ -102,21 +121,25 @@ def evaluate_season(
     api_key: str,
     season_type: str,
     max_week: Optional[int] = None,
-) -> List[Dict[str, object]]:
+    closing_lookup: Optional[Dict[Tuple[dt.date, str, str], Dict[str, object]]] = None,
+) -> Tuple[List[Dict[str, object]], int]:
     ratings = fcs.load_team_ratings(data_dir=data_dir, season_year=year)
     book = fcs.RatingBook(ratings, fcs.RatingConstants())
     games = fetch_cfbd_games(year, api_key, season_type)
     if max_week is not None:
         games = [game for game in games if (game.get("week") or 0) <= max_week]
     if not games:
-        return []
+        return [], 0
 
     rows: List[Dict[str, object]] = []
+    missing_closings = 0
     for game in games:
         if game.get("completed") is not True:
             continue
-        home = map_team(game.get("homeTeam"))
-        away = map_team(game.get("awayTeam"))
+        cfbd_home = game.get("homeTeam")
+        cfbd_away = game.get("awayTeam")
+        home = map_team(cfbd_home)
+        away = map_team(cfbd_away)
         if not home or not away:
             continue
         actual_home = game.get("homePoints")
@@ -127,6 +150,53 @@ def evaluate_season(
             pred = book.predict(home, away, neutral_site=False)
         except KeyError:
             continue
+        closing_spread = None
+        closing_total = None
+        closing_price = None
+        closing_total_price = None
+        closing_book = None
+        closing_book_id = None
+        kickoff_date = None
+        if closing_lookup is not None:
+            kickoff_raw = game.get("startDate") or game.get("startTime")
+            if kickoff_raw:
+                try:
+                    kickoff_date = pd.to_datetime(kickoff_raw).date()
+                except Exception:  # pylint: disable=broad-except
+                    kickoff_date = None
+            if kickoff_date is not None:
+                home_key = oddslogic_loader.normalize_label(cfbd_home or "")
+                away_key = oddslogic_loader.normalize_label(cfbd_away or "")
+                lookup_key = (kickoff_date, home_key, away_key)
+                closing = closing_lookup.get(lookup_key)
+                invert = False
+                if closing is None:
+                    alt_key = (kickoff_date, away_key, home_key)
+                    closing = closing_lookup.get(alt_key)
+                    if closing is not None:
+                        invert = True
+                if closing is None:
+                    missing_closings += 1
+                else:
+                    spread_raw = closing.get("spread_value")
+                    if spread_raw is not None and not pd.isna(spread_raw):
+                        closing_spread = float(spread_raw)
+                        if invert:
+                            closing_spread = -closing_spread
+                    total_raw = closing.get("total_value")
+                    if total_raw is not None and not pd.isna(total_raw):
+                        closing_total = float(total_raw)
+                    price_raw = closing.get("spread_price")
+                    if price_raw is not None and not pd.isna(price_raw):
+                        closing_price = float(price_raw)
+                    total_price_raw = closing.get("total_price")
+                    if total_price_raw is not None and not pd.isna(total_price_raw):
+                        closing_total_price = float(total_price_raw)
+                    closing_book = closing.get("sportsbook_name")
+                    closing_book_id = closing.get("sportsbook_id")
+            else:
+                missing_closings += 1
+
         actual_home = float(actual_home)
         actual_away = float(actual_away)
         actual_margin = actual_home - actual_away
@@ -152,9 +222,16 @@ def evaluate_season(
                 "spread_error": (pred.get("spread_home_minus_away") or pred.get("spread_team_one_minus_team_two")) - actual_margin,
                 "total_error": pred["total_points"] - actual_total,
                 "brier": (pred.get("home_win_prob") or pred.get("team_one_win_prob") - home_flag) ** 2,
+                "closing_spread": closing_spread,
+                "closing_spread_price": closing_price,
+                "closing_total": closing_total,
+                "closing_total_price": closing_total_price,
+                "closing_sportsbook": closing_book,
+                "closing_sportsbook_id": closing_book_id,
+                "kickoff_date": kickoff_date,
             }
         )
-    return rows
+    return rows, missing_closings
 
 
 def build_summary(df: pd.DataFrame) -> pd.DataFrame:
@@ -181,13 +258,35 @@ def main() -> None:
     if not api_key:
         raise RuntimeError("CFBD API key required. Set CFBD_API_KEY or pass --api-key.")
 
+    oddslogic_lookup = None
+    providers = _parse_providers(args.providers)
+    if args.oddslogic_dir:
+        df_archive = oddslogic_loader.load_archive_dataframe(args.oddslogic_dir)
+        class_filters = ["fcs", "fbs", "other"]
+        oddslogic_lookup = oddslogic_loader.build_closing_lookup(
+            df_archive,
+            class_filters,
+            providers=providers,
+        )
+        if not oddslogic_lookup:
+            print("Warning: no OddsLogic records matched the requested configuration.")
+
     all_rows: List[Dict[str, object]] = []
+    total_missing = 0
     for season in range(start, end + 1):
-        rows = evaluate_season(season, data_dir, api_key, args.season_type, max_week=args.max_week)
+        rows, missing = evaluate_season(
+            season,
+            data_dir,
+            api_key,
+            args.season_type,
+            max_week=args.max_week,
+            closing_lookup=oddslogic_lookup,
+        )
         if not rows:
             print(f"No games processed for season {season}; check data availability.")
             continue
         all_rows.extend(rows)
+        total_missing += missing
         print(f"Season {season}: processed {len(rows)} games")
 
     if not all_rows:
@@ -204,6 +303,9 @@ def main() -> None:
         args.season_summary.parent.mkdir(parents=True, exist_ok=True)
         summary.to_csv(args.season_summary, index=False)
         print(f"Saved per-season summary to {args.season_summary}")
+
+    if oddslogic_lookup is not None and total_missing:
+        print(f"Warning: {total_missing} games missing OddsLogic closings across requested span.")
 
     overall = summary.assign(games=summary["games"].astype(int))
     total_games = df.shape[0]

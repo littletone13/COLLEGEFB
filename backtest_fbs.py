@@ -24,16 +24,18 @@ Assumptions/Limitations:
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 import requests
 
 import fbs
+import oddslogic_loader
 
 CFBD_API = "https://api.collegefootballdata.com"
 
@@ -104,6 +106,7 @@ def evaluate_season(
     hist_path: Optional[Path],
     provider: str,
     max_week: Optional[int] = None,
+    oddslogic_lookup: Optional[Dict[Tuple[dt.date, str, str], Dict[str, object]]] = None,
 ) -> BacktestResult:
     games = _fetch_cfbd("/games", api_key=api_key, params={"year": year, "seasonType": "regular"})
     if max_week is not None:
@@ -114,11 +117,14 @@ def evaluate_season(
         calibration_games=games,
     )
     weather_lookup = {game.get("id"): game.get("weather") for game in games}
-    lines = load_closing_lines(hist_path, provider, year, api_key)
+    lines = None
+    if oddslogic_lookup is None:
+        lines = load_closing_lines(hist_path, provider, year, api_key)
 
     rows: list[dict] = []
     ats_wins = ats_losses = pushes = 0
     roi = 0.0
+    missing_closings = 0
 
     for game in games:
         if game.get("completed") is not True:
@@ -133,9 +139,55 @@ def evaluate_season(
             continue
 
         identifier = game.get("id")
-        try:
-            line_row = lines.loc[identifier]
-        except KeyError:
+
+        kickoff_date = None
+        spread = None
+        total_line = None
+
+        if oddslogic_lookup is not None:
+            kickoff_str = game.get("startDate") or game.get("startTime")
+            if kickoff_str:
+                try:
+                    kickoff_date = pd.to_datetime(kickoff_str).date()
+                except Exception:  # pylint: disable=broad-except
+                    kickoff_date = None
+            if kickoff_date is None:
+                missing_closings += 1
+                continue
+            home_key = oddslogic_loader.normalize_label(home_team)
+            away_key = oddslogic_loader.normalize_label(away_team)
+            lookup_key = (kickoff_date, home_key, away_key)
+            closing = oddslogic_lookup.get(lookup_key)
+            invert = False
+            if closing is None:
+                alt_key = (kickoff_date, away_key, home_key)
+                closing = oddslogic_lookup.get(alt_key)
+                if closing is not None:
+                    invert = True
+            if closing is None:
+                missing_closings += 1
+                continue
+            spread_raw = closing.get("spread_value")
+            if spread_raw is not None and not pd.isna(spread_raw):
+                spread = float(spread_raw)
+                if invert:
+                    spread = -spread
+            else:
+                spread = None
+            total_raw = closing.get("total_value")
+            if total_raw is not None and not pd.isna(total_raw):
+                total_line = float(total_raw)
+            else:
+                total_line = None
+        else:
+            try:
+                line_row = lines.loc[identifier]
+            except KeyError:
+                continue
+            spread = float(line_row["Spread"]) if not pd.isna(line_row["Spread"]) else None
+            total_line = float(line_row["OverUnder"]) if not pd.isna(line_row["OverUnder"]) else None
+
+        if spread is None and total_line is None:
             continue
 
         try:
@@ -147,30 +199,26 @@ def evaluate_season(
         actual_margin = home_points - away_points
         actual_total = home_points + away_points
 
-        spread = float(line_row["Spread"]) if not pd.isna(line_row["Spread"]) else None
-        total_line = float(line_row["OverUnder"]) if not pd.isna(line_row["OverUnder"]) else None
-
         if spread is not None:
             edge = pred["spread_home_minus_away"] - spread
             # Determine ATS pick.
             if abs(edge) > 1e-6:
                 pick_home = edge > 0
-                cover = actual_margin - spread
+                cover_margin = actual_margin + spread
                 if pick_home:
-                    if cover > 0:
+                    if cover_margin > 0:
                         ats_wins += 1
                         roi += 0.909
-                    elif cover < 0:
+                    elif cover_margin < 0:
                         ats_losses += 1
                         roi -= 1.0
                     else:
                         pushes += 1
                 else:
-                    cover = actual_margin + spread  # away cover condition mirrored
-                    if cover < 0:
+                    if cover_margin < 0:
                         ats_wins += 1
                         roi += 0.909
-                    elif cover > 0:
+                    elif cover_margin > 0:
                         ats_losses += 1
                         roi -= 1.0
                     else:
@@ -186,6 +234,9 @@ def evaluate_season(
 
     if not rows:
         raise RuntimeError("No games evaluated; verify data availability.")
+
+    if oddslogic_lookup is not None and missing_closings:
+        print(f"Warning: {missing_closings} games skipped due to missing OddsLogic closings.")
 
     df = pd.DataFrame(rows)
     spread_mae = df["spread_error"].abs().mean()
@@ -213,6 +264,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--provider", type=str, default="DraftKings", help="Sportsbook provider to filter.")
     parser.add_argument("--api-key", type=str, help="Optional CFBD API key (defaults to CFBD_API_KEY env var).")
     parser.add_argument("--max-week", type=int, help="Optional limit on the maximum week to include.")
+    parser.add_argument(
+        "--oddslogic-dir",
+        type=Path,
+        help="Optional path to OddsLogic archive output (overrides --historical / CFBD lines).",
+    )
     return parser.parse_args()
 
 
@@ -222,12 +278,25 @@ def main() -> None:
     if not api_key:
         raise RuntimeError("CFBD API key not provided. Use --api-key or set CFBD_API_KEY env var.")
 
+    oddslogic_lookup = None
+    if args.oddslogic_dir:
+        df_archive = oddslogic_loader.load_archive_dataframe(args.oddslogic_dir)
+        providers = [args.provider] if args.provider else None
+        oddslogic_lookup = oddslogic_loader.build_closing_lookup(df_archive, "fbs", providers=providers)
+        if not oddslogic_lookup:
+            raise RuntimeError("No OddsLogic lines matched the requested configuration.")
+        # When using archive data we do not rely on CSV/API fallbacks.
+        hist_path = None
+    else:
+        hist_path = args.historical
+
     result = evaluate_season(
         args.year,
         api_key=api_key,
-        hist_path=args.historical,
+        hist_path=hist_path,
         provider=args.provider,
         max_week=args.max_week,
+        oddslogic_lookup=oddslogic_lookup,
     )
     print(f"Season {args.year} backtest over {result.games} games")
     print(f"Spread MAE: {result.spread_mae:.2f} pts")

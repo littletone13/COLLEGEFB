@@ -29,6 +29,10 @@ RAW_TEAM_NAME_ALIASES = {
     "LONG ISLAND UNIVERSITY SHARKS": "LIUSHAR",
     "LIU": "LIUSHAR",
     "LIU SHARKS": "LIUSHAR",
+    "STONEHILL": "STHLSK",
+    "STONEHILL SKYHAWKS": "STHLSK",
+    "STONEHILL COLLEGE": "STHLSK",
+    "STONE HILL": "STHLSK",
     "NEW HAVEN": "NEWHVN",
     "NEW HAVEN CHARGERS": "NEWHVN",
     "UNIVERSITY OF NEW HAVEN": "NEWHVN",
@@ -85,6 +89,7 @@ TEAM_NAME_ALIASES = {_normalize_label(key): value for key, value in RAW_TEAM_NAM
 
 DISPLAY_NAME_OVERRIDES = {
     "TXAMCO": "East Texas A&M",
+    "STHLSK": "Stonehill",
 }
 
 
@@ -94,6 +99,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--days", type=int, default=3, help="Number of days to include starting from start_date (default 3).")
     parser.add_argument("--week", type=int, help="CFBD week number to align with market lines.")
     parser.add_argument("--api-key", type=str, help="Optional CFBD API key (defaults to env).")
+    parser.add_argument(
+        "--providers",
+        type=str,
+        help="Comma-separated sportsbook providers to include when blending market priors (default: all).",
+    )
     parser.add_argument("--output", type=Path, help="Optional CSV output path.")
     parser.add_argument("--html", type=Path, help="Optional HTML summary output path.")
     return parser.parse_args()
@@ -243,11 +253,15 @@ def main() -> None:
         alias = TEAM_NAME_ALIASES.get(normalized)
         if alias:
             return alias
-        matches = difflib.get_close_matches(raw, pff_names, n=1, cutoff=0.5)
+        if normalized in pff_set:
+            return normalized
+        matches = difflib.get_close_matches(raw, pff_names, n=1, cutoff=0.75)
         return matches[0] if matches else None
 
     api_key = args.api_key or os.environ.get("CFBD_API_KEY")
     market_lookup: Dict[tuple[str, str], dict] = {}
+    provider_filter = [p.strip() for p in args.providers.split(",") if p.strip()] if args.providers else None
+
     if api_key and args.week is not None:
         try:
             market_entries = fcs.fetch_market_lines(
@@ -255,6 +269,7 @@ def main() -> None:
                 api_key,
                 week=args.week,
                 season_type="regular",
+                providers=provider_filter,
             )
             for entry in market_entries:
                 mapped_home = map_team(entry.get("home_team"))
@@ -360,6 +375,7 @@ def main() -> None:
         "market_total": [],
         "market_provider_count": [],
         "market_providers": [],
+        "market_provider_lines": [],
         "spread_vs_market": [],
         "total_vs_market": [],
     }
@@ -392,6 +408,10 @@ def main() -> None:
         projections["market_provider_count"].append(result.get("market_provider_count"))
         providers = result.get("market_providers") or []
         projections["market_providers"].append(", ".join(providers) if providers else None)
+        provider_lines = result.get("market_provider_lines") or {}
+        projections["market_provider_lines"].append(
+            json.dumps(provider_lines, sort_keys=True) if provider_lines else None
+        )
         projections["spread_vs_market"].append(result.get("spread_vs_market"))
         projections["total_vs_market"].append(result.get("total_vs_market"))
 
