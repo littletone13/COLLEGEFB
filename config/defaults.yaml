@@ -20,6 +20,10 @@ fbs:
     defense_factor: 5.0088
     power_factor: 2.1035
     spread_sigma: 15.0
+  backtest:
+    spread_edge_min: 1.0
+    total_edge_min: 1.0
+    min_provider_count: 1
 
 fcs:
   market:
@@ -32,3 +36,7 @@ fcs:
     defense_factor: 0.2318
     special_teams_factor: 1.4226
     spread_sigma: 16.0
+  backtest:
+    spread_edge_min: 1.0
+    total_edge_min: 1.0
+    min_provider_count: 1

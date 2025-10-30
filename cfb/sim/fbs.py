@@ -9,6 +9,7 @@ from typing import Dict, Iterable, Optional, Sequence
 import pandas as pd
 
 import fbs
+from cfb.market import edges as edge_utils
 
 
 def simulate_week(
@@ -125,4 +126,14 @@ def simulate_week(
         rows["weather_wind"].append(result.get("weather_wind"))
         rows["weather_total_adj"].append(result.get("weather_total_adj"))
 
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    df = edge_utils.annotate_edges(
+        df,
+        model_spread_col="spread_home_minus_away",
+        market_spread_col="market_spread",
+        model_total_col="total_points",
+        market_total_col="market_total",
+        win_prob_col="home_win_prob",
+        provider_count_col="market_provider_count",
+    )
+    return df

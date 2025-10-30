@@ -36,6 +36,8 @@ import requests
 
 import fbs
 import oddslogic_loader
+from cfb.config import load_config
+from cfb.market import edges as edge_utils
 
 CFBD_API = "https://api.collegefootballdata.com"
 
@@ -97,6 +99,7 @@ class BacktestResult:
     games: int
     ats_record: tuple[int, int, int]
     ats_roi: float
+    bets: int
 
 
 def evaluate_season(
@@ -107,6 +110,9 @@ def evaluate_season(
     provider: str,
     max_week: Optional[int] = None,
     oddslogic_lookup: Optional[Dict[Tuple[dt.date, str, str], Dict[str, object]]] = None,
+    spread_edge_min: float = 0.0,
+    min_provider_count: int = 0,
+    total_edge_min: float = 0.0,
 ) -> BacktestResult:
     games = _fetch_cfbd("/games", api_key=api_key, params={"year": year, "seasonType": "regular"})
     if max_week is not None:
@@ -124,7 +130,14 @@ def evaluate_season(
     rows: list[dict] = []
     ats_wins = ats_losses = pushes = 0
     roi = 0.0
+    bets = 0
     missing_closings = 0
+
+    edge_config = edge_utils.EdgeFilterConfig(
+        spread_edge_min=spread_edge_min,
+        total_edge_min=total_edge_min,
+        min_provider_count=min_provider_count,
+    )
 
     for game in games:
         if game.get("completed") is not True:
@@ -143,7 +156,11 @@ def evaluate_season(
         kickoff_date = None
         spread = None
         total_line = None
+        provider_count = 0
+        edge = None
 
+        closing = None
+        invert = False
         if oddslogic_lookup is not None:
             kickoff_str = game.get("startDate") or game.get("startTime")
             if kickoff_str:
@@ -158,7 +175,6 @@ def evaluate_season(
             away_key = oddslogic_loader.normalize_label(away_team)
             lookup_key = (kickoff_date, home_key, away_key)
             closing = oddslogic_lookup.get(lookup_key)
-            invert = False
             if closing is None:
                 alt_key = (kickoff_date, away_key, home_key)
                 closing = oddslogic_lookup.get(alt_key)
@@ -167,18 +183,15 @@ def evaluate_season(
             if closing is None:
                 missing_closings += 1
                 continue
+            provider_count = len((closing.get("providers") or {}))
             spread_raw = closing.get("spread_value")
             if spread_raw is not None and not pd.isna(spread_raw):
                 spread = float(spread_raw)
                 if invert:
                     spread = -spread
-            else:
-                spread = None
             total_raw = closing.get("total_value")
             if total_raw is not None and not pd.isna(total_raw):
                 total_line = float(total_raw)
-            else:
-                total_line = None
         else:
             try:
                 line_row = lines.loc[identifier]
@@ -186,6 +199,7 @@ def evaluate_season(
                 continue
             spread = float(line_row["Spread"]) if not pd.isna(line_row["Spread"]) else None
             total_line = float(line_row["OverUnder"]) if not pd.isna(line_row["OverUnder"]) else None
+            provider_count = 1 if spread is not None else 0
 
         if spread is None and total_line is None:
             continue
@@ -201,8 +215,9 @@ def evaluate_season(
 
         if spread is not None:
             edge = pred["spread_home_minus_away"] - spread
-            # Determine ATS pick.
-            if abs(edge) > 1e-6:
+            bet_allowed = edge_utils.allow_spread_bet(edge, provider_count, edge_config)
+            if bet_allowed:
+                bets += 1
                 pick_home = edge > 0
                 cover_margin = actual_margin + spread
                 if pick_home:
@@ -229,6 +244,11 @@ def evaluate_season(
                 "spread_error": pred["spread_home_minus_away"] - actual_margin,
                 "total_error": pred["total_points"] - actual_total if total_line is not None else np.nan,
                 "brier": (pred["home_win_prob"] - (1.0 if actual_margin > 0 else 0.0)) ** 2,
+                "spread_edge": edge if edge is not None else np.nan,
+                "total_edge": (pred["total_points"] - total_line) if total_line is not None else np.nan,
+                "market_spread": spread,
+                "market_total": total_line,
+                "market_provider_count": provider_count,
             }
         )
 
@@ -244,8 +264,7 @@ def evaluate_season(
     brier = df["brier"].mean()
     games_eval = len(df)
 
-    total_bets = ats_wins + ats_losses
-    ats_roi = (roi / total_bets) if total_bets else 0.0
+    ats_roi = (roi / bets) if bets else 0.0
 
     return BacktestResult(
         spread_mae=spread_mae,
@@ -254,6 +273,7 @@ def evaluate_season(
         games=games_eval,
         ats_record=(ats_wins, ats_losses, pushes),
         ats_roi=ats_roi,
+        bets=bets,
     )
 
 
@@ -278,6 +298,12 @@ def main() -> None:
     if not api_key:
         raise RuntimeError("CFBD API key not provided. Use --api-key or set CFBD_API_KEY env var.")
 
+    config = load_config()
+    backtest_cfg = config.get("fbs", {}).get("backtest", {}) if isinstance(config.get("fbs"), dict) else {}
+    spread_edge_min = float(backtest_cfg.get("spread_edge_min", 0.0))
+    total_edge_min = float(backtest_cfg.get("total_edge_min", 0.0))
+    min_provider_count = int(backtest_cfg.get("min_provider_count", 0))
+
     oddslogic_lookup = None
     if args.oddslogic_dir:
         df_archive = oddslogic_loader.load_archive_dataframe(args.oddslogic_dir)
@@ -297,6 +323,9 @@ def main() -> None:
         provider=args.provider,
         max_week=args.max_week,
         oddslogic_lookup=oddslogic_lookup,
+        spread_edge_min=edge_config.spread_edge_min,
+        min_provider_count=min_provider_count,
+        total_edge_min=total_edge_min,
     )
     print(f"Season {args.year} backtest over {result.games} games")
     print(f"Spread MAE: {result.spread_mae:.2f} pts")
@@ -305,6 +334,7 @@ def main() -> None:
     w, l, p = result.ats_record
     print(f"ATS record: {w}-{l}-{p}")
     print(f"ATS ROI (per bet, -110 assumed): {result.ats_roi*100:0.2f}%")
+    print(f"Bets placed: {result.bets} (spread edge ≥ {spread_edge_min}, providers ≥ {min_provider_count})")
 
 
 if __name__ == "__main__":

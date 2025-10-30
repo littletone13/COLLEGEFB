@@ -8,13 +8,16 @@ import os
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+import numpy as np
 import pandas as pd
 import requests
 
 import fcs
 import ncaa_stats
 import oddslogic_loader
-from simulate_fcs_week import TEAM_NAME_ALIASES, _normalize_label
+from cfb.config import load_config
+from cfb.fcs_aliases import TEAM_NAME_ALIASES, normalize_label as _normalize_label
+from cfb.market import edges as edge_utils
 
 CFBD_API = "https://api.collegefootballdata.com"
 
@@ -122,6 +125,10 @@ def evaluate_season(
     season_type: str,
     max_week: Optional[int] = None,
     closing_lookup: Optional[Dict[Tuple[dt.date, str, str], Dict[str, object]]] = None,
+    *,
+    spread_edge_min: float = 0.0,
+    total_edge_min: float = 0.0,
+    min_provider_count: int = 0,
 ) -> Tuple[List[Dict[str, object]], int]:
     ratings = fcs.load_team_ratings(data_dir=data_dir, season_year=year)
     book = fcs.RatingBook(ratings, fcs.RatingConstants())
@@ -133,6 +140,11 @@ def evaluate_season(
 
     rows: List[Dict[str, object]] = []
     missing_closings = 0
+    edge_config = edge_utils.EdgeFilterConfig(
+        spread_edge_min=spread_edge_min,
+        total_edge_min=total_edge_min,
+        min_provider_count=min_provider_count,
+    )
     for game in games:
         if game.get("completed") is not True:
             continue
@@ -157,6 +169,7 @@ def evaluate_season(
         closing_book = None
         closing_book_id = None
         kickoff_date = None
+        provider_count = 0
         if closing_lookup is not None:
             kickoff_raw = game.get("startDate") or game.get("startTime")
             if kickoff_raw:
@@ -178,6 +191,11 @@ def evaluate_season(
                 if closing is None:
                     missing_closings += 1
                 else:
+                    providers_payload = closing.get("providers") or {}
+                    if providers_payload:
+                        provider_count = len(providers_payload)
+                    elif closing.get("sportsbook_name"):
+                        provider_count = 1
                     spread_raw = closing.get("spread_value")
                     if spread_raw is not None and not pd.isna(spread_raw):
                         closing_spread = float(spread_raw)
@@ -202,6 +220,15 @@ def evaluate_season(
         actual_margin = actual_home - actual_away
         actual_total = actual_home + actual_away
         home_flag = 1.0 if actual_margin > 0 else (0.0 if actual_margin < 0 else 0.5)
+        pred_spread_value = pred.get("spread_home_minus_away") or pred.get("spread_team_one_minus_team_two")
+        spread_edge_value = (
+            pred_spread_value - closing_spread if closing_spread is not None else np.nan
+        )
+        total_edge_value = (
+            pred["total_points"] - closing_total if closing_total is not None else np.nan
+        )
+        edge_allowed = edge_utils.allow_spread_bet(spread_edge_value, provider_count, edge_config)
+
         rows.append(
             {
                 "season": year,
@@ -216,10 +243,10 @@ def evaluate_season(
                 "actual_total": actual_total,
                 "pred_home_points": pred.get("home_points") or pred.get("team_one_points"),
                 "pred_away_points": pred.get("away_points") or pred.get("team_two_points"),
-                "pred_spread": pred.get("spread_home_minus_away") or pred.get("spread_team_one_minus_team_two"),
+                "pred_spread": pred_spread_value,
                 "pred_total": pred["total_points"],
                 "pred_home_win_prob": pred.get("home_win_prob") or pred.get("team_one_win_prob"),
-                "spread_error": (pred.get("spread_home_minus_away") or pred.get("spread_team_one_minus_team_two")) - actual_margin,
+                "spread_error": pred_spread_value - actual_margin if pred_spread_value is not None else np.nan,
                 "total_error": pred["total_points"] - actual_total,
                 "brier": (pred.get("home_win_prob") or pred.get("team_one_win_prob") - home_flag) ** 2,
                 "closing_spread": closing_spread,
@@ -229,6 +256,10 @@ def evaluate_season(
                 "closing_sportsbook": closing_book,
                 "closing_sportsbook_id": closing_book_id,
                 "kickoff_date": kickoff_date,
+                "market_provider_count": provider_count,
+                "spread_edge": spread_edge_value,
+                "total_edge": total_edge_value,
+                "spread_edge_allowed": edge_allowed,
             }
         )
     return rows, missing_closings
@@ -258,6 +289,12 @@ def main() -> None:
     if not api_key:
         raise RuntimeError("CFBD API key required. Set CFBD_API_KEY or pass --api-key.")
 
+    config = load_config()
+    backtest_cfg = config.get("fcs", {}).get("backtest", {}) if isinstance(config.get("fcs"), dict) else {}
+    spread_edge_min = float(backtest_cfg.get("spread_edge_min", 0.0))
+    total_edge_min = float(backtest_cfg.get("total_edge_min", 0.0))
+    min_provider_count = int(backtest_cfg.get("min_provider_count", 0))
+
     oddslogic_lookup = None
     providers = _parse_providers(args.providers)
     if args.oddslogic_dir:
@@ -281,6 +318,9 @@ def main() -> None:
             args.season_type,
             max_week=args.max_week,
             closing_lookup=oddslogic_lookup,
+            spread_edge_min=spread_edge_min,
+            total_edge_min=total_edge_min,
+            min_provider_count=min_provider_count,
         )
         if not rows:
             print(f"No games processed for season {season}; check data availability.")

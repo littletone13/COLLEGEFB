@@ -42,12 +42,15 @@ import oddslogic_loader
 from cfb import market as market_utils
 from cfb import weather as weather_utils
 from cfb.config import load_config
+from cfb.injuries import penalties_for_player
 from cfb.io import oddslogic as oddslogic_io
-from cfb.io.cfbd import CFBDClient
+from cfb.io.cfbd import CFBDClient, BASE_URL as CFBD_BASE_URL
 from cfb.model import RatingBook, RatingConstants, fit_linear_calibrations, fit_probability_sigma
 
 PFF_DATA_DIR = Path("~/Desktop/PFFMODEL_FBS").expanduser()
 PFF_COMBINED_DATA_DIR = Path("~/Desktop/POST WEEK 9 FBS & FCS DATA").expanduser()
+
+BASE_URL = CFBD_BASE_URL
 
 CONFIG = load_config()
 FBS_CONFIG = CONFIG.get("fbs", {})
@@ -94,47 +97,6 @@ def _rating_constants_from_config() -> RatingConstants:
     )
 
 ODDSLOGIC_ARCHIVE_DIR = Path(os.environ.get("ODDSLOGIC_ARCHIVE_DIR", "oddslogic_ncaa_all"))
-
-OFFENSE_POSITIONS = {
-    "QB",
-    "RB",
-    "TB",
-    "HB",
-    "FB",
-    "WR",
-    "TE",
-    "LT",
-    "LG",
-    "C",
-    "RG",
-    "RT",
-    "OL",
-}
-DEFENSE_POSITIONS = {
-    "DL",
-    "DE",
-    "DT",
-    "NT",
-    "EDGE",
-    "LB",
-    "ILB",
-    "OLB",
-    "MLB",
-    "CB",
-    "DB",
-    "S",
-    "FS",
-    "SS",
-    "STAR",
-    "NB",
-}
-STATUS_PENALTIES = {
-    "out": 0.12,
-    "suspended": 0.10,
-    "doubtful": 0.08,
-    "questionable": 0.04,
-    "probable": 0.02,
-}
 
 _INJURY_WARNING_EMITTED = False
 
@@ -732,15 +694,11 @@ def fetch_injury_impacts(
             raw = data.get("teamInjuries") or data.get("injuries") or []
             for entry in raw:
                 team = entry.get("team")
-                status = (entry.get("status") or "").strip().lower()
+                status_raw = (entry.get("status") or "").strip()
                 player = entry.get("player") or entry.get("athlete") or {}
                 position = (player.get("position") or entry.get("position") or "").strip().upper()
-                penalty = STATUS_PENALTIES.get(status, 0.0)
-                if not team or penalty <= 0.0:
-                    continue
-                offense_pen = penalty if position in OFFENSE_POSITIONS else 0.0
-                defense_pen = penalty if position in DEFENSE_POSITIONS else 0.0
-                if offense_pen == 0.0 and defense_pen == 0.0:
+                offense_pen, defense_pen = penalties_for_player(status_raw, position)
+                if not team or (offense_pen == 0.0 and defense_pen == 0.0):
                     continue
                 entries.append(
                     {
@@ -752,7 +710,8 @@ def fetch_injury_impacts(
         if entries:
             cfbd_df = (
                 pd.DataFrame(entries)
-                .groupby("team")["injury_offense_penalty", "injury_defense_penalty"].sum()
+                .groupby("team")[["injury_offense_penalty", "injury_defense_penalty"]]
+                .sum()
                 .reset_index()
             )
 
@@ -765,24 +724,12 @@ def fetch_injury_impacts(
     ol_entries: list[dict] = []
     for info in ol_payload.values():
         team = info.get("player_team")
-        status_raw = (info.get("injury_status") or "").strip().lower()
-        custom_text = (info.get("custom_text") or "").lower()
-        status = status_raw
-        if status not in STATUS_PENALTIES:
-            if "ruled out" in custom_text:
-                status = "out"
-            elif "doubtful" in custom_text:
-                status = "doubtful"
-            elif "questionable" in custom_text:
-                status = "questionable"
-            elif "upgraded to available" in custom_text or "available" in custom_text:
-                status = "probable"
-        penalty = STATUS_PENALTIES.get(status, 0.0)
-        if not team or penalty <= 0.0:
+        status_raw = info.get("injury_status") or ""
+        custom_text = info.get("custom_text") or ""
+        if not team:
             continue
         position = (info.get("player_position") or "").upper()
-        offense_pen = penalty if position in OFFENSE_POSITIONS else 0.0
-        defense_pen = penalty if position in DEFENSE_POSITIONS else 0.0
+        offense_pen, defense_pen = penalties_for_player(status_raw, position, custom_text=custom_text)
         if offense_pen == 0.0 and defense_pen == 0.0:
             continue
         ol_entries.append(
@@ -796,7 +743,7 @@ def fetch_injury_impacts(
     if ol_entries:
         ol_df = (
             pd.DataFrame(ol_entries)
-            .groupby("team")["injury_offense_penalty", "injury_defense_penalty"]
+            .groupby("team")[["injury_offense_penalty", "injury_defense_penalty"]]
             .sum()
             .reset_index()
         )
@@ -805,7 +752,7 @@ def fetch_injury_impacts(
         else:
             cfbd_df = (
                 pd.concat([cfbd_df, ol_df])
-                .groupby("team")["injury_offense_penalty", "injury_defense_penalty"]
+                .groupby("team")[["injury_offense_penalty", "injury_defense_penalty"]]
                 .sum()
                 .reset_index()
             )

@@ -1,9 +1,27 @@
-"""Market blending utilities shared across models."""
+"""Market blending and edge utilities."""
 
 from __future__ import annotations
 
 import math
 from typing import Dict, Optional
+
+from .edges import (
+    EdgeFilterConfig,
+    allow_spread_bet,
+    annotate_edges,
+    edge_filter_mask,
+    filter_edges,
+)
+
+__all__ = [
+    "moneyline_from_prob",
+    "apply_market_prior",
+    "EdgeFilterConfig",
+    "annotate_edges",
+    "edge_filter_mask",
+    "filter_edges",
+    "allow_spread_bet",
+]
 
 
 def moneyline_from_prob(prob: float) -> Optional[float]:

@@ -5,7 +5,6 @@ import argparse
 import os
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Dict
 
 import pandas as pd
 

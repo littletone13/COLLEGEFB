@@ -14,6 +14,7 @@ hard-number betting edges.
 from __future__ import annotations
 
 import argparse
+import difflib
 import math
 import warnings
 from pathlib import Path
@@ -26,9 +27,10 @@ import requests
 import ncaa_stats
 from cfb import market as market_utils
 from cfb.config import load_config
+from cfb.fcs_aliases import normalize_label as alias_normalize, map_team as alias_map
+from cfb.injuries import penalties_for_player
+from cfb.io import oddslogic as oddslogic_io
 from cfb.model import FCSRatingBook, FCSRatingConstants
-from cfb import market as market_utils
-from cfb.config import load_config
 
 DATA_DIR_DEFAULT = Path("~/Desktop/PFFMODEL_FBS/FCS_DATA").expanduser()
 ADJUSTED_DATA_GLOB = "fcs_adjusted*/fcs_adjusted_{kind}_*.csv"
@@ -43,6 +45,7 @@ _RATING_CONFIG = FCS_CONFIG.get("ratings", {}) if isinstance(FCS_CONFIG.get("rat
 FCS_MARKET_SPREAD_WEIGHT = float(_MARKET_CONFIG.get("spread_weight", 0.7))
 FCS_MARKET_TOTAL_WEIGHT = float(_MARKET_CONFIG.get("total_weight", 0.7))
 PFF_COMBINED_DATA_DIR = Path("~/Desktop/POST WEEK 9 FBS & FCS DATA").expanduser()
+FCS_TEAM_SET = set(ncaa_stats.SLUG_TO_PFF.values())
 
 
 def _rating_constants_from_config() -> FCSRatingConstants:
@@ -202,6 +205,75 @@ def _coerce_float(value: Optional[float]) -> Optional[float]:
         return float(filtered)
     except ValueError:
         return None
+
+
+def fetch_injury_penalties(league: str = "ncaaf_fcs") -> pd.DataFrame:
+    """Fetch aggregated injury penalties from OddsLogic for the requested league."""
+
+    try:
+        payload = oddslogic_io.fetch_injuries(league=league)
+    except requests.RequestException:
+        return pd.DataFrame(columns=["team_name", "injury_offense_penalty", "injury_defense_penalty"])
+
+    entries: list[dict[str, float | str]] = []
+    for info in (payload or {}).values():
+        team = info.get("player_team")
+        if not team:
+            continue
+        status = info.get("injury_status") or ""
+        position = info.get("player_position") or ""
+        custom_text = info.get("custom_text") or ""
+        offense_pen, defense_pen = penalties_for_player(status, position, custom_text=custom_text)
+        if offense_pen == 0.0 and defense_pen == 0.0:
+            continue
+        entries.append(
+            {
+                "team_name": str(team),
+                "injury_offense_penalty": float(offense_pen),
+                "injury_defense_penalty": float(defense_pen),
+            }
+        )
+
+    if not entries:
+        return pd.DataFrame(columns=["team_name", "injury_offense_penalty", "injury_defense_penalty"])
+
+    df = pd.DataFrame(entries)
+    return (
+        df.groupby("team_name", as_index=False)[["injury_offense_penalty", "injury_defense_penalty"]]
+        .sum()
+    )
+
+
+def apply_injury_penalties(teams: pd.DataFrame, injuries: pd.DataFrame) -> pd.DataFrame:
+    """Apply injury penalties to the aggregated team ratings."""
+
+    if injuries.empty:
+        return teams
+    if "team_name" not in teams.columns:
+        return teams
+
+    teams = teams.copy()
+    lookup = {alias_normalize(name): name for name in teams["team_name"]}
+    team_names = teams["team_name"].tolist()
+    for entry in injuries.itertuples():
+        normalized = alias_normalize(entry.team_name)
+        resolved = lookup.get(normalized)
+        if not resolved:
+            alias = alias_map(entry.team_name)
+            if alias and alias in team_names:
+                resolved = alias
+        if not resolved:
+            matches = difflib.get_close_matches(normalized, lookup.keys(), n=1, cutoff=0.92)
+            if matches:
+                resolved = lookup[matches[0]]
+        if not resolved:
+            continue
+        mask = teams["team_name"] == resolved
+        if "offense_rating" in teams.columns:
+            teams.loc[mask, "offense_rating"] = teams.loc[mask, "offense_rating"].astype(float) - float(entry.injury_offense_penalty)
+        if "defense_rating" in teams.columns:
+            teams.loc[mask, "defense_rating"] = teams.loc[mask, "defense_rating"].astype(float) + float(entry.injury_defense_penalty)
+    return teams
 
 
 def fetch_market_lines(
@@ -385,6 +457,53 @@ def aggregate_team_metrics(
 # --- Rating construction --------------------------------------------------
 
 
+def load_team_ratings(
+    data_dir: Path = DATA_DIR_DEFAULT,
+    *,
+    season_year: Optional[int] = None,
+) -> pd.DataFrame:
+    """Load team ratings derived from opponent-adjusted PFF metrics."""
+
+    if season_year is None:
+        today = datetime.utcnow().date()
+        season_year = today.year if today.month >= 7 else today.year - 1
+
+    offense_df, defense_df = _load_adjusted_metrics(season_year)
+    if offense_df.empty or defense_df.empty:
+        raise RuntimeError(
+            f"Adjusted metrics for season {season_year} not found. "
+            "Ensure fcs_adjusted outputs are available."
+        )
+
+    offense = offense_df.rename(columns={"team": "team_name"})[["team_name", "points_offense"]]
+    defense = defense_df.rename(columns={"team": "team_name"})[["team_name", "points_defense"]]
+    merged = offense.merge(defense, on="team_name", how="inner")
+
+    merged["team_name"] = merged["team_name"].str.upper()
+    merged = merged[merged["team_name"].isin(FCS_TEAM_SET)].copy()
+    if merged.empty:
+        raise RuntimeError("No FCS teams found in adjusted metrics; verify data sources.")
+
+    offense_mean = merged["points_offense"].mean()
+    defense_mean = merged["points_defense"].mean()
+
+    merged["offense_rating"] = merged["points_offense"] - offense_mean
+    merged["defense_rating"] = defense_mean - merged["points_defense"]
+    merged["special_rating"] = 0.0
+    merged["power_rating"] = merged["offense_rating"] + merged["defense_rating"]
+    merged["spread_rating"] = merged["power_rating"]
+
+    cols = [
+        "team_name",
+        "offense_rating",
+        "defense_rating",
+        "special_rating",
+        "power_rating",
+        "spread_rating",
+    ]
+    return merged[cols].sort_values("power_rating", ascending=False).reset_index(drop=True)
+
+
 def build_rating_book(
     data_dir: Path = DATA_DIR_DEFAULT,
     *,
@@ -394,6 +513,12 @@ def build_rating_book(
     prob_sigma: float = FCS_PROB_SIGMA,
 ) -> tuple[pd.DataFrame, FCSRatingBook]:
     teams = load_team_ratings(data_dir, season_year=season_year)
+    try:
+        injuries = fetch_injury_penalties()
+        if not injuries.empty:
+            teams = apply_injury_penalties(teams, injuries)
+    except Exception:  # pragma: no cover - injury feed issues shouldn't halt rating build
+        pass
     spread_model = dict(FCS_SPREAD_LINEAR_COEFFS)
     if "intercept" not in spread_model:
         spread_model["intercept"] = FCS_SPREAD_REG_INTERCEPT

@@ -14,6 +14,11 @@ import oddslogic_loader
 ODDSLOGIC_PHP_BASE = "https://odds.oddslogic.com/OddsLogic/sources/php/"
 INJURY_LEAGUE_IDS = {
     "ncaaf": 1,
+    "ncaaf_fbs": 1,
+    "ncaaf-fbs": 1,
+    "ncaaf_fcs": 1,
+    "ncaaf-fcs": 1,
+    "college_football": 1,
     "nfl": 2,
 }
 
