@@ -42,6 +42,7 @@ import oddslogic_loader
 from cfb import market as market_utils
 from cfb import weather as weather_utils
 from cfb.config import load_config
+from cfb.io import oddslogic as oddslogic_io
 from cfb.io.cfbd import CFBDClient
 from cfb.model import RatingBook, RatingConstants, fit_linear_calibrations, fit_probability_sigma
 
@@ -694,52 +695,97 @@ def fetch_injury_impacts(
     week: Optional[int] = None,
     season_type: str = "regular",
 ) -> pd.DataFrame:
+    """Aggregate injury penalties from CFBD and OddsLogic."""
+
     global _INJURY_WARNING_EMITTED
-    if not api_key:
-        return pd.DataFrame(columns=["team"])
 
-    variables = {
-        "season": year,
-        "seasonType": season_type.upper() if isinstance(season_type, str) else season_type,
-        "week": week,
-    }
-    query = """
-    query TeamInjuries($season: Int!, $seasonType: SeasonType, $week: Int) {
-      teamInjuries(season: $season, seasonType: $seasonType, week: $week) {
-        team
-        status
-        player {
-          name
-          position
+    # CFBD GraphQL feed
+    cfbd_df = pd.DataFrame(columns=["team"])
+    if api_key:
+        variables = {
+            "season": year,
+            "seasonType": season_type.upper() if isinstance(season_type, str) else season_type,
+            "week": week,
         }
-      }
-    }
-    """
-    data = _graphql_request(api_key, query, variables)
-    entries: list[dict] = []
-    if not data:
-        if not _INJURY_WARNING_EMITTED:
-            warnings.warn(
-                "CFBD GraphQL injuries unavailable; skipping injury adjustments.",
-                RuntimeWarning,
+        query = """
+        query TeamInjuries($season: Int!, $seasonType: SeasonType, $week: Int) {
+          teamInjuries(season: $season, seasonType: $seasonType, week: $week) {
+            team
+            status
+            player {
+              name
+              position
+            }
+          }
+        }
+        """
+        data = _graphql_request(api_key, query, variables)
+        entries: list[dict] = []
+        if not data:
+            if not _INJURY_WARNING_EMITTED:
+                warnings.warn(
+                    "CFBD GraphQL injuries unavailable; skipping injury adjustments.",
+                    RuntimeWarning,
+                )
+                _INJURY_WARNING_EMITTED = True
+        else:
+            raw = data.get("teamInjuries") or data.get("injuries") or []
+            for entry in raw:
+                team = entry.get("team")
+                status = (entry.get("status") or "").strip().lower()
+                player = entry.get("player") or entry.get("athlete") or {}
+                position = (player.get("position") or entry.get("position") or "").strip().upper()
+                penalty = STATUS_PENALTIES.get(status, 0.0)
+                if not team or penalty <= 0.0:
+                    continue
+                offense_pen = penalty if position in OFFENSE_POSITIONS else 0.0
+                defense_pen = penalty if position in DEFENSE_POSITIONS else 0.0
+                if offense_pen == 0.0 and defense_pen == 0.0:
+                    continue
+                entries.append(
+                    {
+                        "team": team,
+                        "injury_offense_penalty": offense_pen,
+                        "injury_defense_penalty": defense_pen,
+                    }
+                )
+        if entries:
+            cfbd_df = (
+                pd.DataFrame(entries)
+                .groupby("team")["injury_offense_penalty", "injury_defense_penalty"].sum()
+                .reset_index()
             )
-            _INJURY_WARNING_EMITTED = True
-        return pd.DataFrame(columns=["team"])
 
-    raw = data.get("teamInjuries") or data.get("injuries") or []
-    for entry in raw:
-        team = entry.get("team")
-        status = (entry.get("status") or "").strip().lower()
-        player = entry.get("player") or entry.get("athlete") or {}
-        position = (player.get("position") or entry.get("position") or "").strip().upper()
+    # OddsLogic feed (multi-book injury news)
+    try:
+        ol_payload = oddslogic_io.fetch_injuries(league="ncaaf_fbs")
+    except requests.RequestException:
+        ol_payload = {}
+
+    ol_entries: list[dict] = []
+    for info in ol_payload.values():
+        team = info.get("player_team")
+        status_raw = (info.get("injury_status") or "").strip().lower()
+        custom_text = (info.get("custom_text") or "").lower()
+        status = status_raw
+        if status not in STATUS_PENALTIES:
+            if "ruled out" in custom_text:
+                status = "out"
+            elif "doubtful" in custom_text:
+                status = "doubtful"
+            elif "questionable" in custom_text:
+                status = "questionable"
+            elif "upgraded to available" in custom_text or "available" in custom_text:
+                status = "probable"
         penalty = STATUS_PENALTIES.get(status, 0.0)
         if not team or penalty <= 0.0:
             continue
+        position = (info.get("player_position") or "").upper()
         offense_pen = penalty if position in OFFENSE_POSITIONS else 0.0
         defense_pen = penalty if position in DEFENSE_POSITIONS else 0.0
         if offense_pen == 0.0 and defense_pen == 0.0:
             continue
-        entries.append(
+        ol_entries.append(
             {
                 "team": team,
                 "injury_offense_penalty": offense_pen,
@@ -747,11 +793,25 @@ def fetch_injury_impacts(
             }
         )
 
-    if not entries:
-        return pd.DataFrame(columns=["team"])
-    df = pd.DataFrame(entries)
-    grouped = df.groupby("team")[["injury_offense_penalty", "injury_defense_penalty"]].sum().reset_index()
-    return grouped
+    if ol_entries:
+        ol_df = (
+            pd.DataFrame(ol_entries)
+            .groupby("team")["injury_offense_penalty", "injury_defense_penalty"]
+            .sum()
+            .reset_index()
+        )
+        if cfbd_df.empty:
+            cfbd_df = ol_df
+        else:
+            cfbd_df = (
+                pd.concat([cfbd_df, ol_df])
+                .groupby("team")["injury_offense_penalty", "injury_defense_penalty"]
+                .sum()
+                .reset_index()
+            )
+
+    return cfbd_df
+
 def _coerce_float(value: Optional[float]) -> Optional[float]:
     if value is None or value == "":
         return None
