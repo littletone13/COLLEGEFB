@@ -144,6 +144,9 @@ def evaluate_season(
         total_edge_min=total_edge_min,
         min_provider_count=min_provider_count,
     )
+    total_wins = total_losses = total_pushes = 0
+    total_roi = 0.0
+    total_bets = 0
     for game in games:
         if game.get("completed") is not True:
             continue
@@ -227,6 +230,30 @@ def evaluate_season(
             pred["total_points"] - closing_total if closing_total is not None else np.nan
         )
         edge_allowed = edge_utils.allow_spread_bet(spread_edge_value, provider_count, edge_config)
+        total_allowed = edge_utils.allow_total_bet(total_edge_value, provider_count, edge_config)
+
+        if total_allowed:
+            total_bets += 1
+            pick_over = total_edge_value > 0
+            margin = actual_total - (closing_total if closing_total is not None else 0.0)
+            if pick_over:
+                if margin > 0:
+                    total_wins += 1
+                    total_roi += 0.909
+                elif margin < 0:
+                    total_losses += 1
+                    total_roi -= 1.0
+                else:
+                    total_pushes += 1
+            else:
+                if margin < 0:
+                    total_wins += 1
+                    total_roi += 0.909
+                elif margin > 0:
+                    total_losses += 1
+                    total_roi -= 1.0
+                else:
+                    total_pushes += 1
 
         rows.append(
             {
@@ -259,9 +286,10 @@ def evaluate_season(
                 "spread_edge": spread_edge_value,
                 "total_edge": total_edge_value,
                 "spread_edge_allowed": edge_allowed,
+                "total_edge_allowed": total_allowed,
             }
         )
-    return rows, missing_closings
+    return rows, missing_closings, (total_wins, total_losses, total_pushes, total_bets, total_roi)
 
 
 def build_summary(df: pd.DataFrame) -> pd.DataFrame:
@@ -309,8 +337,9 @@ def main() -> None:
 
     all_rows: List[Dict[str, object]] = []
     total_missing = 0
+    total_metric_rows: list[tuple[int, int, int, int, float]] = []
     for season in range(start, end + 1):
-        rows, missing = evaluate_season(
+        rows, missing, total_metrics = evaluate_season(
             season,
             data_dir,
             api_key,
@@ -326,6 +355,7 @@ def main() -> None:
             continue
         all_rows.extend(rows)
         total_missing += missing
+        total_metric_rows.append(total_metrics)
         print(f"Season {season}: processed {len(rows)} games")
 
     if not all_rows:
@@ -352,6 +382,19 @@ def main() -> None:
     print(f"  Spread MAE: {df['spread_error'].abs().mean():.2f}")
     print(f"  Total MAE: {df['total_error'].abs().mean():.2f}")
     print(f"  Brier score: {df['brier'].mean():.4f}")
+
+    if total_metric_rows:
+        total_wins = sum(metrics[0] for metrics in total_metric_rows)
+        total_losses = sum(metrics[1] for metrics in total_metric_rows)
+        total_pushes = sum(metrics[2] for metrics in total_metric_rows)
+        total_bets = sum(metrics[3] for metrics in total_metric_rows)
+        total_roi_sum = sum(metrics[4] for metrics in total_metric_rows)
+        total_roi_per_bet = (total_roi_sum / total_bets) if total_bets else 0.0
+        print(
+            f"  Totals record: {total_wins}-{total_losses}-{total_pushes} "
+            f"(edge ≥ {total_edge_min}, providers ≥ {min_provider_count})"
+        )
+        print(f"  Totals ROI (per bet, -110 assumed): {total_roi_per_bet*100:0.2f}%")
 
 
 if __name__ == "__main__":

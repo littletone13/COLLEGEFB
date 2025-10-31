@@ -100,6 +100,9 @@ class BacktestResult:
     ats_record: tuple[int, int, int]
     ats_roi: float
     bets: int
+    total_record: tuple[int, int, int]
+    total_roi: float
+    total_bets: int
 
 
 def evaluate_season(
@@ -132,6 +135,9 @@ def evaluate_season(
     roi = 0.0
     bets = 0
     missing_closings = 0
+    total_wins = total_losses = total_pushes = 0
+    total_roi = 0.0
+    total_bets = 0
 
     edge_config = edge_utils.EdgeFilterConfig(
         spread_edge_min=spread_edge_min,
@@ -199,7 +205,7 @@ def evaluate_season(
                 continue
             spread = float(line_row["Spread"]) if not pd.isna(line_row["Spread"]) else None
             total_line = float(line_row["OverUnder"]) if not pd.isna(line_row["OverUnder"]) else None
-            provider_count = 1 if spread is not None else 0
+            provider_count = 1 if (spread is not None or total_line is not None) else 0
 
         if spread is None and total_line is None:
             continue
@@ -239,13 +245,40 @@ def evaluate_season(
                     else:
                         pushes += 1
 
+        total_edge = None
+        if total_line is not None:
+            total_edge = pred["total_points"] - total_line
+            bet_allowed = edge_utils.allow_total_bet(total_edge, provider_count, edge_config)
+            if bet_allowed:
+                total_bets += 1
+                pick_over = total_edge > 0
+                margin = actual_total - total_line
+                if pick_over:
+                    if margin > 0:
+                        total_wins += 1
+                        total_roi += 0.909
+                    elif margin < 0:
+                        total_losses += 1
+                        total_roi -= 1.0
+                    else:
+                        total_pushes += 1
+                else:
+                    if margin < 0:
+                        total_wins += 1
+                        total_roi += 0.909
+                    elif margin > 0:
+                        total_losses += 1
+                        total_roi -= 1.0
+                    else:
+                        total_pushes += 1
+
         rows.append(
             {
                 "spread_error": pred["spread_home_minus_away"] - actual_margin,
                 "total_error": pred["total_points"] - actual_total if total_line is not None else np.nan,
                 "brier": (pred["home_win_prob"] - (1.0 if actual_margin > 0 else 0.0)) ** 2,
                 "spread_edge": edge if edge is not None else np.nan,
-                "total_edge": (pred["total_points"] - total_line) if total_line is not None else np.nan,
+                "total_edge": total_edge if total_edge is not None else np.nan,
                 "market_spread": spread,
                 "market_total": total_line,
                 "market_provider_count": provider_count,
@@ -265,6 +298,7 @@ def evaluate_season(
     games_eval = len(df)
 
     ats_roi = (roi / bets) if bets else 0.0
+    total_roi_per_bet = (total_roi / total_bets) if total_bets else 0.0
 
     return BacktestResult(
         spread_mae=spread_mae,
@@ -274,6 +308,9 @@ def evaluate_season(
         ats_record=(ats_wins, ats_losses, pushes),
         ats_roi=ats_roi,
         bets=bets,
+        total_record=(total_wins, total_losses, total_pushes),
+        total_roi=total_roi_per_bet,
+        total_bets=total_bets,
     )
 
 
@@ -335,6 +372,10 @@ def main() -> None:
     print(f"ATS record: {w}-{l}-{p}")
     print(f"ATS ROI (per bet, -110 assumed): {result.ats_roi*100:0.2f}%")
     print(f"Bets placed: {result.bets} (spread edge ≥ {spread_edge_min}, providers ≥ {min_provider_count})")
+    tw, tl, tp = result.total_record
+    print(f"Totals record: {tw}-{tl}-{tp}")
+    print(f"Totals ROI (per bet, -110 assumed): {result.total_roi*100:0.2f}%")
+    print(f"Totals bets: {result.total_bets} (total edge ≥ {total_edge_min}, providers ≥ {min_provider_count})")
 
 
 if __name__ == "__main__":

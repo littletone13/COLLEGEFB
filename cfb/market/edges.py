@@ -151,3 +151,21 @@ def allow_spread_bet(
         if count < config.min_provider_count:
             return False
     return True
+
+
+def allow_total_bet(
+    total_edge: Optional[float],
+    provider_count: Optional[int],
+    config: EdgeFilterConfig,
+) -> bool:
+    """Determine if a total bet passes the configured thresholds."""
+
+    if total_edge is None or pd.isna(total_edge):
+        return False
+    if config.total_edge_min > 0.0 and abs(total_edge) < config.total_edge_min:
+        return False
+    if config.min_provider_count > 0:
+        count = 0 if provider_count is None or pd.isna(provider_count) else int(provider_count)
+        if count < config.min_provider_count:
+            return False
+    return True
