@@ -6,6 +6,7 @@ import pytest
 
 import market_anchor
 import oddslogic_loader
+from cfb.io import oddslogic as oddslogic_io
 from cfb.config import load_config
 
 
@@ -198,6 +199,91 @@ def test_coverage_summary_handles_multi_classification():
     assert fcs_row["pct_single_provider"] == 1.0
 
     assert set(providers["sportsbook_name"]) == {"Circa", "Pinnacle", "South Point"}
+
+
+def test_summarize_live_lines_builds_provider_lookup():
+    kickoff = dt.date(2025, 10, 30)
+    rows = [
+        {
+            "classification": "fbs",
+            "row_type": "spread",
+            "kickoff_date": kickoff,
+            "home_key": "TEAMHOME",
+            "away_key": "TEAMAWAY",
+            "provider_label": "Circa",
+            "sportsbook_name": "Circa",
+            "sportsbook_id": 9,
+            "line_value": -3.5,
+            "line_price": -110,
+            "timestamp": 200,
+            "is_opener": False,
+            "start_datetime": "2025-10-30 23:30:00",
+            "home_team": "Team Home",
+            "away_team": "Team Away",
+        },
+        {
+            "classification": "fbs",
+            "row_type": "spread",
+            "kickoff_date": kickoff,
+            "home_key": "TEAMHOME",
+            "away_key": "TEAMAWAY",
+            "provider_label": "Circa",
+            "sportsbook_name": "Circa",
+            "sportsbook_id": 9,
+            "line_value": -4.0,
+            "line_price": -115,
+            "timestamp": 100,
+            "is_opener": True,
+            "start_datetime": "2025-10-30 23:30:00",
+            "home_team": "Team Home",
+            "away_team": "Team Away",
+        },
+        {
+            "classification": "fbs",
+            "row_type": "total",
+            "kickoff_date": kickoff,
+            "home_key": "TEAMHOME",
+            "away_key": "TEAMAWAY",
+            "provider_label": "Circa",
+            "sportsbook_name": "Circa",
+            "sportsbook_id": 9,
+            "line_value": 52.5,
+            "line_price": -108,
+            "timestamp": 210,
+            "is_opener": False,
+            "start_datetime": "2025-10-30 23:30:00",
+            "home_team": "Team Home",
+            "away_team": "Team Away",
+        },
+        {
+            "classification": "fbs",
+            "row_type": "total",
+            "kickoff_date": kickoff,
+            "home_key": "TEAMHOME",
+            "away_key": "TEAMAWAY",
+            "provider_label": "Circa",
+            "sportsbook_name": "Circa",
+            "sportsbook_id": 9,
+            "line_value": 53.5,
+            "line_price": -110,
+            "timestamp": 90,
+            "is_opener": True,
+            "start_datetime": "2025-10-30 23:30:00",
+            "home_team": "Team Home",
+            "away_team": "Team Away",
+        },
+    ]
+    df = pd.DataFrame(rows)
+    lookup = oddslogic_io.summarize_live_lines(df, "fbs")
+    key = (kickoff, "TEAMHOME", "TEAMAWAY")
+    assert key in lookup
+    entry = lookup[key]
+    assert entry["spread"] == pytest.approx(-3.5)
+    assert entry["open_spread"] == pytest.approx(-4.0)
+    provider = entry["providers"]["Circa"]
+    assert provider["spread_value"] == pytest.approx(-3.5)
+    assert provider["open_spread_value"] == pytest.approx(-4.0)
+    assert provider["total_value"] == pytest.approx(52.5)
 
 
 def test_load_config_defaults(tmp_path):

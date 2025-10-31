@@ -31,6 +31,7 @@ from cfb.config import load_config
 from cfb.fcs_aliases import normalize_label as alias_normalize, map_team as alias_map
 from cfb.injuries import penalties_for_player
 from cfb.io import oddslogic as oddslogic_io
+import oddslogic_loader
 from cfb.model import FCSRatingBook, FCSRatingConstants
 
 DATA_DIR_DEFAULT = Path("~/Desktop/PFFMODEL_FBS/FCS_DATA").expanduser()
@@ -295,11 +296,12 @@ def fetch_market_lines(
         params["week"] = week
     if classification:
         params["classification"] = classification
-    provider_filter: set[str] = set()
+    provider_names_input: list[str] = []
     if providers:
-        provider_filter.update(str(name).strip().lower() for name in providers if str(name).strip())
+        provider_names_input.extend(str(name).strip() for name in providers if str(name).strip())
     if provider:
-        provider_filter.add(str(provider).strip().lower())
+        provider_names_input.append(str(provider).strip())
+    provider_filter = {name.lower() for name in provider_names_input}
 
     resp = requests.get(
         CFBD_BASE_URL + "/lines",
@@ -312,6 +314,8 @@ def fetch_market_lines(
     resp.raise_for_status()
 
     records: list[dict] = []
+    record_index: Dict[Tuple[dt.date, str, str], dict] = {}
+    kickoff_dates: set[dt.date] = set()
     for entry in resp.json():
         if entry.get("homeClassification") != "fcs" or entry.get("awayClassification") != "fcs":
             continue
@@ -363,6 +367,159 @@ def fetch_market_lines(
                 "provider_lines": provider_lines,
             }
         )
+        start_raw = entry.get("startDate")
+        if start_raw:
+            try:
+                kickoff_dt = pd.to_datetime(start_raw)
+            except (TypeError, ValueError):
+                kickoff_dt = pd.NaT
+            if not pd.isna(kickoff_dt):
+                kickoff_date = kickoff_dt.date()
+                kickoff_dates.add(kickoff_date)
+                key = (
+                    kickoff_date,
+                    oddslogic_loader.normalize_label(entry.get("homeTeam") or ""),
+                    oddslogic_loader.normalize_label(entry.get("awayTeam") or ""),
+                )
+                record_index[key] = records[-1]
+
+    schedule_index: Dict[Tuple[dt.date, str, str], dict] = {}
+    if week is not None:
+        schedule_params = {
+            "year": year,
+            "week": week,
+            "seasonType": season_type,
+            "division": "fcs",
+        }
+        try:
+            games_resp = requests.get(
+                CFBD_BASE_URL + "/games",
+                headers=headers,
+                params=schedule_params,
+                timeout=60,
+            )
+            games_resp.raise_for_status()
+            for game in games_resp.json():
+                start_raw = game.get("startDate")
+                if not start_raw:
+                    continue
+                try:
+                    kickoff_dt = pd.to_datetime(start_raw)
+                except (TypeError, ValueError):
+                    kickoff_dt = pd.NaT
+                if pd.isna(kickoff_dt):
+                    continue
+                kickoff_date = kickoff_dt.date()
+                kickoff_dates.add(kickoff_date)
+                key = (
+                    kickoff_date,
+                    oddslogic_loader.normalize_label(game.get("homeTeam") or ""),
+                    oddslogic_loader.normalize_label(game.get("awayTeam") or ""),
+                )
+                schedule_index[key] = game
+        except requests.RequestException:
+            pass
+
+    live_lookup: Dict[Tuple[dt.date, str, str], Dict[str, object]] = {}
+    if kickoff_dates:
+        live_lookup = oddslogic_io.fetch_live_market_lookup(
+            kickoff_dates,
+            classification="fcs",
+            providers=provider_names_input or None,
+        )
+
+    def _merge_provider_lines(existing: dict, payload: dict, *, invert: bool = False) -> dict:
+        spread_value = payload.get("spread_value")
+        if spread_value is not None and invert:
+            spread_value = -spread_value
+        total_value = payload.get("total_value")
+        provider_entry = {
+            "spread_home": spread_value,
+            "spread_away": -spread_value if spread_value is not None else None,
+            "total": total_value,
+            "home_moneyline": existing.get("home_moneyline"),
+            "away_moneyline": existing.get("away_moneyline"),
+            "last_updated": payload.get("spread_updated") or payload.get("total_updated"),
+            "source": "OddsLogic",
+            "open_spread_home": (
+                -payload["open_spread_value"]
+                if invert and payload.get("open_spread_value") is not None
+                else payload.get("open_spread_value")
+            ),
+            "open_total": payload.get("open_total_value"),
+        }
+        return provider_entry
+
+    for key, live_entry in live_lookup.items():
+        kickoff_date, home_key, away_key = key
+        record = record_index.get(key)
+        invert = False
+        if record is None:
+            alt_key = (kickoff_date, away_key, home_key)
+            record = record_index.get(alt_key)
+            if record:
+                invert = True
+        if record is None:
+            schedule_game = schedule_index.get(key)
+            if not schedule_game:
+                schedule_game = schedule_index.get((kickoff_date, away_key, home_key))
+                if schedule_game:
+                    invert = True
+            if schedule_game:
+                start_raw = schedule_game.get("startDate")
+                try:
+                    kickoff_dt = pd.to_datetime(start_raw)
+                except (TypeError, ValueError):
+                    kickoff_dt = pd.NaT
+                start_iso = kickoff_dt.isoformat() if not pd.isna(kickoff_dt) else f"{kickoff_date.isoformat()}T00:00:00"
+                record = {
+                    "game_id": schedule_game.get("id"),
+                    "home_team": schedule_game.get("homeTeam"),
+                    "away_team": schedule_game.get("awayTeam"),
+                    "start_date": start_iso,
+                    "spread": None,
+                    "total": None,
+                    "providers": [],
+                    "provider_lines": {},
+                }
+                records.append(record)
+                record_index[key] = record
+            else:
+                start_raw = live_entry.get("start_datetime")
+                try:
+                    kickoff_dt = pd.to_datetime(start_raw) if start_raw else pd.NaT
+                except (TypeError, ValueError):
+                    kickoff_dt = pd.NaT
+                start_iso = kickoff_dt.isoformat() if not pd.isna(kickoff_dt) else f"{kickoff_date.isoformat()}T00:00:00"
+                record = {
+                    "game_id": None,
+                    "home_team": live_entry.get("home_team"),
+                    "away_team": live_entry.get("away_team"),
+                    "start_date": start_iso,
+                    "spread": None,
+                    "total": None,
+                    "providers": [],
+                    "provider_lines": {},
+                }
+                records.append(record)
+                record_index[key] = record
+
+        if not record:
+            continue
+        provider_lines = record.setdefault("provider_lines", {})
+        for provider_name, payload in live_entry["providers"].items():
+            existing = provider_lines.get(provider_name, {})
+            provider_lines[provider_name] = _merge_provider_lines(existing, payload, invert=invert)
+        record["providers"] = sorted(provider_lines.keys())
+        spreads = [
+            info.get("spread_home") for info in provider_lines.values() if info.get("spread_home") is not None
+        ]
+        totals = [info.get("total") for info in provider_lines.values() if info.get("total") is not None]
+        if spreads:
+            record["spread"] = float(np.mean(spreads))
+        if totals:
+            record["total"] = float(np.mean(totals))
+
     return records
 
 

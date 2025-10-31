@@ -27,6 +27,7 @@ Attempting to query FCS opponents will raise a lookup error.
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import math
 import warnings
 import os
@@ -489,11 +490,16 @@ def fetch_market_lines(
     if providers:
         provider_filter = {str(name).lower() for name in providers if str(name).strip()}
 
+    entries = list(client.get("/lines", **params))
+
     lookup: Dict[int, dict] = {}
-    for entry in client.get("/lines", **params):
+    date_keys: set[dt.date] = set()
+    cfbd_games: Dict[int, dict] = {}
+    for entry in entries:
         game_id = entry.get("id")
         if not game_id:
             continue
+        cfbd_games[game_id] = entry
         lines = entry.get("lines") or []
         provider_names: set[str] = set()
         provider_lines: Dict[str, dict] = {}
@@ -543,6 +549,80 @@ def fetch_market_lines(
             "providers": sorted(provider_names),
             "provider_lines": provider_lines,
         }
+
+        start_date_raw = entry.get("startDate")
+        if start_date_raw:
+            try:
+                kickoff_dt = pd.to_datetime(start_date_raw)
+            except (TypeError, ValueError):
+                kickoff_dt = pd.NaT
+            if not pd.isna(kickoff_dt):
+                date_keys.add(kickoff_dt.date())
+
+    live_lookup: Dict[Tuple[dt.date, str, str], Dict[str, object]] = {}
+    if date_keys:
+        live_lookup = oddslogic_io.fetch_live_market_lookup(
+            date_keys,
+            classification=classification or "fbs",
+            providers=list(providers) if providers else None,
+        )
+
+    if live_lookup:
+        for game_id, data in lookup.items():
+            entry = cfbd_games.get(game_id, {})
+            start_raw = entry.get("startDate")
+            kickoff_date = None
+            if start_raw:
+                try:
+                    kickoff_dt = pd.to_datetime(start_raw)
+                except (TypeError, ValueError):
+                    kickoff_dt = pd.NaT
+                if not pd.isna(kickoff_dt):
+                    kickoff_date = kickoff_dt.date()
+            home_norm = oddslogic_loader.normalize_label(data.get("home_team") or "")
+            away_norm = oddslogic_loader.normalize_label(data.get("away_team") or "")
+            live_key = (kickoff_date, home_norm, away_norm)
+            invert = False
+            live_entry = live_lookup.get(live_key)
+            if not live_entry:
+                alt_key = (kickoff_date, away_norm, home_norm)
+                live_entry = live_lookup.get(alt_key)
+                if live_entry:
+                    invert = True
+            if not live_entry:
+                continue
+
+            provider_lines = data.setdefault("provider_lines", {})
+            for provider_name, payload in live_entry["providers"].items():
+                spread_value = payload.get("spread_value")
+                if spread_value is not None and invert:
+                    spread_value = -spread_value
+                total_value = payload.get("total_value")
+                last_updated = payload.get("spread_updated") or payload.get("total_updated")
+                if not last_updated:
+                    ts = payload.get("spread_updated") or payload.get("total_updated")
+                existing = provider_lines.get(provider_name, {})
+                provider_lines[provider_name] = {
+                    "spread_home": spread_value,
+                    "spread_away": -spread_value if spread_value is not None else None,
+                    "total": total_value,
+                    "home_moneyline": existing.get("home_moneyline"),
+                    "away_moneyline": existing.get("away_moneyline"),
+                    "last_updated": payload.get("spread_updated") or payload.get("total_updated"),
+                    "source": "OddsLogic",
+                    "open_spread_home": (
+                        -payload["open_spread_value"] if invert and payload.get("open_spread_value") is not None else payload.get("open_spread_value")
+                    ),
+                    "open_total": payload.get("open_total_value"),
+                }
+            provider_names = sorted(provider_lines.keys())
+            data["providers"] = provider_names
+            spreads = [info.get("spread_home") for info in provider_lines.values() if info.get("spread_home") is not None]
+            totals = [info.get("total") for info in provider_lines.values() if info.get("total") is not None]
+            if spreads:
+                data["spread"] = float(np.mean(spreads))
+            if totals:
+                data["total"] = float(np.mean(totals))
     return lookup
 
 
