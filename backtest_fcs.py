@@ -130,8 +130,7 @@ def evaluate_season(
     total_edge_min: float = 0.0,
     min_provider_count: int = 0,
 ) -> Tuple[List[Dict[str, object]], int]:
-    ratings = fcs.load_team_ratings(data_dir=data_dir, season_year=year)
-    book = fcs.RatingBook(ratings, fcs.RatingConstants())
+    _, book = fcs.build_rating_book(data_dir=data_dir, season_year=year)
     games = fetch_cfbd_games(year, api_key, season_type)
     if max_week is not None:
         games = [game for game in games if (game.get("week") or 0) <= max_week]

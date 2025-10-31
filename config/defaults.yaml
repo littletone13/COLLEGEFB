@@ -29,6 +29,8 @@ fcs:
   market:
     spread_weight: 0.7
     total_weight: 0.7
+    providers:
+      - FanDuel
   ratings:
     avg_total: 52.7442
     home_field_advantage: 4.9105

@@ -46,6 +46,11 @@ _RATING_CONFIG = FCS_CONFIG.get("ratings", {}) if isinstance(FCS_CONFIG.get("rat
 
 FCS_MARKET_SPREAD_WEIGHT = float(_MARKET_CONFIG.get("spread_weight", 0.7))
 FCS_MARKET_TOTAL_WEIGHT = float(_MARKET_CONFIG.get("total_weight", 0.7))
+_providers_config = _MARKET_CONFIG.get("providers")
+if isinstance(_providers_config, (list, tuple)):
+    FCS_MARKET_PROVIDERS = [str(name).strip() for name in _providers_config if str(name).strip()]
+else:
+    FCS_MARKET_PROVIDERS = []
 PFF_COMBINED_DATA_DIR = Path("~/Desktop/POST WEEK 9 FBS & FCS DATA").expanduser()
 FCS_TEAM_SET = set(ncaa_stats.SLUG_TO_PFF.values())
 
@@ -296,12 +301,24 @@ def fetch_market_lines(
         params["week"] = week
     if classification:
         params["classification"] = classification
-    provider_names_input: list[str] = []
+    provider_names_input: list[str] = [name for name in FCS_MARKET_PROVIDERS]
     if providers:
         provider_names_input.extend(str(name).strip() for name in providers if str(name).strip())
     if provider:
         provider_names_input.append(str(provider).strip())
-    provider_filter = {name.lower() for name in provider_names_input}
+    seen_providers: set[str] = set()
+    normalized_inputs: list[str] = []
+    for name in provider_names_input:
+        cleaned = name.strip()
+        if not cleaned:
+            continue
+        lower = cleaned.lower()
+        if lower in seen_providers:
+            continue
+        seen_providers.add(lower)
+        normalized_inputs.append(cleaned)
+    provider_names_input = normalized_inputs
+    provider_filter = {name.lower() for name in provider_names_input if name.strip()}
 
     resp = requests.get(
         CFBD_BASE_URL + "/lines",

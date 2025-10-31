@@ -323,7 +323,7 @@ def main() -> None:
         provider=args.provider,
         max_week=args.max_week,
         oddslogic_lookup=oddslogic_lookup,
-        spread_edge_min=edge_config.spread_edge_min,
+        spread_edge_min=spread_edge_min,
         min_provider_count=min_provider_count,
         total_edge_min=total_edge_min,
     )
