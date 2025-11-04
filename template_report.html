@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Player Prop Dashboard</title>
+<style>
+  :root{
+    --bg:#0b0f14;
+    --panel:#10161d;
+    --panel-2:#121a23;
+    --text:#e8eef5;
+    --muted:#9fb3c8;
+    --positive:#3bd671;
+    --negative:#ff6b6b;
+    --accent:#5cc8ff;
+    --warn:#ffd166;
+    --chip:#1a2330;
+    --table-stripe:#0f151c;
+    --sticky-offset:140px;
+    --main-top:140px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif; color:var(--text); background:linear-gradient(180deg, #0b0f14 0%, #0c131b 100%);} 
+  header{position:sticky; top:0; z-index:10; backdrop-filter:blur(6px); background:rgba(11,15,20,0.82); border-bottom:1px solid #1b2734;}
+  .wrap{max-width:1300px; margin:0 auto; padding:14px 16px;}
+  h1{font-size:20px; margin:0; letter-spacing:.4px; display:flex; align-items:center; gap:10px}
+  h1 .tag{background:#13202c; color:var(--accent); border:1px solid #1f3345; padding:2px 8px; border-radius:999px; font-size:12px}
+  .meta-line{margin-top:6px; font-size:12px; color:var(--muted); display:flex; flex-wrap:wrap; gap:12px; align-items:center;}
+  .meta-line span{display:flex; align-items:center; gap:6px; white-space:nowrap;}
+  .controls{display:grid; grid-template-columns:1.2fr 1fr 1fr 1.4fr; gap:10px; margin-top:12px}
+  .control{background:var(--panel); border:1px solid #1b2734; border-radius:12px; padding:10px 12px; min-height:84px; display:flex; flex-direction:column; gap:8px}
+  .control label{font-size:12px; color:var(--muted);}
+  input[type="text"], input[type="number"], select{width:100%; padding:10px 12px; border-radius:8px; background:var(--panel-2); color:var(--text); border:1px solid #1b2734; outline:none; font-size:14px}
+  input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button{margin:0}
+  .chips{display:flex; gap:8px; flex-wrap:wrap}
+  .chip{background:var(--chip); border:1px solid #1c2a38; color:var(--muted); padding:6px 10px; border-radius:999px; cursor:pointer; font-size:12px}
+  .chip.active{background:#173149; color:#d6efff; border-color:#244966}
+  main{max-width:1300px; margin:var(--main-top) auto 40px; padding:0 16px}
+  .tablewrap{background:var(--panel); border:1px solid #1b2734; border-radius:16px; overflow:hidden; margin-top:8px}
+  table{width:100%; border-collapse:collapse; font-size:14px}
+  thead th{position:sticky; top:var(--sticky-offset); background:var(--panel); border-bottom:1px solid #1b2734; padding:10px 8px; text-align:left; color:#cfe2f3; font-weight:600; z-index:6}
+  tbody td{padding:10px 8px; border-bottom:1px solid #13202c; vertical-align:middle}
+  tbody tr:nth-child(odd){background:var(--table-stripe)}
+  .num{font-feature-settings:"tnum" 1; font-variant-numeric:tabular-nums; text-align:right}
+  .pill{padding:2px 6px; border-radius:999px; border:1px solid #1c2a38; background:#122030; font-size:12px; color:#cce7ff}
+  .spark{width:90px; height:26px}
+  .good{color:var(--positive); font-weight:600}
+  .danger{color:var(--negative); font-weight:600}
+  .neutral{color:var(--muted)}
+  .notes{width:180px; padding:6px 8px; border-radius:8px; background:var(--panel-2); color:var(--text); border:1px solid #1b2734; outline:none; font-size:12px}
+  .sidechips{display:flex; gap:6px}
+  .sidechip{padding:4px 8px; border-radius:999px; border:1px solid #1c2a38; background:#132334; color:#cfe2f3; font-size:12px; cursor:pointer}
+  .sidechip.active{background:#1b3a55; border-color:#2a5b80}
+  .tagbtn{margin-right:4px; padding:2px 8px; border-radius:999px; border:1px solid #2b3c4b; background:#17232f; color:#a9bed2; font-size:12px; cursor:pointer}
+  .tagbtn.active{background:#234058; color:#e6f3ff; border-color:#38668b}
+  .oddswrap{display:flex; gap:6px; justify-content:flex-end; align-items:center}
+  .oddswrap input{width:88px}
+  .foot{display:flex; gap:12px; align-items:center; justify-content:space-between; color:var(--muted); padding:12px 0}
+  button{background:#19354e; color:#dff2ff; border:1px solid #2b5575; padding:10px 14px; border-radius:10px; cursor:pointer; font-size:13px}
+  button:hover{background:#1e405e}
+  details{margin-top:16px; background:var(--panel); border:1px solid #1b2734; border-radius:12px; padding:12px}
+  details summary{cursor:pointer; color:var(--muted); font-size:13px}
+  textarea{width:100%; min-height:120px; background:var(--panel-2); border:1px dashed #244966; border-radius:10px; color:var(--text); padding:8px 10px; margin-top:10px; font-size:12px}
+  @media (max-width:960px){
+    .controls{grid-template-columns:1fr 1fr;}
+    thead th{top:202px;}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1 id="pageTitle">CFB Player Props <span class="tag" id="modelTag"></span></h1>
+    <div class="meta-line">
+      <span id="generatedAt"></span>
+      <span id="assumedNote"></span>
+      <span id="rowCount"></span>
+    </div>
+    <div class="controls">
+      <div class="control">
+        <label>Search</label>
+        <input id="search" type="text" placeholder="Player, team, opponent, market…">
+      </div>
+      <div class="control">
+        <label>Market</label>
+        <div class="chips" id="marketChips"></div>
+      </div>
+      <div class="control">
+        <label>Position</label>
+        <div class="chips" id="posChips"></div>
+      </div>
+      <div class="control">
+        <label>Bankroll / Kelly / Stake Cap</label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input id="bankroll" type="number" min="0" step="10" placeholder="Bankroll">
+          <input id="kellyFrac" type="number" min="0" max="1" step="0.05" placeholder="Kelly%">
+          <input id="capFrac" type="number" min="0" max="1" step="0.01" placeholder="Stake cap">
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+<main>
+  <div class="tablewrap">
+    <table id="propTable">
+      <thead>
+        <tr>
+          <th>Side</th>
+          <th>Player</th>
+          <th>Pos</th>
+          <th>Team</th>
+          <th>Opp</th>
+          <th>Market</th>
+          <th class="num">Line</th>
+          <th class="num">Mean</th>
+          <th class="num">Median</th>
+          <th class="num">P10–P90</th>
+          <th class="num">P(Over)</th>
+          <th class="num">Fair Over</th>
+          <th class="num">Offered (Dec)</th>
+          <th class="num">Offered (Amer)</th>
+          <th>Spark</th>
+          <th class="num">Edge</th>
+          <th class="num">Kelly</th>
+          <th class="num">Stake</th>
+          <th>Tags</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="foot wrap">
+    <div>Edge = offered × P(side) − 1. Kelly uses adjusted fraction and applies stake cap.</div>
+    <button id="exportBtn">Download CSV</button>
+  </div>
+  <details class="wrap">
+    <summary>Paste JSON to override sims (optional)</summary>
+    <textarea id="jsonInput"></textarea>
+    <div style="display:flex; justify-content:flex-end; margin-top:10px;">
+      <button id="loadJSON">Load JSON</button>
+    </div>
+  </details>
+</main>
+
+<script>
+const DATA = __DATA__;
+const META = __META__;
+
+const fmtPct = v => (v*100).toFixed(1) + "%";
+const fmtDec = v => v == null ? "" : (Math.round(parseFloat(v)*100)/100).toFixed(2);
+const toAmerican = d => {
+  const b = d - 1;
+  if (d >= 2.0) return Math.round(b*100);
+  return Math.round(-100 / b);
+};
+const fromAmerican = a => a > 0 ? 1 + a/100 : 1 + 100/(-a);
+const kelly = (p, d) => {
+  const b = d - 1;
+  const q = 1 - p;
+  const f = (b*p - q) / b;
+  return Math.max(0, f);
+};
+const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+
+function sparkline(canvas, samples){
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0,0,w,h);
+  if (!samples || samples.length === 0) return;
+  const n = samples.length;
+  const min = Math.min(...samples);
+  const max = Math.max(...samples);
+  const dx = n > 1 ? w/(n-1) : 0;
+  ctx.beginPath();
+  for(let i=0;i<n;i++){
+    const x = i*dx;
+    const y = h - ((samples[i]-min)/(max-min+1e-6))*h;
+    if(i===0) ctx.moveTo(x,y);
+    else ctx.lineTo(x,y);
+  }
+  ctx.strokeStyle = "#5cc8ff";
+  ctx.lineWidth = 1.25;
+  ctx.stroke();
+}
+
+let DATA_STATE = [];
+let FILTERS = { market:"All", pos:"All", q:"" };
+
+function fairAndProb(row){
+  const side = row.side || "Over";
+  const p = side === "Over" ? row.p_over : (1 - row.p_over);
+  const fairDec = row.fairDec != null ? row.fairDec : 1 / clamp(p, 1e-6, 1-1e-6);
+  return {p, fairDec};
+}
+
+function render(){
+  const tbody = document.querySelector("#propTable tbody");
+  tbody.innerHTML = "";
+  const bankroll = +document.getElementById("bankroll").value || 100;
+  const kFrac = +document.getElementById("kellyFrac").value || 0.5;
+  const capFrac = +document.getElementById("capFrac").value || 0.05;
+
+  const rows = DATA_STATE.filter(r => {
+    if (FILTERS.market!=="All" && r.market!==FILTERS.market) return false;
+    if (FILTERS.pos!=="All" && r.pos!==FILTERS.pos) return false;
+    const q = FILTERS.q.toLowerCase();
+    if (q && !(r.player + r.team + r.opp + r.market).toLowerCase().includes(q)) return false;
+    return true;
+  });
+  document.getElementById("rowCount").textContent = `${rows.length} props shown`;
+
+  rows.forEach((r, idx) => {
+    const tr = document.createElement("tr");
+    const {p, fairDec} = fairAndProb(r);
+
+    const offeredDec = (() => {
+      if (r.offeredDec && !isNaN(r.offeredDec)) return +r.offeredDec;
+      if (r.offeredAmer && !isNaN(r.offeredAmer)) return fromAmerican(+r.offeredAmer);
+      return fairDec;
+    })();
+
+    const edge = (offeredDec * p) - 1;
+    const k = kelly(p, offeredDec) * kFrac;
+    const stake = Math.min(capFrac, k) * bankroll;
+    const amerVal = isNaN(r.offeredAmer) ? toAmerican(offeredDec) : r.offeredAmer;
+
+    tr.innerHTML = `
+      <td>
+        <div class="sidechips">
+          <span class="sidechip ${r.side==='Over'?'active':''}" data-side="Over" data-row="${idx}">Over</span>
+          <span class="sidechip ${r.side==='Under'?'active':''}" data-side="Under" data-row="${idx}">Under</span>
+        </div>
+      </td>
+      <td>${r.player}</td>
+      <td><span class="pill">${r.pos || ''}</span></td>
+      <td>${r.team}</td>
+      <td>${r.opp}</td>
+      <td>${r.market}</td>
+      <td class="num">${fmtDec(r.line)}</td>
+      <td class="num">${fmtDec(r.mean)}</td>
+      <td class="num">${fmtDec(r.median)}</td>
+      <td class="num">${fmtDec(r.p10 ?? r.p05)}–${fmtDec(r.p90 ?? r.p95)}</td>
+      <td class="num">${fmtPct(p)}</td>
+      <td class="num">${fmtDec(fairDec)} <span class="muted">(${toAmerican(fairDec)})</span></td>
+      <td class="num"><div class="oddswrap"><input type="text" value="${fmtDec(offeredDec)}" data-row="${idx}" class="offeredDec" title="Decimal odds"></div></td>
+      <td class="num"><div class="oddswrap"><input type="text" value="${amerVal}" data-row="${idx}" class="offeredAmer" title="American odds"></div></td>
+      <td><canvas class="spark" id="spark_${idx}" width="90" height="26"></canvas></td>
+      <td class="num ${edge>0 ? 'good' : (edge<0 ? 'danger' : 'neutral')}">${(edge*100).toFixed(1)}%</td>
+      <td class="num">${fmtPct(k)}</td>
+      <td class="num">${stake.toFixed(2)}</td>
+      <td>
+        <button class="tagbtn ${r.tags?.includes('steam')?'active':''}" data-tag="steam" data-row="${idx}">steam</button>
+        <button class="tagbtn ${r.tags?.includes('injury')?'active':''}" data-tag="injury" data-row="${idx}">injury</button>
+        <button class="tagbtn ${r.tags?.includes('weather')?'active':''}" data-tag="weather" data-row="${idx}">weather</button>
+      </td>
+      <td><input type="text" class="notes" data-row="${idx}" value="${r.notes ?? ''}" placeholder="notes…"></td>
+    `;
+    tbody.appendChild(tr);
+    if (r.samples && r.samples.length) sparkline(tr.querySelector("canvas"), r.samples.slice(0,64));
+  });
+
+  document.querySelectorAll(".sidechip").forEach(ch => ch.onclick = (e) => {
+    const idx = +e.target.getAttribute("data-row");
+    DATA_STATE[idx].side = e.target.getAttribute("data-side");
+    render();
+  });
+
+  document.querySelectorAll(".offeredDec").forEach(inp => {
+    inp.addEventListener("input", e => {
+      const idx = +e.target.getAttribute("data-row");
+      const val = parseFloat(e.target.value);
+      if (!isNaN(val)) {
+        DATA_STATE[idx].offeredDec = val;
+        DATA_STATE[idx].offeredAmer = toAmerican(val);
+      } else {
+        DATA_STATE[idx].offeredDec = null;
+      }
+      render();
+    });
+  });
+  document.querySelectorAll(".offeredAmer").forEach(inp => {
+    inp.addEventListener("input", e => {
+      const idx = +e.target.getAttribute("data-row");
+      const val = parseFloat(e.target.value);
+      if (!isNaN(val)) {
+        DATA_STATE[idx].offeredAmer = val;
+        DATA_STATE[idx].offeredDec = fromAmerican(val);
+      } else {
+        DATA_STATE[idx].offeredAmer = null;
+      }
+      render();
+    });
+  });
+
+  document.querySelectorAll(".tagbtn").forEach(btn => {
+    btn.onclick = (e) => {
+      const idx = +e.target.getAttribute("data-row");
+      const tag = e.target.getAttribute("data-tag");
+      DATA_STATE[idx].tags = Array.isArray(DATA_STATE[idx].tags) ? DATA_STATE[idx].tags : [];
+      const i = DATA_STATE[idx].tags.indexOf(tag);
+      if (i === -1) DATA_STATE[idx].tags.push(tag);
+      else DATA_STATE[idx].tags.splice(i,1);
+      render();
+    };
+  });
+
+  document.querySelectorAll(".notes").forEach(inp => {
+    inp.addEventListener("input", e => {
+      const idx = +e.target.getAttribute("data-row");
+      DATA_STATE[idx].notes = e.target.value;
+    });
+  });
+}
+
+function unique(arr){ return Array.from(new Set(arr)); }
+
+function paintChips(){
+  const markets = ["All", ...unique(DATA_STATE.map(d => d.market))];
+  const positions = ["All", ...unique(DATA_STATE.map(d => d.pos))];
+  const mwrap = document.getElementById("marketChips");
+  const pwrap = document.getElementById("posChips");
+  mwrap.innerHTML = markets.map(m => `<span class="chip ${FILTERS.market===m?'active':''}" data-type="market">${m}</span>`).join("");
+  pwrap.innerHTML = positions.map(p => `<span class="chip ${FILTERS.pos===p?'active':''}" data-type="pos">${p}</span>`).join("");
+  mwrap.querySelectorAll(".chip").forEach(ch => ch.onclick = () => { FILTERS.market = ch.textContent; paintChips(); render(); });
+  pwrap.querySelectorAll(".chip").forEach(ch => ch.onclick = () => { FILTERS.pos = ch.textContent; paintChips(); render(); });
+}
+
+function loadData(arr){
+  DATA_STATE = arr.map(x => ({
+    player:x.player,
+    pos:x.pos,
+    team:x.team,
+    opp:x.opp,
+    market:x.market,
+    line:+x.line,
+    mean:+x.mean,
+    median:+x.median,
+    p05:x.p05 != null ? +x.p05 : null,
+    p10:x.p10 != null ? +x.p10 : null,
+    p90:x.p90 != null ? +x.p90 : null,
+    p95:x.p95 != null ? +x.p95 : null,
+    p_over:+x.p_over,
+    side:x.side || "Over",
+    offeredDec:x.offeredDec ?? null,
+    offeredAmer:x.offeredAmer ?? null,
+    fairDec:x.fairDec ?? null,
+    fairAmer:x.fairAmer ?? null,
+    notes:x.notes || "",
+    tags:Array.isArray(x.tags) ? x.tags.slice(0) : [],
+    samples:Array.isArray(x.samples) ? x.samples : [],
+  }));
+  paintChips();
+  render();
+}
+
+function exportCSV(){
+  if (!DATA_STATE.length) return;
+  const headers = ["player","pos","team","opp","market","side","line","mean","median","p10","p90","p_over","offeredDec","offeredAmer","fairDec","fairAmer","notes","tags"];
+  const rows = DATA_STATE.map(d => headers.map(h => {
+    const val = d[h];
+    if (Array.isArray(val)) return `"${val.join(';')}"`;
+    if (val == null) return "";
+    return typeof val === "string" ? `"${val.replace(/"/g,'""')}"` : val;
+  }).join(","));
+  const csv = [headers.join(","), ...rows].join("\n");
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `player_props_${new Date().toISOString().slice(0,10)}.csv`;
+  link.click();
+}
+
+document.addEventListener("DOMContentLoaded", function init(){
+  document.title = META.page_title || "CFB Player Props";
+  const pageTitleEl = document.getElementById("pageTitle");
+  if (pageTitleEl && pageTitleEl.firstChild) {
+    pageTitleEl.firstChild.textContent = META.page_title || "CFB Player Props";
+  } else if (pageTitleEl) {
+    pageTitleEl.textContent = META.page_title || "CFB Player Props";
+  }
+  const modelTagEl = document.getElementById("modelTag");
+  if (modelTagEl) modelTagEl.textContent = META.model_tag || "";
+  const generatedEl = document.getElementById("generatedAt");
+  if (generatedEl) generatedEl.textContent = META.generated_at ? "Updated " + META.generated_at : "";
+  const assumedEl = document.getElementById("assumedNote");
+  if (assumedEl) assumedEl.textContent = META.assumed_note ? "Assumed odds: " + META.assumed_note : "";
+
+  function updateStickyOffset(){
+    const headerEl = document.querySelector("header");
+    const mainEl = document.querySelector("main");
+    if (!headerEl) return;
+    const offset = headerEl.offsetHeight + 12;
+    document.documentElement.style.setProperty("--sticky-offset", offset + "px");
+    if (mainEl) {
+      document.documentElement.style.setProperty("--main-top", offset + "px");
+    }
+  }
+  updateStickyOffset();
+  window.addEventListener("resize", updateStickyOffset);
+
+  const bankrollDefault = (META && META.bankroll_default != null) ? META.bankroll_default : 100;
+  const kellyDefault = (META && META.kelly_default != null) ? META.kelly_default : 0.5;
+  const capDefault = (META && META.cap_default != null) ? META.cap_default : 0.05;
+  const bankrollEl = document.getElementById("bankroll");
+  const kellyEl = document.getElementById("kellyFrac");
+  const capEl = document.getElementById("capFrac");
+  if (bankrollEl) bankrollEl.value = bankrollDefault;
+  if (kellyEl) kellyEl.value = kellyDefault;
+  if (capEl) capEl.value = capDefault;
+
+  document.getElementById("search").addEventListener("input", e => { FILTERS.q = e.target.value; render(); });
+  document.getElementById("bankroll").addEventListener("input", render);
+  document.getElementById("kellyFrac").addEventListener("input", render);
+  document.getElementById("capFrac").addEventListener("input", render);
+  document.getElementById("loadJSON").addEventListener("click", () => {
+    try{
+      const txt = document.getElementById("jsonInput").value.trim();
+      if(!txt) return alert("Paste JSON first.");
+      const arr = JSON.parse(txt);
+      loadData(arr);
+    }catch(e){
+      alert("Bad JSON: " + e.message);
+    }
+  });
+  document.getElementById("exportBtn").addEventListener("click", exportCSV);
+
+  loadData(Array.isArray(DATA) ? DATA : []);
+});
+</script>
+</body>
+</html>

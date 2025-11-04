@@ -1,0 +1,23 @@
+
+# Pipeline configuration
+year: 2025
+week: 11
+
+model_tag: "CFB v0.8 - wk11"
+title: "Week 11"
+
+assumed_prices:
+  receptions: 1.83   # ~ -120
+  rec_yds: 1.87      # ~ -115
+  rush_yds: 1.87
+  rush_att: 1.87
+  pass_yds: 1.87
+  pass_comp: 1.87
+
+paths:
+  teams_csv: "data/teams_week11.csv"
+  baselines_csv: "out/player_prop_baselines_week11.csv"
+  enhanced_csv: "out/player_prop_inputs_week11.csv"
+  edges_csv: "out/player_prop_edges_week11.csv"
+  report_html: "sims/player_prop_week11.html"
+  template: "template_report.html"
