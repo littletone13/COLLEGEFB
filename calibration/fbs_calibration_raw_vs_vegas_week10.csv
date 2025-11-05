@@ -1,0 +1,157 @@
+week,home_team,away_team,vegas_spread,raw_spread
+9,Kent State,Bowling Green,-8.5,-1.54369157481515
+9,Iowa State,BYU,2.5,-2.332304442288047
+9,Fresno State,San Diego State,-3.5,-7.806712528625749
+9,Old Dominion,App State,13.5,13.332078553226985
+9,West Virginia,TCU,-15.0,-9.667416286257717
+9,Southern Miss,UL Monroe,11.5,16.630901747693173
+9,Tulsa,Temple,-6.0,-2.6951887855011347
+9,Northern Illinois,Ball State,5.5,6.828532198726273
+9,Arkansas State,Georgia Southern,2.0,3.362088053075243
+9,Iowa,Minnesota,9.0,11.526840778089953
+9,Pittsburgh,NC State,8.0,8.107584796261541
+9,Nebraska,Northwestern,7.5,8.597132341539302
+9,Florida International,Kennesaw State,-2.0,-9.617268129233173
+9,Louisiana Tech,Western Kentucky,3.0,7.7712052705691
+9,Delaware,Middle Tennessee,10.0,7.173187782829723
+9,New Mexico State,Missouri State,-2.0,1.4505311529991105
+9,Georgia State,South Alabama,-6.5,-3.1752123765310722
+9,Miami (OH),Western Michigan,2.5,1.0071931198314377
+9,Indiana,UCLA,24.0,25.947135943712087
+9,Oregon,Wisconsin,34.0,19.477895640278515
+9,Oklahoma,Ole Miss,4.5,3.8811468217323117
+9,Georgia Tech,Syracuse,18.0,14.59524987540156
+9,South Carolina,Alabama,-13.5,-9.378238175628306
+9,Utah,Colorado,15.0,18.556379804494785
+9,Charlotte,North Texas,-27.0,-22.414595093311615
+9,Memphis,South Florida,-4.0,2.06286511395445
+9,Troy,Louisiana,9.5,6.117035192073529
+9,Central Michigan,Massachusetts,15.5,17.81903125859606
+9,Arkansas,Auburn,-1.5,-0.9994843433471943
+9,Buffalo,Akron,10.5,10.35678178959131
+9,Wyoming,Colorado State,5.0,4.129596597898669
+9,New Mexico,Utah State,2.5,5.845167573892199
+9,Kansas,Kansas State,3.0,0.9915024680059756
+9,Cincinnati,Baylor,5.5,3.339355012457122
+9,Texas Tech,Oklahoma State,39.0,31.863500644774547
+9,Arizona State,Houston,8.5,6.137086661428755
+9,North Carolina,Virginia,-9.0,-6.59844778095761
+9,Mississippi State,Texas,-6.5,-5.125963145573761
+9,Miami,Stanford,30.0,23.75755749974796
+9,Virginia Tech,California,5.0,3.1257868462267657
+9,Vanderbilt,Missouri,3.0,2.929927073394072
+9,Wake Forest,SMU,-3.0,-3.447461308796618
+9,Rice,UConn,-10.5,-7.423915070532291
+9,Nevada,Boise State,-22.0,-13.878731842540159
+9,Kentucky,Tennessee,-9.0,-8.5231369202789
+9,Purdue,Rutgers,-2.5,2.5353098787265136
+9,Michigan State,Michigan,-14.0,-10.45153074482347
+9,Eastern Michigan,Ohio,-10.5,-5.871867476507207
+9,Navy,Florida Atlantic,14.0,12.713073028316343
+9,Washington State,Toledo,1.5,3.1960566224061226
+9,LSU,Texas A&M,-2.5,-3.59087062162402
+9,Louisville,Boston College,24.0,19.768974977573734
+9,Washington,Illinois,5.0,4.384870321264198
+10,Kansas,Oklahoma State,24.5,20.079566834883142
+10,Boston College,Notre Dame,-28.5,-22.18030507521499
+10,Baylor,UCF,5.0,4.5762981673444765
+10,Houston,West Virginia,14.5,8.17223846676865
+10,Middle Tennessee,Jacksonville State,-6.0,-5.092616427209172
+10,Louisiana Tech,Sam Houston,17.0,23.366419171354014
+10,Colorado,Arizona,-4.5,-3.098545064073836
+10,UL Monroe,Old Dominion,-15.0,-15.284555434006304
+10,Western Michigan,Central Michigan,5.5,5.32805671195906
+10,Texas State,James Madison,-6.0,-9.419779966656858
+10,Stanford,Pittsburgh,-14.0,-12.203752280422677
+10,Western Kentucky,New Mexico State,8.5,8.883695083591384
+10,Illinois,Rutgers,13.0,13.428448202924095
+10,Michigan,Purdue,21.0,15.959775321780276
+10,Iowa State,Arizona State,4.0,4.066755791871227
+10,Minnesota,Michigan State,4.0,3.976167589783829
+10,Kennesaw State,UTEP,10.0,12.370912044798636
+10,Missouri State,Florida International,4.0,5.285412610231545
+10,Coastal Carolina,Marshall,-4.0,-0.9110492787297004
+10,UConn,UAB,12.0,10.484524478407737
+10,Air Force,Army,-1.0,-2.44165468569696
+10,UNLV,New Mexico,5.0,1.4635821129310216
+10,Florida,Georgia,-7.5,-7.863722332357665
+10,Liberty,Delaware,3.0,8.114028454830883
+10,San Diego State,Wyoming,11.0,12.210268682151597
+10,Oregon State,Washington State,-4.0,-6.18903532267107
+10,South Alabama,Louisiana,4.0,0.6754096155406779
+10,Texas,Vanderbilt,3.0,3.209511310573231
+10,UTSA,Tulane,-4.0,2.1026542354972246
+10,San José State,Hawai'i,2.5,2.9453160320692002
+10,Clemson,Duke,3.5,3.9857830880659417
+10,Troy,Arkansas State,8.0,7.54681053807505
+10,Tennessee,Oklahoma,3.5,1.2850683915098224
+10,California,Virginia,-4.5,-7.131476913076166
+10,Ohio State,Penn State,20.5,13.56749345612185
+10,Maryland,Indiana,-21.0,-17.72625642469806
+10,Nebraska,USC,-6.0,-3.882404539669488
+10,NC State,Georgia Tech,-6.5,-1.4930730352397295
+10,Rice,Memphis,-14.0,-16.02279461344706
+10,Bowling Green,Buffalo,1.5,-1.4584867572606848
+10,Temple,East Carolina,-4.5,-7.15915661667424
+10,Syracuse,North Carolina,2.5,1.1976798131238586
+10,Kansas State,Texas Tech,-7.0,-7.830610740935506
+10,Ole Miss,South Carolina,13.5,11.317664295460977
+10,SMU,Miami,-9.5,-5.5837521873984866
+10,Utah,Cincinnati,7.0,12.294775973346479
+10,Virginia Tech,Louisville,-10.0,-11.355134826502278
+10,Boise State,Fresno State,18.5,10.528097964435862
+10,Arkansas,Mississippi State,4.5,3.497694378850995
+10,Auburn,Kentucky,10.0,10.477512308367796
+10,Florida State,Wake Forest,7.5,10.947277661740735
+10,North Texas,Navy,6.5,7.76579357604341
+11,Notre Dame,Navy,25.0,16.1874525793724
+11,USC,Northwestern,14.0,14.676821576614758
+11,UCF,Houston,1.0,4.308559456137419
+11,App State,Georgia Southern,6.5,4.388568734301528
+11,South Florida,UTSA,13.5,10.096411489966828
+11,Ohio,Miami (OH),3.5,4.7340210394576845
+11,Arizona,Kansas,6.0,3.4252619574830705
+11,Hawai'i,San Diego State,-6.0,-9.429095516859647
+11,West Virginia,Colorado,6.5,-1.9034431000882546
+11,Purdue,Ohio State,-28.5,-20.211475273294244
+11,Coastal Carolina,Georgia State,7.5,9.338648852393696
+11,Colorado State,UNLV,-6.0,-0.4385910677354594
+11,Texas Tech,BYU,10.5,7.339711082479079
+11,Marshall,James Madison,-13.5,-9.148920341072264
+11,UCLA,Nebraska,3.0,-6.370703722964013
+11,Wisconsin,Washington,-11.0,-8.754842365824054
+11,Miami,Syracuse,28.5,22.886722183533966
+11,Vanderbilt,Auburn,7.0,4.83651141824513
+11,Louisville,California,19.5,16.872201113460584
+11,Clemson,Florida State,2.0,-1.9215010345247399
+11,Kentucky,Florida,-3.5,-1.4424125915662536
+11,Liberty,Missouri State,7.5,8.421500581677549
+11,Eastern Michigan,Bowling Green,2.0,0.829133432607575
+11,Florida Atlantic,Tulsa,4.5,4.146804042808744
+11,Oregon State,Sam Houston,20.0,15.399591571954645
+11,Toledo,Northern Illinois,14.5,13.915676349060044
+11,Alabama,LSU,10.5,8.704290835875984
+11,TCU,Iowa State,6.5,3.740558876385972
+11,North Carolina,Stanford,9.0,4.5463169018351595
+11,Penn State,Indiana,-14.5,-9.479388321512666
+11,Memphis,Tulane,6.5,9.587667251414736
+11,Ball State,Kent State,2.5,1.1618009506375344
+11,Rutgers,Maryland,-2.0,-0.6744708388459132
+11,Louisiana,Texas State,-2.5,-0.3222035551727597
+11,UConn,Duke,-8.5,-2.250086188451244
+11,East Carolina,Charlotte,28.5,24.032609420689973
+11,Akron,Massachusetts,10.5,10.993369625582394
+11,Rice,UAB,2.5,0.7316216805396322
+11,San José State,Air Force,4.5,2.300311473701956
+11,New Mexico State,Kennesaw State,-7.5,-7.676306704874624
+11,Army,Temple,7.0,5.460344268141058
+11,Delaware,Louisiana Tech,-5.5,-7.940803787796085
+11,Middle Tennessee,Florida International,-1.0,0.8171881236845367
+11,UTEP,Jacksonville State,-1.5,-1.4709749581510136
+11,Utah State,Nevada,10.0,9.875271019605236
+11,Arkansas State,Southern Miss,-6.0,-6.251650797897869
+11,Missouri,Texas A&M,-6.0,-1.1823857774607434
+11,Iowa,Oregon,-6.0,-5.061697369799848
+11,Mississippi State,Georgia,-8.0,-5.84893599462272
+11,Virginia,Wake Forest,6.5,6.164743476729956
+11,Boston College,SMU,-12.0,-12.258433729985187

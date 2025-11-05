@@ -28,11 +28,13 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import json
 import math
+import re
 import warnings
 import os
 from pathlib import Path
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -46,10 +48,9 @@ from cfb.config import load_config
 from cfb.injuries import penalties_for_player
 from cfb.io import oddslogic as oddslogic_io
 from cfb.io.cfbd import CFBDClient, BASE_URL as CFBD_BASE_URL
-from cfb.model import RatingBook, RatingConstants, fit_linear_calibrations, fit_probability_sigma
-
-PFF_DATA_DIR = Path("~/Desktop/PFFMODEL_FBS").expanduser()
-PFF_COMBINED_DATA_DIR = Path("~/Desktop/POST WEEK 9 FBS & FCS DATA").expanduser()
+from cfb.io import cached_cfbd
+from cfb.model import BayesianConfig, RatingBook, RatingConstants, fit_linear_calibrations, fit_probability_sigma
+from cfb.names import normalize_team
 
 BASE_URL = CFBD_BASE_URL
 
@@ -57,9 +58,35 @@ CONFIG = load_config()
 FBS_CONFIG = CONFIG.get("fbs", {})
 _MARKET_CONFIG = FBS_CONFIG.get("market", {})
 _WEATHER_CONFIG = FBS_CONFIG.get("weather", {})
+_DATA_CONFIG = FBS_CONFIG.get("data", {}) if isinstance(FBS_CONFIG.get("data"), dict) else {}
+
+
+def _resolve_path(value: Optional[str], default: Optional[Path]) -> Optional[Path]:
+    """Expand user-relative configuration paths, keeping ``None`` intact."""
+    if value is None:
+        return default
+    text = str(value).strip()
+    if not text or text.lower() == "null":
+        return default
+    return Path(text).expanduser()
+
+
+def _team_key(label: Optional[str]) -> str:
+    normalized = normalize_team(label)
+    normalized = normalized.replace("&", " AND ")
+    return re.sub(r"[^A-Z0-9]", "", normalized)
+
+
+PFF_DATA_DIR = _resolve_path(_DATA_CONFIG.get("pff_dir"), Path("data/pff/fbs"))
+PFF_COMBINED_DATA_DIR = _resolve_path(_DATA_CONFIG.get("pff_combined_dir"), None)
 
 MARKET_SPREAD_WEIGHT = float(_MARKET_CONFIG.get("spread_weight", 0.4))
 MARKET_TOTAL_WEIGHT = float(_MARKET_CONFIG.get("total_weight", 0.4))
+_MARKET_PROVIDERS = _MARKET_CONFIG.get("providers")
+if isinstance(_MARKET_PROVIDERS, (list, tuple)):
+    FBS_MARKET_PROVIDERS = [str(name).strip() for name in _MARKET_PROVIDERS if str(name).strip()]
+else:
+    FBS_MARKET_PROVIDERS = []
 
 _DEFAULT_WEATHER_COEFFS = {
     "wind_high": -0.3462,
@@ -84,11 +111,25 @@ else:
     WEATHER_CLAMP_BOUNDS = (-12.0, 6.0)
 WEATHER_MAX_TOTAL_ADJ = float(_WEATHER_CONFIG.get("max_total_adjustment", 10.0))
 
+DEFAULT_PROVIDER_BIAS = {"spread": 0.0, "total": 0.0}
+PROVIDER_BIAS_ADJUSTMENTS = {
+    "draftkings": {"spread": 0.43, "total": -0.93},
+    "consensus": {"spread": 1.50, "total": -0.30},
+    "bovada": {"spread": 1.50, "total": -0.30},
+}
+PROVIDER_WEIGHT_OVERRIDES = {}
+DEFAULT_BIAS_PROVIDER = os.environ.get("FBS_DEFAULT_BIAS_PROVIDER", "draftkings").lower()
+ERA_TOTAL_SCALE = float(os.environ.get("FBS_ERA_TOTAL_SCALE", "0.986"))
+PROB_SIGMA_SCALE = float(os.environ.get("FBS_PROB_SIGMA_SCALE", "0.93"))
+
 _RATING_CONFIG = FBS_CONFIG.get("ratings", {}) if isinstance(FBS_CONFIG.get("ratings"), dict) else {}
+_BAYESIAN_CONFIG = FBS_CONFIG.get("bayesian", {}) if isinstance(FBS_CONFIG.get("bayesian"), dict) else {}
+_RATING_WEIGHTS_PATH_RAW = _RATING_CONFIG.get("weights_path", "calibration/fbs_rating_weights.json")
+RATING_WEIGHTS_PATH = Path(str(_RATING_WEIGHTS_PATH_RAW)).expanduser()
 
 
 def _rating_constants_from_config() -> RatingConstants:
-    return RatingConstants(
+    constants = RatingConstants(
         avg_total=float(_RATING_CONFIG.get("avg_total", 53.5109)),
         home_field_advantage=float(_RATING_CONFIG.get("home_field_advantage", 3.4066)),
         offense_factor=float(_RATING_CONFIG.get("offense_factor", 6.2171)),
@@ -96,10 +137,117 @@ def _rating_constants_from_config() -> RatingConstants:
         power_factor=float(_RATING_CONFIG.get("power_factor", 2.1035)),
         spread_sigma=float(_RATING_CONFIG.get("spread_sigma", 15.0)),
     )
+    constants.avg_total *= ERA_TOTAL_SCALE
+    constants.spread_sigma *= PROB_SIGMA_SCALE
+    return constants
+
+
+def _bayesian_config_from_config() -> Optional[BayesianConfig]:
+    if not _BAYESIAN_CONFIG or not bool(_BAYESIAN_CONFIG.get("enabled", False)):
+        return None
+    total_prior_mean_raw = _BAYESIAN_CONFIG.get("total_prior_mean", None)
+    total_prior_mean = (
+        float(total_prior_mean_raw)
+        if total_prior_mean_raw is not None
+        else None
+    )
+    if total_prior_mean is not None:
+        total_prior_mean *= ERA_TOTAL_SCALE
+    return BayesianConfig(
+        enabled=True,
+        spread_prior_strength=float(_BAYESIAN_CONFIG.get("spread_prior_strength", 0.0)),
+        total_prior_strength=float(_BAYESIAN_CONFIG.get("total_prior_strength", 0.0)),
+        spread_prior_mean=float(_BAYESIAN_CONFIG.get("spread_prior_mean", 0.0)),
+        total_prior_mean=total_prior_mean,
+        min_games=float(_BAYESIAN_CONFIG.get("min_games", 0.0)),
+        max_games=float(_BAYESIAN_CONFIG.get("max_games", 20.0)),
+        default_games=float(_BAYESIAN_CONFIG.get("default_games", 6.0)),
+        prob_sigma_scale=float(_BAYESIAN_CONFIG.get("prob_sigma_scale", 0.0)),
+    )
 
 ODDSLOGIC_ARCHIVE_DIR = Path(os.environ.get("ODDSLOGIC_ARCHIVE_DIR", "oddslogic_ncaa_all"))
 
 _INJURY_WARNING_EMITTED = False
+
+
+def _normalize_provider_name(name: Optional[str]) -> str:
+    return str(name or "").strip().lower()
+
+
+def _provider_bias(provider: Optional[str]) -> Dict[str, float]:
+    key = _normalize_provider_name(provider) or DEFAULT_BIAS_PROVIDER
+    return PROVIDER_BIAS_ADJUSTMENTS.get(key, DEFAULT_PROVIDER_BIAS)
+
+
+def _provider_weight(provider: Optional[str]) -> float:
+    return 1.0
+
+
+def _select_primary_provider(provider_names: Iterable[str]) -> Optional[str]:
+    normalized = [_normalize_provider_name(name) for name in provider_names if str(name or "").strip()]
+    for candidate in ("draftkings", "consensus", "bovada"):
+        if candidate in normalized:
+            return candidate
+    return normalized[0] if normalized else None
+
+
+def apply_bias_recenter(
+    result: Dict[str, float],
+    *,
+    provider_hint: Optional[str],
+    prob_sigma: Optional[float],
+) -> Dict[str, float]:
+    bias = _provider_bias(provider_hint)
+    if bias == DEFAULT_PROVIDER_BIAS:
+        return result
+    updated = result.copy()
+    spread = updated.get("spread_home_minus_away")
+    total = updated.get("total_points")
+    if spread is not None:
+        spread = float(spread) + bias["spread"]
+        updated["spread_home_minus_away"] = spread
+    if total is not None:
+        total = float(total) + bias["total"]
+        updated["total_points"] = total
+    if spread is not None and total is not None:
+        home_points = (total + spread) / 2.0
+        away_points = total - home_points
+        updated["home_points"] = home_points
+        updated["away_points"] = away_points
+    sigma = prob_sigma
+    if sigma and spread is not None:
+        win_prob = 0.5 * (1.0 + math.erf(spread / (sigma * math.sqrt(2))))
+        updated["home_win_prob"] = win_prob
+        updated["away_win_prob"] = 1.0 - win_prob
+        updated["home_moneyline"] = market_utils.moneyline_from_prob(win_prob)
+        updated["away_moneyline"] = market_utils.moneyline_from_prob(1.0 - win_prob)
+        updated["prob_sigma_used"] = sigma
+    updated["bias_provider"] = _normalize_provider_name(provider_hint) or DEFAULT_BIAS_PROVIDER
+    return updated
+
+
+def market_weight_for_provider(provider_hint: Optional[str]) -> float:
+    return _provider_weight(provider_hint)
+
+
+def select_primary_provider(provider_names: Iterable[str]) -> Optional[str]:
+    return _select_primary_provider(provider_names)
+
+
+def primary_provider_from_market(market: Optional[dict]) -> Optional[str]:
+    if not market:
+        return None
+    explicit = market.get("primary_provider")
+    if explicit:
+        return explicit
+    provider_lines = market.get("providers") or list((market.get("provider_lines") or {}).keys())
+    selected = _select_primary_provider(provider_lines)
+    if not selected:
+        return None
+    for name in provider_lines:
+        if _normalize_provider_name(name) == selected:
+            return name
+    return selected
 
 
 def _flatten_ppa(records: list[dict]) -> pd.DataFrame:
@@ -161,6 +309,60 @@ def _flatten_fpi(records: list[dict]) -> pd.DataFrame:
     )
 
 
+def _flatten_season_advanced(records: list[dict]) -> pd.DataFrame:
+    rows: list[dict] = []
+    top_level_metrics = {
+        "ppa": "ppa",
+        "successRate": "success_rate",
+        "explosiveness": "explosiveness",
+        "powerSuccess": "power_success",
+        "stuffRate": "stuff_rate",
+        "standardDownSuccessRate": "standard_down_success",
+        "passingDownSuccessRate": "passing_down_success",
+        "standardDownPPA": "standard_down_ppa",
+        "passingDownPPA": "passing_down_ppa",
+        "lineYards": "line_yards",
+        "secondLevelYards": "second_level_yards",
+        "openFieldYards": "open_field_yards",
+    }
+    sub_unit_metrics = {
+        "rushing": {
+            "ppa": "rush_ppa",
+            "successRate": "rush_success_rate",
+            "explosiveness": "rush_explosiveness",
+        },
+        "passing": {
+            "ppa": "pass_ppa",
+            "successRate": "pass_success_rate",
+            "explosiveness": "pass_explosiveness",
+        },
+    }
+    for entry in records:
+        team = entry.get("team")
+        if not team:
+            continue
+        offense = entry.get("offense") or {}
+        defense = entry.get("defense") or {}
+        row: dict[str, float | str] = {"team": team}
+
+        def _assign(prefix: str, source: dict) -> None:
+            for api_key, alias in top_level_metrics.items():
+                key = f"{prefix}_{alias}"
+                value = source.get(api_key) if isinstance(source, dict) else None
+                row[key] = value
+            for unit_key, unit_metrics in sub_unit_metrics.items():
+                unit_source = source.get(unit_key) if isinstance(source, dict) else None
+                for api_key, alias in unit_metrics.items():
+                    key = f"{prefix}_{alias}"
+                    value = unit_source.get(api_key) if isinstance(unit_source, dict) else None
+                    row[key] = value
+
+        _assign("adv_off", offense)
+        _assign("adv_def", defense)
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
 def _flatten_game_ppa(records: list[dict]) -> pd.DataFrame:
     rows: list[dict] = []
     for entry in records:
@@ -181,8 +383,142 @@ def _flatten_game_ppa(records: list[dict]) -> pd.DataFrame:
                 "def_ppa_passing": defense.get("passing"),
                 "def_ppa_rushing": defense.get("rushing"),
             }
-    )
+        )
     return pd.DataFrame(rows)
+
+
+def _fit_feature_weights(
+    teams: pd.DataFrame,
+    games: Iterable[dict],
+    offense_cols: Sequence[str],
+    defense_cols: Sequence[str],
+    *,
+    l2: float = 12.0,
+    min_rows: int = 40,
+) -> Optional[tuple[np.ndarray, np.ndarray, int]]:
+    if not games:
+        return None
+    if not offense_cols or not defense_cols:
+        return None
+    feature_cols = set(offense_cols) | set(defense_cols)
+    if "team" not in teams.columns:
+        return None
+    lookup = teams.set_index("team")
+    rows: list[np.ndarray] = []
+    targets: list[float] = []
+    for game in games:
+        if game.get("completed") is not True:
+            continue
+        if game.get("homeClassification") != "fbs" or game.get("awayClassification") != "fbs":
+            continue
+        home = game.get("homeTeam")
+        away = game.get("awayTeam")
+        if home not in lookup.index or away not in lookup.index:
+            continue
+        home_pts = game.get("homePoints")
+        away_pts = game.get("awayPoints")
+        if home_pts is None or away_pts is None:
+            continue
+        home_row = lookup.loc[home, list(feature_cols)].astype(float)
+        away_row = lookup.loc[away, list(feature_cols)].astype(float)
+        home_off = home_row.reindex(offense_cols).fillna(0.0).to_numpy(dtype=float)
+        away_off = away_row.reindex(offense_cols).fillna(0.0).to_numpy(dtype=float)
+        home_def = home_row.reindex(defense_cols).fillna(0.0).to_numpy(dtype=float)
+        away_def = away_row.reindex(defense_cols).fillna(0.0).to_numpy(dtype=float)
+        off_diff = home_off - away_off
+        def_diff = away_def - home_def
+        row = np.concatenate([off_diff, def_diff])
+        rows.append(row)
+        targets.append(float(home_pts) - float(away_pts))
+    sample_size = len(rows)
+    if sample_size < min_rows:
+        return None
+    X = np.vstack(rows)
+    y = np.array(targets)
+    # Add bias column and ridge regularization (no penalty on intercept).
+    ones = np.ones((sample_size, 1))
+    X_aug = np.hstack([ones, X])
+    A = X_aug.T @ X_aug
+    reg = l2 * np.eye(A.shape[0])
+    reg[0, 0] = 0.0
+    b = X_aug.T @ y
+    try:
+        solution = np.linalg.solve(A + reg, b)
+    except np.linalg.LinAlgError:
+        return None
+    weights = solution[1:]
+    off_weights = weights[: len(offense_cols)]
+    def_weights = weights[len(offense_cols) :]
+    # Coverage-based shrinkage toward zero for unreliable feeds.
+    coverage_off = np.array([teams[col].notna().mean() if col in teams else 0.0 for col in offense_cols])
+    coverage_def = np.array([teams[col].notna().mean() if col in teams else 0.0 for col in defense_cols])
+    off_weights = off_weights * np.clip(coverage_off, 0.0, 1.0)
+    def_weights = def_weights * np.clip(coverage_def, 0.0, 1.0)
+    return off_weights, def_weights, sample_size
+
+
+def _fit_power_weights(
+    teams: pd.DataFrame,
+    games: Iterable[dict],
+    feature_cols: Sequence[str],
+    *,
+    l2: float = 6.0,
+    min_rows: int = 40,
+) -> Optional[tuple[dict[str, float], int]]:
+    if not games:
+        return None
+    if not feature_cols:
+        return None
+    if "team" not in teams.columns:
+        return None
+    lookup = teams.set_index("team")
+    existing_cols = [col for col in feature_cols if col in lookup.columns]
+    if not existing_cols:
+        return None
+    rows: list[np.ndarray] = []
+    targets: list[float] = []
+    for game in games:
+        if game.get("completed") is not True:
+            continue
+        if game.get("homeClassification") != "fbs" or game.get("awayClassification") != "fbs":
+            continue
+        home = game.get("homeTeam")
+        away = game.get("awayTeam")
+        if home not in lookup.index or away not in lookup.index:
+            continue
+        home_pts = game.get("homePoints")
+        away_pts = game.get("awayPoints")
+        if home_pts is None or away_pts is None:
+            continue
+        try:
+            home_row = lookup.loc[home, existing_cols].astype(float)
+            away_row = lookup.loc[away, existing_cols].astype(float)
+        except KeyError:
+            continue
+        diff = (
+            home_row.reindex(existing_cols).fillna(0.0).to_numpy(dtype=float)
+            - away_row.reindex(existing_cols).fillna(0.0).to_numpy(dtype=float)
+        )
+        rows.append(diff)
+        targets.append(float(home_pts) - float(away_pts))
+    sample_size = len(rows)
+    if sample_size < min_rows:
+        return None
+    X = np.vstack(rows)
+    y = np.array(targets)
+    ones = np.ones((sample_size, 1))
+    X_aug = np.hstack([ones, X])
+    A = X_aug.T @ X_aug
+    reg = l2 * np.eye(A.shape[0])
+    reg[0, 0] = 0.0
+    b = X_aug.T @ y
+    try:
+        solution = np.linalg.solve(A + reg, b)
+    except np.linalg.LinAlgError:
+        return None
+    weights = solution[1:]
+    weight_map = {col: float(weight) for col, weight in zip(existing_cols, weights)}
+    return weight_map, sample_size
 
 
 def _load_latest_csv(data_dirs: list[Path], patterns: Iterable[str]) -> pd.DataFrame:
@@ -233,12 +569,81 @@ def _aggregate_team_metrics(
     return pd.DataFrame.from_dict(records, orient="index").reset_index().rename(columns={"index": team_col})
 
 
-def load_pff_team_metrics(data_dir: Path = PFF_DATA_DIR) -> pd.DataFrame:
-    data_dir = data_dir.expanduser()
+def _load_rating_weights(
+    offense_cols: Sequence[str],
+    defense_cols: Sequence[str],
+    power_cols: Sequence[str],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, dict]:
+    payload: dict[str, dict[str, float]] = {}
+    if RATING_WEIGHTS_PATH.exists():
+        try:
+            with RATING_WEIGHTS_PATH.open("r", encoding="utf-8") as handle:
+                data = json.load(handle)
+            if isinstance(data, dict):
+                payload = data
+        except (json.JSONDecodeError, OSError):
+            payload = {}
+    offense_map = payload.get("offense", {}) if isinstance(payload.get("offense"), dict) else {}
+    defense_map = payload.get("defense", {}) if isinstance(payload.get("defense"), dict) else {}
+    power_map = payload.get("power", {}) if isinstance(payload.get("power"), dict) else {}
+    off_weights = np.array([float(offense_map.get(col, 0.0)) for col in offense_cols], dtype=float)
+    def_weights = np.array([float(defense_map.get(col, 0.0)) for col in defense_cols], dtype=float)
+    power_weights = np.array([float(power_map.get(col, 0.0)) for col in power_cols], dtype=float)
+    meta = payload.get("meta", {}) if isinstance(payload.get("meta"), dict) else {}
+    return off_weights, def_weights, power_weights, meta
+
+
+def _persist_rating_weights(
+    offense_cols: Sequence[str],
+    defense_cols: Sequence[str],
+    power_cols: Sequence[str],
+    offense_weights: np.ndarray,
+    defense_weights: np.ndarray,
+    power_weights: np.ndarray,
+    *,
+    offense_rows: Optional[int],
+    power_rows: Optional[int],
+) -> None:
+    payload = {
+        "generated": dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+        "offense": {col: float(weight) for col, weight in zip(offense_cols, offense_weights)},
+        "defense": {col: float(weight) for col, weight in zip(defense_cols, defense_weights)},
+        "power": {col: float(weight) for col, weight in zip(power_cols, power_weights)},
+        "meta": {
+            "offense_rows": offense_rows,
+            "defense_rows": offense_rows,
+            "power_rows": power_rows,
+        },
+    }
+    try:
+        RATING_WEIGHTS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with RATING_WEIGHTS_PATH.open("w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2, sort_keys=True)
+    except OSError:
+        # Non-fatal: continue without persisting if filesystem unavailable.
+        pass
+
+
+def load_pff_team_metrics(
+    data_dir: Optional[Path] = None,
+    *,
+    combined_dir: Optional[Path] = None,
+) -> pd.DataFrame:
+    primary_dir = data_dir or PFF_DATA_DIR
+    combined = combined_dir or PFF_COMBINED_DATA_DIR
     source_dirs: list[Path] = []
-    if PFF_COMBINED_DATA_DIR.exists():
-        source_dirs.append(PFF_COMBINED_DATA_DIR.expanduser())
-    source_dirs.append(data_dir)
+    if combined:
+        combined_expanded = combined.expanduser()
+        if combined_expanded.exists():
+            source_dirs.append(combined_expanded)
+    if primary_dir:
+        primary_expanded = primary_dir.expanduser()
+        if primary_expanded.exists():
+            source_dirs.append(primary_expanded)
+        else:
+            source_dirs.append(primary_expanded)
+    if not source_dirs:
+        return pd.DataFrame(columns=["team"])
 
     try:
         receiving = _load_latest_csv(
@@ -330,7 +735,10 @@ def load_pff_team_metrics(data_dir: Path = PFF_DATA_DIR) -> pd.DataFrame:
     pff = rec.merge(blk, on="team_name", how="outer")
     pff = pff.merge(dfn, on="team_name", how="outer")
     pff = pff.merge(st, on="team_name", how="outer")
-    return pff.rename(columns={"team_name": "team"})
+    pff = pff.rename(columns={"team_name": "team"})
+    pff["team_key"] = pff["team"].map(_team_key)
+    pff = pff.drop_duplicates(subset="team_key", keep="first")
+    return pff
 
 
 def fetch_team_metrics(
@@ -352,21 +760,48 @@ def fetch_team_metrics(
     teams = teams.merge(elo, on="team", how="outer")
     teams = teams.merge(fpi, on="team", how="outer")
 
+    game_counts = pd.DataFrame(columns=["team", "games_played"])
     try:
         game_records = client.get("/ppa/games", year=year, seasonType=season_type)
         games = _flatten_game_ppa(game_records)
         if through_week is not None:
             games = games[games["week"].fillna(0) <= through_week]
         adj = compute_opponent_adjusted_ppa(ppa, games)
+        if not games.empty:
+            game_counts = (
+                games.groupby("team")["game_id"]
+                .nunique()
+                .reset_index()
+                .rename(columns={"game_id": "games_played"})
+            )
     except requests.HTTPError:
         adj = pd.DataFrame(columns=["team"])
 
     if not adj.empty:
         teams = teams.merge(adj, on="team", how="left")
 
+    # Prefer cached season advanced stats; fall back to live call if needed.
+    try:
+        advanced_records = cached_cfbd.load_advanced_team(
+            year,
+            season_type=season_type,
+            fetch_if_missing=True,
+            api_key=api_key or os.environ.get("CFBD_API_KEY"),
+        )
+        if not advanced_records.empty:
+            advanced_df = _flatten_season_advanced(advanced_records.to_dict("records"))
+            teams = teams.merge(advanced_df, on="team", how="left")
+    except Exception:
+        advanced_df = pd.DataFrame(columns=["team"])
+
+    if not game_counts.empty:
+        teams = teams.merge(game_counts, on="team", how="left")
+
     pff = load_pff_team_metrics()
     if not pff.empty:
-        teams = teams.merge(pff, on="team", how="left")
+        teams["team_key"] = teams["team"].map(_team_key)
+        pff = pff.rename(columns={"team": "pff_team"})
+        teams = teams.merge(pff, on="team_key", how="left")
 
     injuries = fetch_injury_impacts(
         year,
@@ -390,6 +825,14 @@ def fetch_team_metrics(
         teams["injury_defense_penalty"] = 0.0
     else:
         teams["injury_defense_penalty"] = teams["injury_defense_penalty"].fillna(0.0)
+
+    if "games_played" not in teams.columns:
+        teams["games_played"] = 0.0
+    else:
+        teams["games_played"] = teams["games_played"].fillna(0.0)
+
+    if "team_key" in teams.columns:
+        teams = teams.drop(columns=["team_key"])
 
     return teams
 
@@ -448,6 +891,7 @@ def fetch_market_lines(
     team: Optional[str] = None,
     conference: Optional[str] = None,
     classification: Optional[str] = None,
+    provider: Optional[str] = None,
     providers: Optional[Iterable[str]] = None,
 ) -> Dict[int, dict]:
     """Return aggregated sportsbook lines keyed by game id.
@@ -468,6 +912,8 @@ def fetch_market_lines(
         Filter to a specific conference.
     classification : Optional[str], optional
         Team classification ("fbs" or "fcs").
+    provider : Optional[str], optional
+        Legacy single-provider filter.
     providers : Optional[Iterable[str]], optional
         Subset of sportsbook providers to retain. Case-insensitive. When
         omitted, all providers returned by CFBD are included.
@@ -486,9 +932,24 @@ def fetch_market_lines(
         params["classification"] = classification
 
     client = CFBDClient(api_key)
-    provider_filter = None
+    provider_names_input: list[str] = [name for name in FBS_MARKET_PROVIDERS]
     if providers:
-        provider_filter = {str(name).lower() for name in providers if str(name).strip()}
+        provider_names_input.extend(str(name).strip() for name in providers if str(name).strip())
+    if provider:
+        provider_names_input.append(str(provider).strip())
+    seen_providers: set[str] = set()
+    normalized_inputs: list[str] = []
+    for name in provider_names_input:
+        cleaned = name.strip()
+        if not cleaned:
+            continue
+        lower = cleaned.lower()
+        if lower in seen_providers:
+            continue
+        seen_providers.add(lower)
+        normalized_inputs.append(cleaned)
+    provider_names_input = normalized_inputs
+    provider_filter = {name.lower() for name in provider_names_input} if provider_names_input else None
 
     entries = list(client.get("/lines", **params))
 
@@ -518,9 +979,13 @@ def fetch_market_lines(
             away_ml = _coerce_float(line.get("awayMoneyline"))
             last_updated = line.get("lastUpdated") or line.get("updated")
 
+            if spread_raw is not None:
+                spread_home = float(spread_raw)
+            else:
+                spread_home = None
             provider_lines[provider_normalized] = {
-                "spread_home": -spread_raw if spread_raw is not None else None,
-                "spread_away": spread_raw,
+                "spread_home": spread_home,
+                "spread_away": -spread_home if spread_home is not None else None,
                 "total": total_raw,
                 "home_moneyline": home_ml,
                 "away_moneyline": away_ml,
@@ -529,14 +994,39 @@ def fetch_market_lines(
         if provider_filter and not provider_names:
             continue
 
-        spread_values = [
-            info.get("spread_home") for info in provider_lines.values() if info.get("spread_home") is not None
+        spreads = [
+            -float(info.get("spread_home"))
+            for info in provider_lines.values()
+            if info.get("spread_home") is not None
         ]
-        total_values = [
-            info.get("total") for info in provider_lines.values() if info.get("total") is not None
+        totals = [
+            float(info.get("total"))
+            for info in provider_lines.values()
+            if info.get("total") is not None
         ]
-        spread_value: Optional[float] = float(np.mean(spread_values)) if spread_values else None
-        total_value: Optional[float] = float(np.mean(total_values)) if total_values else None
+        primary_key = _select_primary_provider(provider_names)
+        primary_provider = None
+        if primary_key:
+            for name in provider_names:
+                if _normalize_provider_name(name) == primary_key:
+                    primary_provider = name
+                    break
+            if primary_provider is None:
+                primary_provider = primary_key
+        spread_value: Optional[float] = None
+        total_value: Optional[float] = None
+        if primary_provider and primary_provider in provider_lines:
+            primary_info = provider_lines.get(primary_provider, {})
+            primary_spread = primary_info.get("spread_home")
+            if primary_spread is not None:
+                spread_value = -float(primary_spread)
+            primary_total = primary_info.get("total")
+            if primary_total is not None:
+                total_value = float(primary_total)
+        if spread_value is None and spreads:
+            spread_value = float(np.mean(spreads))
+        if total_value is None and totals:
+            total_value = float(np.mean(totals))
 
         lookup[game_id] = {
             "game_id": game_id,
@@ -548,6 +1038,8 @@ def fetch_market_lines(
             "total": total_value,
             "providers": sorted(provider_names),
             "provider_lines": provider_lines,
+            "primary_provider": primary_provider,
+            "provider_weights": {name: 1.0 for name in provider_names},
         }
 
         start_date_raw = entry.get("startDate")
@@ -564,7 +1056,7 @@ def fetch_market_lines(
         live_lookup = oddslogic_io.fetch_live_market_lookup(
             date_keys,
             classification=classification or "fbs",
-            providers=list(providers) if providers else None,
+            providers=provider_names_input or None,
         )
 
     if live_lookup:
@@ -617,12 +1109,42 @@ def fetch_market_lines(
                 }
             provider_names = sorted(provider_lines.keys())
             data["providers"] = provider_names
-            spreads = [info.get("spread_home") for info in provider_lines.values() if info.get("spread_home") is not None]
-            totals = [info.get("total") for info in provider_lines.values() if info.get("total") is not None]
-            if spreads:
-                data["spread"] = float(np.mean(spreads))
-            if totals:
-                data["total"] = float(np.mean(totals))
+            primary_key = _select_primary_provider(provider_names)
+            spread_choice: Optional[float] = None
+            total_choice: Optional[float] = None
+            if primary_key:
+                for name in provider_names:
+                    if _normalize_provider_name(name) == primary_key:
+                        primary_key = name
+                        break
+                primary_info = provider_lines.get(primary_key or "")
+                if primary_info:
+                    spread_home = primary_info.get("spread_home")
+                    if spread_home is not None:
+                        spread_choice = -float(spread_home)
+                    total_val = primary_info.get("total")
+                    if total_val is not None:
+                        total_choice = float(total_val)
+            if spread_choice is None:
+                spreads = [
+                    -float(info.get("spread_home"))
+                    for info in provider_lines.values()
+                    if info.get("spread_home") is not None
+                ]
+                if spreads:
+                    spread_choice = float(np.mean(spreads))
+            if total_choice is None:
+                totals = [
+                    float(info.get("total"))
+                    for info in provider_lines.values()
+                    if info.get("total") is not None
+                ]
+                if totals:
+                    total_choice = float(np.mean(totals))
+            if spread_choice is not None:
+                data["spread"] = spread_choice
+            if total_choice is not None:
+                data["total"] = total_choice
     return lookup
 
 
@@ -880,7 +1402,7 @@ def apply_weather_adjustment(result: Dict[str, float], weather: Optional[dict]) 
     )
 
 
-def build_ratings(teams: pd.DataFrame) -> pd.DataFrame:
+def build_ratings(teams: pd.DataFrame, calibration_games: Optional[Iterable[dict]] = None) -> pd.DataFrame:
     candidates = [
         "ppa_offense",
         "ppa_passing",
@@ -913,6 +1435,34 @@ def build_ratings(teams: pd.DataFrame) -> pd.DataFrame:
         "defense_grade_coverage",
         "defense_grade_run",
         "special_grade_misc",
+        "adv_off_ppa",
+        "adv_off_success_rate",
+        "adv_off_standard_down_success",
+        "adv_off_passing_down_success",
+        "adv_off_explosiveness",
+        "adv_off_power_success",
+        "adv_off_stuff_rate",
+        "adv_off_line_yards",
+        "adv_off_second_level_yards",
+        "adv_off_open_field_yards",
+        "adv_off_rush_success_rate",
+        "adv_off_rush_explosiveness",
+        "adv_off_pass_success_rate",
+        "adv_off_pass_explosiveness",
+        "adv_def_ppa",
+        "adv_def_success_rate",
+        "adv_def_standard_down_success",
+        "adv_def_passing_down_success",
+        "adv_def_explosiveness",
+        "adv_def_power_success",
+        "adv_def_stuff_rate",
+        "adv_def_line_yards",
+        "adv_def_second_level_yards",
+        "adv_def_open_field_yards",
+        "adv_def_rush_success_rate",
+        "adv_def_rush_explosiveness",
+        "adv_def_pass_success_rate",
+        "adv_def_pass_explosiveness",
     ]
     add_z_scores(teams, candidates)
 
@@ -921,48 +1471,131 @@ def build_ratings(teams: pd.DataFrame) -> pd.DataFrame:
         if z_col in teams.columns:
             teams[z_col] = teams[z_col].fillna(0.0)
 
-    teams["offense_rating"] = (
-        0.20 * teams.get("ppa_offense_z", 0.0)
-        + 0.11 * teams.get("ppa_passing_z", 0.0)
-        + 0.11 * teams.get("ppa_rushing_z", 0.0)
-        + 0.18 * teams.get("sp_offense_z", 0.0)
-        + 0.08 * teams.get("fpi_offense_z", 0.0)
-        + 0.05 * teams.get("sp_special_z", 0.0)
-        + 0.06 * teams.get("adj_ppa_offense_z", 0.0)
-        + 0.04 * teams.get("adj_ppa_offense_pass_z", 0.0)
-        + 0.04 * teams.get("adj_ppa_offense_rush_z", 0.0)
-        + 0.10 * teams.get("receiving_grade_route_z", 0.0)
-        + 0.05 * teams.get("receiving_yprr_z", 0.0)
-        + 0.07 * teams.get("blocking_grade_pass_z", 0.0)
-        + 0.04 * teams.get("blocking_grade_run_z", 0.0)
-        + 0.02 * teams.get("blocking_pbe_z", 0.0)
+    offense_feature_cols = [
+        "ppa_offense_z",
+        "ppa_passing_z",
+        "ppa_rushing_z",
+        "sp_offense_z",
+        "fpi_offense_z",
+        "sp_special_z",
+        "adj_ppa_offense_z",
+        "adj_ppa_offense_pass_z",
+        "adj_ppa_offense_rush_z",
+        "receiving_grade_route_z",
+        "receiving_yprr_z",
+        "blocking_grade_pass_z",
+        "blocking_grade_run_z",
+        "blocking_pbe_z",
+        "adv_off_success_rate_z",
+        "adv_off_standard_down_success_z",
+        "adv_off_passing_down_success_z",
+        "adv_off_line_yards_z",
+        "adv_off_second_level_yards_z",
+        "adv_off_open_field_yards_z",
+        "adv_off_rush_explosiveness_z",
+        "adv_off_pass_explosiveness_z",
+        "adv_off_power_success_z",
+        "adv_off_stuff_rate_z",
+    ]
+    defense_feature_cols = [
+        "ppa_defense_z",
+        "ppa_def_pass_z",
+        "ppa_def_rush_z",
+        "sp_defense_z",
+        "fpi_defense_z",
+        "adj_ppa_defense_z",
+        "adj_ppa_defense_pass_z",
+        "adj_ppa_defense_rush_z",
+        "defense_grade_overall_z",
+        "defense_grade_pass_rush_z",
+        "defense_grade_coverage_z",
+        "defense_grade_run_z",
+        "adv_def_success_rate_z",
+        "adv_def_standard_down_success_z",
+        "adv_def_passing_down_success_z",
+        "adv_def_explosiveness_z",
+        "adv_def_line_yards_z",
+        "adv_def_second_level_yards_z",
+        "adv_def_open_field_yards_z",
+        "adv_def_rush_explosiveness_z",
+        "adv_def_pass_explosiveness_z",
+        "adv_def_power_success_z",
+        "adv_def_stuff_rate_z",
+    ]
+
+    available_off_cols = [col for col in offense_feature_cols if col in teams]
+    available_def_cols = [col for col in defense_feature_cols if col in teams]
+    power_feature_cols = ["offense_rating", "defense_rating", "sp_rating_z", "fpi_z", "elo_z"]
+
+    stored_off_weights, stored_def_weights, stored_power_weights, _ = _load_rating_weights(
+        available_off_cols,
+        available_def_cols,
+        power_feature_cols,
     )
 
-    teams["defense_rating"] = (
-        -0.26 * teams.get("ppa_defense_z", 0.0)
-        - 0.16 * teams.get("ppa_def_pass_z", 0.0)
-        - 0.16 * teams.get("ppa_def_rush_z", 0.0)
-        - 0.18 * teams.get("sp_defense_z", 0.0)
-        - 0.09 * teams.get("fpi_defense_z", 0.0)
-        - 0.07 * teams.get("adj_ppa_defense_z", 0.0)
-        - 0.06 * teams.get("adj_ppa_defense_pass_z", 0.0)
-        - 0.06 * teams.get("adj_ppa_defense_rush_z", 0.0)
-        - 0.06 * teams.get("defense_grade_overall_z", 0.0)
-        - 0.05 * teams.get("defense_grade_pass_rush_z", 0.0)
-        - 0.05 * teams.get("defense_grade_coverage_z", 0.0)
-        - 0.03 * teams.get("defense_grade_run_z", 0.0)
-    )
+    off_weights = stored_off_weights.copy()
+    def_weights = stored_def_weights.copy()
+    offense_rows = None
+    if calibration_games:
+        fitted = _fit_feature_weights(
+            teams,
+            calibration_games,
+            available_off_cols,
+            available_def_cols,
+        )
+        if fitted:
+            off_weights, def_weights, offense_rows = fitted
+
+    if available_off_cols:
+        off_matrix = teams.reindex(columns=available_off_cols).fillna(0.0).to_numpy(dtype=float)
+        offense_series = pd.Series(off_matrix @ off_weights, index=teams.index)
+        offense_series -= float(offense_series.mean())
+    else:
+        offense_series = pd.Series(0.0, index=teams.index, dtype=float)
+
+    if available_def_cols:
+        def_matrix = teams.reindex(columns=available_def_cols).fillna(0.0).to_numpy(dtype=float)
+        defense_series = pd.Series(-(def_matrix @ def_weights), index=teams.index)
+        defense_series -= float(defense_series.mean())
+    else:
+        defense_series = pd.Series(0.0, index=teams.index, dtype=float)
+
+    teams["offense_rating"] = offense_series
+    teams["defense_rating"] = defense_series
 
     teams["offense_rating"] = teams["offense_rating"] - teams.get("injury_offense_penalty", 0.0)
     teams["defense_rating"] = teams["defense_rating"] + teams.get("injury_defense_penalty", 0.0)
 
-    teams["power_rating"] = (
-        teams["offense_rating"]
-        + teams["defense_rating"]
-        + 0.35 * teams.get("sp_rating_z", 0.0)
-        + 0.25 * teams.get("fpi_z", 0.0)
-        + 0.15 * teams.get("elo_z", 0.0)
-    )
+    for col in ("sp_rating_z", "fpi_z", "elo_z"):
+        if col not in teams.columns:
+            teams[col] = 0.0
+
+    if stored_power_weights.shape != (len(power_feature_cols),):
+        stored_power_weights = np.zeros(len(power_feature_cols), dtype=float)
+    power_weights = stored_power_weights.copy()
+    power_rows = None
+    if calibration_games:
+        fitted_power = _fit_power_weights(teams, calibration_games, power_feature_cols)
+        if fitted_power:
+            power_map, power_rows = fitted_power
+            power_weights = np.array([float(power_map.get(col, 0.0)) for col in power_feature_cols], dtype=float)
+
+    power_matrix = teams.reindex(columns=power_feature_cols).fillna(0.0).to_numpy(dtype=float)
+    power_series = pd.Series(power_matrix @ power_weights, index=teams.index)
+    power_series -= float(power_series.mean())
+    teams["power_rating"] = power_series
+
+    if (offense_rows and offense_rows > 0) or (power_rows and power_rows > 0):
+        _persist_rating_weights(
+            available_off_cols,
+            available_def_cols,
+            power_feature_cols,
+            off_weights,
+            def_weights,
+            power_weights,
+            offense_rows=offense_rows,
+            power_rows=power_rows,
+        )
 
     return teams
 
@@ -981,6 +1614,16 @@ def compute_power_adjustments(
     book = RatingBook(ratings, constants)
     rows = []
     residuals = []
+    raw_residuals: list[float] = []
+    if {"team", "injury_offense_penalty", "injury_defense_penalty"}.issubset(ratings.columns):
+        injury_lookup = (
+            ratings[["team", "injury_offense_penalty", "injury_defense_penalty"]]
+            .set_index("team")
+            .fillna(0.0)
+        )
+    else:
+        injury_lookup = pd.DataFrame()
+    decay = 0.35
     for game in games:
         if not game.get("completed"):
             continue
@@ -1001,11 +1644,25 @@ def compute_power_adjustments(
         except KeyError:
             continue
         residual = (home_points - away_points) - pred["spread_home_minus_away"]
+        raw_residuals.append(float(residual))
+        base_weight = float(game.get("__cal_weight", 1.0))
+        weeks_since = max(0, (up_to_week or game.get("week") or 0) - (game.get("week") or 0))
+        recency = math.exp(-decay * weeks_since)
+        home_injury = 0.0
+        away_injury = 0.0
+        if not injury_lookup.empty:
+            if home in injury_lookup.index:
+                home_injury = abs(float(injury_lookup.at[home, "injury_offense_penalty"])) + abs(float(injury_lookup.at[home, "injury_defense_penalty"]))
+            if away in injury_lookup.index:
+                away_injury = abs(float(injury_lookup.at[away, "injury_offense_penalty"])) + abs(float(injury_lookup.at[away, "injury_defense_penalty"]))
+        injury_factor = 1.0 / (1.0 + 0.35 * (home_injury + away_injury))
+        weight = max(1e-3, base_weight * recency * injury_factor)
+        sqrt_weight = math.sqrt(weight)
         row = np.zeros(len(teams))
         row[index[home]] = 1.0
         row[index[away]] = -1.0
-        rows.append(row)
-        residuals.append(residual)
+        rows.append(row * sqrt_weight)
+        residuals.append(float(residual) * sqrt_weight)
 
     if not rows:
         return {}
@@ -1016,7 +1673,13 @@ def compute_power_adjustments(
     A_reg = np.vstack([A, reg_matrix])
     b_reg = np.concatenate([b, np.zeros(len(teams))])
     adjustments = np.linalg.lstsq(A_reg, b_reg, rcond=None)[0]
-    scale = 0.25
+    adjustments = adjustments - float(np.mean(adjustments))
+    adj_std = float(np.std(adjustments)) if adjustments.size else 0.0
+    residual_std = float(np.std(raw_residuals)) if raw_residuals else 0.0
+    if adj_std > 1e-6 and residual_std > 0.0:
+        scale = float(np.clip((residual_std / adj_std) * 0.5, 0.15, 0.35))
+    else:
+        scale = 0.25
     clipped = {}
     for team, adj in zip(teams, adjustments):
         if abs(adj) <= 1e-6:
@@ -1239,12 +1902,30 @@ def build_rating_book(
 ) -> tuple[pd.DataFrame, RatingBook]:
     constants = constants or _rating_constants_from_config()
     calibration_list = list(calibration_games) if calibration_games else []
+    if not calibration_list:
+        key_for_games = api_key or os.environ.get("CFBD_API_KEY")
+        if key_for_games:
+            try:
+                calibration_list = fetch_games(year, key_for_games)
+            except Exception:
+                calibration_list = []
     teams_raw = fetch_team_metrics(
         year,
         api_key=api_key,
         through_week=adjust_week,
     )
-    ratings = build_ratings(teams_raw)
+    ratings = build_ratings(teams_raw, calibration_list if calibration_list else None)
+    team_games_map: Dict[str, float] = {}
+    if "games_played" in ratings.columns:
+        for row in ratings[["team", "games_played"]].itertuples(index=False):
+            team = str(row.team).lower()
+            try:
+                games_value = float(row.games_played)
+            except (TypeError, ValueError):
+                continue
+            if not math.isfinite(games_value):
+                continue
+            team_games_map[team] = max(0.0, games_value)
     adjustments: Dict[str, float] = {}
     games_for_anchor: list[dict] = calibration_list.copy()
     cfbd_games: list[dict] = []
@@ -1271,10 +1952,20 @@ def build_rating_book(
                 classification="fbs",
             )
     anchor_adjustments: Dict[str, float] = {}
+    bayesian_cfg = _bayesian_config_from_config()
+    if bayesian_cfg and bayesian_cfg.total_prior_mean is None:
+        bayesian_cfg.total_prior_mean = constants.avg_total
+
     if anchor_config and anchor_config.archive_path.exists():
         anchor_source = games_for_anchor or cfbd_games
         if anchor_source:
-            anchor_book = RatingBook(ratings, constants, power_adjustments=adjustments)
+            anchor_book = RatingBook(
+                ratings,
+                constants,
+                power_adjustments=adjustments,
+                team_games=team_games_map,
+                bayesian_config=bayesian_cfg,
+            )
             anchor_adjustments = compute_market_anchor_adjustments(
                 anchor_book,
                 anchor_source,
@@ -1288,7 +1979,13 @@ def build_rating_book(
 
     if calibration_list:
         constants = refit_scoring_constants(ratings, calibration_list, combined_adjustments, constants)
-    book = RatingBook(ratings, constants, power_adjustments=combined_adjustments)
+    book = RatingBook(
+        ratings,
+        constants,
+        power_adjustments=combined_adjustments,
+        team_games=team_games_map,
+        bayesian_config=bayesian_cfg,
+    )
     if calibration_list:
         spread_cal, total_cal = fit_linear_calibrations(book, calibration_list)
         book.spread_calibration = spread_cal

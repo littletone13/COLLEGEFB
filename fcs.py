@@ -21,6 +21,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Dict, Iterable, Mapping, Optional
 
+import json
 import pandas as pd
 import numpy as np
 import requests
@@ -32,17 +33,32 @@ from cfb.fcs_aliases import normalize_label as alias_normalize, map_team as alia
 from cfb.injuries import penalties_for_player
 from cfb.io import oddslogic as oddslogic_io
 import oddslogic_loader
-from cfb.model import FCSRatingBook, FCSRatingConstants
+from cfb.model import BayesianConfig, FCSRatingBook, FCSRatingConstants
 
-DATA_DIR_DEFAULT = Path("~/Desktop/PFFMODEL_FBS/FCS_DATA").expanduser()
 ADJUSTED_DATA_GLOB = "fcs_adjusted*/fcs_adjusted_{kind}_*.csv"
 CFBD_BASE_URL = "https://api.collegefootballdata.com"
 
 CONFIG = load_config()
 FCS_CONFIG = CONFIG.get("fcs", {}) if isinstance(CONFIG.get("fcs"), dict) else {}
 _MARKET_CONFIG = FCS_CONFIG.get("market", {}) if isinstance(FCS_CONFIG.get("market"), dict) else {}
+_DATA_CONFIG = FCS_CONFIG.get("data", {}) if isinstance(FCS_CONFIG.get("data"), dict) else {}
+
+
+def _resolve_path(value: Optional[str], default: Optional[Path]) -> Optional[Path]:
+    """Coerce configuration path values into ``Path`` objects."""
+    if value is None:
+        return default
+    text = str(value).strip()
+    if not text or text.lower() == "null":
+        return default
+    return Path(text).expanduser()
+
+
+DATA_DIR_DEFAULT = _resolve_path(_DATA_CONFIG.get("pff_dir"), Path("data/pff/fcs"))
+PFF_COMBINED_DATA_DIR = _resolve_path(_DATA_CONFIG.get("pff_combined_dir"), None)
 
 _RATING_CONFIG = FCS_CONFIG.get("ratings", {}) if isinstance(FCS_CONFIG.get("ratings"), dict) else {}
+_BAYESIAN_CONFIG = FCS_CONFIG.get("bayesian", {}) if isinstance(FCS_CONFIG.get("bayesian"), dict) else {}
 
 FCS_MARKET_SPREAD_WEIGHT = float(_MARKET_CONFIG.get("spread_weight", 0.7))
 FCS_MARKET_TOTAL_WEIGHT = float(_MARKET_CONFIG.get("total_weight", 0.7))
@@ -51,7 +67,6 @@ if isinstance(_providers_config, (list, tuple)):
     FCS_MARKET_PROVIDERS = [str(name).strip() for name in _providers_config if str(name).strip()]
 else:
     FCS_MARKET_PROVIDERS = []
-PFF_COMBINED_DATA_DIR = Path("~/Desktop/POST WEEK 9 FBS & FCS DATA").expanduser()
 FCS_TEAM_SET = set(ncaa_stats.SLUG_TO_PFF.values())
 
 
@@ -65,10 +80,32 @@ def _rating_constants_from_config() -> FCSRatingConstants:
         spread_sigma=float(_RATING_CONFIG.get("spread_sigma", 16.0)),
     )
 
-FCS_SPREAD_CALIBRATION = (0.01194, 0.99456)
+
+def _bayesian_config_from_config() -> Optional[BayesianConfig]:
+    if not _BAYESIAN_CONFIG or not bool(_BAYESIAN_CONFIG.get("enabled", False)):
+        return None
+    total_prior_mean_raw = _BAYESIAN_CONFIG.get("total_prior_mean", None)
+    total_prior_mean = (
+        float(total_prior_mean_raw)
+        if total_prior_mean_raw is not None
+        else None
+    )
+    return BayesianConfig(
+        enabled=True,
+        spread_prior_strength=float(_BAYESIAN_CONFIG.get("spread_prior_strength", 0.0)),
+        total_prior_strength=float(_BAYESIAN_CONFIG.get("total_prior_strength", 0.0)),
+        spread_prior_mean=float(_BAYESIAN_CONFIG.get("spread_prior_mean", 0.0)),
+        total_prior_mean=total_prior_mean,
+        min_games=float(_BAYESIAN_CONFIG.get("min_games", 0.0)),
+        max_games=float(_BAYESIAN_CONFIG.get("max_games", 20.0)),
+        default_games=float(_BAYESIAN_CONFIG.get("default_games", 6.0)),
+        prob_sigma_scale=float(_BAYESIAN_CONFIG.get("prob_sigma_scale", 0.0)),
+    )
+
+LEGACY_SPREAD_CALIBRATION = (0.01194, 0.99456)
 FCS_TOTAL_CALIBRATION = (0.0, 1.0)
 FCS_PROB_SIGMA = 16.0
-FCS_SPREAD_REG_INTERCEPT = 5.013813339075651
+LEGACY_SPREAD_REG_INTERCEPT = 5.013813339075651
 FCS_SPREAD_REG_WEIGHTS = {
     'receiving_grade_offense_z': -0.359949177,
     'receiving_grade_route_z': -0.772627951,
@@ -134,7 +171,7 @@ FCS_SPREAD_REG_WEIGHTS = {
     'punt_return_defense_avg_z': -0.502303225,
     'net_punting_avg_z': -0.070792218,
 }
-FCS_SPREAD_LINEAR_COEFFS = {
+LEGACY_SPREAD_LINEAR_COEFFS = {
     "intercept": 2.60184,
     "spread_rating_diff": 0.55249,
     "power_diff": 0.72979,
@@ -147,13 +184,59 @@ FCS_SPREAD_LINEAR_COEFFS = {
     "power_sq": 0.11817,
 }
 
+_SPREAD_MODEL_PATH_RAW = _RATING_CONFIG.get("spread_model_path", "calibration/fcs_spread_model.json")
+SPREAD_MODEL_PATH = Path(str(_SPREAD_MODEL_PATH_RAW)).expanduser()
 
-def _read_first_available(data_dir: Path, candidates: Iterable[str]) -> pd.DataFrame:
-    directories = []
-    combined = PFF_COMBINED_DATA_DIR.expanduser()
-    if combined.exists():
-        directories.append(combined)
-    directories.append(data_dir.expanduser())
+
+def _coerce_float(value: Optional[float]) -> Optional[float]:
+    if value is None or value == "":
+        return None
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    filtered = "".join(ch for ch in str(value) if ch.isdigit() or ch in {".", "-", "+"})
+    if not filtered:
+        return None
+    try:
+        return float(filtered)
+    except ValueError:
+        return None
+
+
+def _load_spread_model_defaults() -> tuple[dict[str, float], tuple[float, float]]:
+    try:
+        with SPREAD_MODEL_PATH.open("r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return dict(LEGACY_SPREAD_LINEAR_COEFFS), LEGACY_SPREAD_CALIBRATION
+    coefficients = payload.get("coefficients")
+    if isinstance(coefficients, dict) and coefficients:
+        coeffs = {str(key): float(value) for key, value in coefficients.items()}
+    else:
+        coeffs = dict(LEGACY_SPREAD_LINEAR_COEFFS)
+    calibration = payload.get("calibration")
+    if isinstance(calibration, dict):
+        intercept_val = _coerce_float(calibration.get("intercept"))
+        slope_val = _coerce_float(calibration.get("slope"))
+        intercept = float(intercept_val) if intercept_val is not None else LEGACY_SPREAD_CALIBRATION[0]
+        slope = float(slope_val) if slope_val is not None else LEGACY_SPREAD_CALIBRATION[1]
+        calibration_tuple = (intercept, slope)
+    else:
+        calibration_tuple = LEGACY_SPREAD_CALIBRATION
+    return coeffs, calibration_tuple
+
+
+FCS_SPREAD_LINEAR_COEFFS, FCS_SPREAD_CALIBRATION = _load_spread_model_defaults()
+FCS_SPREAD_REG_INTERCEPT = FCS_SPREAD_LINEAR_COEFFS.get("intercept", LEGACY_SPREAD_REG_INTERCEPT)
+
+
+def _read_first_available(data_dir: Optional[Path], candidates: Iterable[str]) -> pd.DataFrame:
+    directories: list[Path] = []
+    if PFF_COMBINED_DATA_DIR:
+        directories.append(PFF_COMBINED_DATA_DIR.expanduser())
+    if data_dir:
+        directories.append(data_dir.expanduser())
+    if not directories:
+        directories.append(Path("."))
     for directory in directories:
         for name in candidates:
             if any(ch in name for ch in "*?[]"):
@@ -198,20 +281,6 @@ def _load_adjusted_metrics(season_year: Optional[int]) -> tuple[pd.DataFrame, pd
     offense_df = pd.read_csv(offense_path) if offense_path else pd.DataFrame()
     defense_df = pd.read_csv(defense_path) if defense_path else pd.DataFrame()
     return offense_df, defense_df
-
-
-def _coerce_float(value: Optional[float]) -> Optional[float]:
-    if value is None or value == "":
-        return None
-    if isinstance(value, (int, float)):
-        return float(value)
-    filtered = ''.join(ch for ch in str(value) if ch.isdigit() or ch in {'.', '-', '+'})
-    if not filtered:
-        return None
-    try:
-        return float(filtered)
-    except ValueError:
-        return None
 
 
 def fetch_injury_penalties(league: str = "ncaaf_fcs") -> pd.DataFrame:
@@ -354,9 +423,13 @@ def fetch_market_lines(
             last_updated = line.get("lastUpdated") or line.get("updated")
 
             provider_names.add(provider_name)
+            if spread_raw is not None:
+                spread_home = float(spread_raw)
+            else:
+                spread_home = None
             provider_lines[provider_name] = {
-                "spread_home": -spread_raw if spread_raw is not None else None,
-                "spread_away": spread_raw,
+                "spread_home": spread_home,
+                "spread_away": -spread_home if spread_home is not None else None,
                 "total": total_raw,
                 "home_moneyline": home_ml,
                 "away_moneyline": away_ml,
@@ -366,11 +439,29 @@ def fetch_market_lines(
         if provider_filter and not provider_names:
             continue
         spread_values = [
-            info.get("spread_home") for info in provider_lines.values() if info.get("spread_home") is not None
+            -float(info.get("spread_home"))
+            for info in provider_lines.values()
+            if info.get("spread_home") is not None
         ]
         total_values = [
             info.get("total") for info in provider_lines.values() if info.get("total") is not None
         ]
+        provider_names_sorted = sorted(provider_names)
+        primary_provider = provider_names_sorted[0] if provider_names_sorted else None
+        spread_value = None
+        total_value = None
+        if primary_provider and primary_provider in provider_lines:
+            primary_info = provider_lines[primary_provider]
+            primary_spread = primary_info.get("spread_home")
+            if primary_spread is not None:
+                spread_value = -float(primary_spread)
+            primary_total = primary_info.get("total")
+            if primary_total is not None:
+                total_value = float(primary_total)
+        if spread_value is None and spread_values:
+            spread_value = float(sum(spread_values) / len(spread_values))
+        if total_value is None and total_values:
+            total_value = float(sum(total_values) / len(total_values))
 
         records.append(
             {
@@ -378,10 +469,11 @@ def fetch_market_lines(
                 "home_team": entry.get("homeTeam"),
                 "away_team": entry.get("awayTeam"),
                 "start_date": entry.get("startDate"),
-                "spread": float(np.mean(spread_values)) if spread_values else None,
-                "total": float(np.mean(total_values)) if total_values else None,
-                "providers": sorted(provider_names),
+                "spread": spread_value,
+                "total": total_value,
+                "providers": provider_names_sorted,
                 "provider_lines": provider_lines,
+                "primary_provider": primary_provider,
             }
         )
         start_raw = entry.get("startDate")
@@ -498,6 +590,7 @@ def fetch_market_lines(
                     "total": None,
                     "providers": [],
                     "provider_lines": {},
+                    "primary_provider": None,
                 }
                 records.append(record)
                 record_index[key] = record
@@ -517,6 +610,7 @@ def fetch_market_lines(
                     "total": None,
                     "providers": [],
                     "provider_lines": {},
+                    "primary_provider": None,
                 }
                 records.append(record)
                 record_index[key] = record
@@ -528,14 +622,36 @@ def fetch_market_lines(
             existing = provider_lines.get(provider_name, {})
             provider_lines[provider_name] = _merge_provider_lines(existing, payload, invert=invert)
         record["providers"] = sorted(provider_lines.keys())
-        spreads = [
-            info.get("spread_home") for info in provider_lines.values() if info.get("spread_home") is not None
-        ]
-        totals = [info.get("total") for info in provider_lines.values() if info.get("total") is not None]
-        if spreads:
-            record["spread"] = float(np.mean(spreads))
-        if totals:
-            record["total"] = float(np.mean(totals))
+        primary_provider = record.get("primary_provider")
+        if primary_provider not in provider_lines and record["providers"]:
+            primary_provider = record["providers"][0]
+        record["primary_provider"] = primary_provider
+        spread_choice = None
+        total_choice = None
+        if primary_provider and primary_provider in provider_lines:
+            primary_info = provider_lines[primary_provider]
+            spread_home = primary_info.get("spread_home")
+            if spread_home is not None:
+                spread_choice = -float(spread_home)
+            total_val = primary_info.get("total")
+            if total_val is not None:
+                total_choice = float(total_val)
+        if spread_choice is None:
+            spreads = [
+                -float(info.get("spread_home"))
+                for info in provider_lines.values()
+                if info.get("spread_home") is not None
+            ]
+            if spreads:
+                spread_choice = float(sum(spreads) / len(spreads))
+        if total_choice is None:
+            totals = [info.get("total") for info in provider_lines.values() if info.get("total") is not None]
+            if totals:
+                total_choice = float(sum(totals) / len(totals))
+        if spread_choice is not None:
+            record["spread"] = spread_choice
+        if total_choice is not None:
+            record["total"] = total_choice
 
     return records
 
@@ -629,30 +745,141 @@ def aggregate_team_metrics(
     return result
 
 
+SPECIAL_METRIC_CANDIDATES: Dict[str, tuple[str, ...]] = {
+    "special_grade_misc": ("grades_misc_st", "grades_misc_special", "grades_misc"),
+    "special_grade_return": ("grades_return", "grades_kick_return", "grades_return_units"),
+    "special_grade_punt_return": ("grades_punt_return", "grades_puntreturn"),
+    "special_grade_kickoff": ("grades_kickoff", "grades_kickoff_units"),
+    "special_grade_fg_offense": ("grades_field_goal", "grades_fg_offense"),
+}
+
+
+def load_pff_special_metrics(data_dir: Optional[Path]) -> pd.DataFrame:
+    """Aggregate PFF special-teams grades to team-level metrics."""
+
+    if data_dir is None:
+        return pd.DataFrame(columns=["team_name"])
+    try:
+        special = _read_first_available(
+            data_dir,
+            [
+                "special_teams_summary*FCS*.csv",
+                "special_teams_summary_FCS.csv",
+                "special_teams_summary.csv",
+            ],
+        )
+    except FileNotFoundError:
+        return pd.DataFrame(columns=["team_name"])
+
+    if "team_name" not in special.columns:
+        if "team" in special.columns:
+            special = special.rename(columns={"team": "team_name"})
+        else:
+            return pd.DataFrame(columns=["team_name"])
+
+    metric_map: Dict[str, str] = {}
+    for out_col, candidates in SPECIAL_METRIC_CANDIDATES.items():
+        src = next((name for name in candidates if name in special.columns), None)
+        if src:
+            special[src] = pd.to_numeric(special[src], errors="coerce")
+            metric_map[out_col] = src
+    if not metric_map:
+        return pd.DataFrame(columns=["team_name"])
+
+    aggregated = aggregate_team_metrics(
+        special,
+        team_col="team_name",
+        weight_col=None,
+        weighted_metrics=metric_map,
+    )
+    return aggregated.reset_index()
+
+
 # --- Rating construction --------------------------------------------------
 
 
 def load_team_ratings(
-    data_dir: Path = DATA_DIR_DEFAULT,
+    data_dir: Optional[Path] = None,
     *,
     season_year: Optional[int] = None,
 ) -> pd.DataFrame:
     """Load team ratings derived from opponent-adjusted PFF metrics."""
 
+    source_dir = data_dir or DATA_DIR_DEFAULT
+    if source_dir is None:
+        raise RuntimeError("PFF data directory not configured; set fcs.data.pff_dir or pass --data-dir.")
+
     if season_year is None:
         today = datetime.utcnow().date()
         season_year = today.year if today.month >= 7 else today.year - 1
 
-    offense_df, defense_df = _load_adjusted_metrics(season_year)
-    if offense_df.empty or defense_df.empty:
-        raise RuntimeError(
-            f"Adjusted metrics for season {season_year} not found. "
-            "Ensure fcs_adjusted outputs are available."
-        )
+    special_metrics = load_pff_special_metrics(source_dir)
 
-    offense = offense_df.rename(columns={"team": "team_name"})[["team_name", "points_offense"]]
-    defense = defense_df.rename(columns={"team": "team_name"})[["team_name", "points_defense"]]
+    offense_df, defense_df = _load_adjusted_metrics(season_year)
+    fallback_features: Optional[pd.DataFrame] = None
+    if offense_df.empty or defense_df.empty:
+        warnings.warn(
+            f"Adjusted metrics for season {season_year} missing; falling back to unadjusted NCAA stats.",
+            RuntimeWarning,
+        )
+        try:
+            fallback_features = ncaa_stats.build_team_feature_frame(season_year)
+        except Exception:
+            fallback_features = pd.DataFrame()
+        if fallback_features.empty:
+            raise RuntimeError(
+                f"Adjusted metrics for season {season_year} not found and NCAA stats fallback failed."
+            )
+        offense = fallback_features[["team_name", "points_per_game"]].rename(
+            columns={"points_per_game": "points_offense"}
+        )
+        defense = fallback_features[["team_name", "points_allowed_per_game"]].rename(
+            columns={"points_allowed_per_game": "points_defense"}
+        )
+    else:
+        offense = offense_df.rename(columns={"team": "team_name"})[["team_name", "points_offense"]]
+        defense = defense_df.rename(columns={"team": "team_name"})[["team_name", "points_defense"]]
     merged = offense.merge(defense, on="team_name", how="inner")
+
+    try:
+        features = fallback_features if fallback_features is not None else ncaa_stats.build_team_feature_frame(season_year)
+    except Exception:  # pragma: no cover - NCAA site hiccups shouldn't halt build
+        features = pd.DataFrame()
+    if not features.empty and "games_played" in features.columns:
+        merged = merged.merge(features[["team_name", "games_played"]], on="team_name", how="left")
+    else:
+        merged["games_played"] = float("nan")
+
+    if not special_metrics.empty:
+        merged = merged.merge(special_metrics, on="team_name", how="left")
+        special_cols = [
+            col
+            for col in [
+                "special_grade_misc",
+                "special_grade_return",
+                "special_grade_punt_return",
+                "special_grade_kickoff",
+                "special_grade_fg_offense",
+            ]
+            if col in merged.columns
+        ]
+        z_cols: list[str] = []
+        for col in special_cols:
+            values = pd.to_numeric(merged[col], errors="coerce")
+            mean = float(values.mean())
+            std = float(values.std(ddof=0))
+            if std and not math.isnan(std):
+                merged[f"{col}_z"] = (values - mean) / std
+            else:
+                merged[f"{col}_z"] = 0.0
+            z_cols.append(f"{col}_z")
+        if z_cols:
+            merged["special_rating"] = merged[z_cols].mean(axis=1)
+        else:
+            merged["special_rating"] = 0.0
+    else:
+        merged["special_rating"] = 0.0
+    merged["special_rating"] = merged["special_rating"].fillna(0.0)
 
     records: list[dict] = []
     offense_mean = merged["points_offense"].mean()
@@ -672,14 +899,17 @@ def load_team_ratings(
         offense_rating = row.points_offense - offense_mean
         defense_rating = defense_mean - row.points_defense
         power_rating = offense_rating + defense_rating
+        games_played = getattr(row, "games_played", float("nan"))
+        special_rating = float(getattr(row, "special_rating", 0.0))
         records.append(
             {
                 "team_name": candidate,
                 "offense_rating": offense_rating,
                 "defense_rating": defense_rating,
-                "special_rating": 0.0,
+                "special_rating": special_rating,
                 "power_rating": power_rating,
                 "spread_rating": power_rating,
+                "games_played": games_played,
             }
         )
 
@@ -695,19 +925,31 @@ def load_team_ratings(
         "special_rating",
         "power_rating",
         "spread_rating",
+        "games_played",
     ]
     return merged[cols].sort_values("power_rating", ascending=False).reset_index(drop=True)
 
 
 def build_rating_book(
-    data_dir: Path = DATA_DIR_DEFAULT,
+    data_dir: Optional[Path] = None,
     *,
     season_year: Optional[int] = None,
     spread_calibration: tuple[float, float] = FCS_SPREAD_CALIBRATION,
     total_calibration: tuple[float, float] = FCS_TOTAL_CALIBRATION,
     prob_sigma: float = FCS_PROB_SIGMA,
 ) -> tuple[pd.DataFrame, FCSRatingBook]:
-    teams = load_team_ratings(data_dir, season_year=season_year)
+    teams = load_team_ratings(data_dir=data_dir, season_year=season_year)
+    team_games_map: Dict[str, float] = {}
+    if "games_played" in teams.columns:
+        for row in teams[["team_name", "games_played"]].itertuples(index=False):
+            team = str(row.team_name).lower()
+            try:
+                games_value = float(row.games_played)
+            except (TypeError, ValueError):
+                continue
+            if not math.isfinite(games_value):
+                continue
+            team_games_map[team] = max(0.0, games_value)
     try:
         injuries = fetch_injury_penalties()
         if not injuries.empty:
@@ -717,13 +959,19 @@ def build_rating_book(
     spread_model = dict(FCS_SPREAD_LINEAR_COEFFS)
     if "intercept" not in spread_model:
         spread_model["intercept"] = FCS_SPREAD_REG_INTERCEPT
+    rating_constants = _rating_constants_from_config()
+    bayesian_cfg = _bayesian_config_from_config()
+    if bayesian_cfg and bayesian_cfg.total_prior_mean is None:
+        bayesian_cfg.total_prior_mean = rating_constants.avg_total
     book = FCSRatingBook(
         teams,
-        _rating_constants_from_config(),
+        rating_constants,
         spread_calibration=spread_calibration,
         total_calibration=total_calibration,
         prob_sigma=prob_sigma,
         spread_model=spread_model,
+        team_games=team_games_map,
+        bayesian_config=bayesian_cfg,
     )
     return teams, book
 

@@ -2,6 +2,12 @@ fbs:
   market:
     spread_weight: 0.4
     total_weight: 0.4
+    providers:
+      - BetOnline
+      - Sports411
+      - Circa
+      - Fanduel
+      - DraftKings
   weather:
     coeffs:
       wind_high: -0.3462
@@ -13,6 +19,9 @@ fbs:
       dewpos: -0.0554
     clamp_bounds: [-12.0, 6.0]
     max_total_adjustment: 10.0
+  data:
+    pff_dir: "data/pff/fbs"
+    pff_combined_dir: null
   ratings:
     avg_total: 53.5109
     home_field_advantage: 3.4066
@@ -20,10 +29,21 @@ fbs:
     defense_factor: 5.0088
     power_factor: 2.1035
     spread_sigma: 15.0
+    weights_path: "calibration/fbs_rating_weights.json"
   backtest:
     spread_edge_min: 1.0
     total_edge_min: 1.0
     min_provider_count: 1
+  bayesian:
+    enabled: true
+    spread_prior_strength: 6.0
+    total_prior_strength: 8.0
+    spread_prior_mean: 0.0
+    total_prior_mean: null
+    min_games: 1.0
+    max_games: 14.0
+    default_games: 6.0
+    prob_sigma_scale: 4.0
 
 fcs:
   market:
@@ -31,6 +51,9 @@ fcs:
     total_weight: 0.7
     providers:
       - FanDuel
+  data:
+    pff_dir: "data/pff/fcs"
+    pff_combined_dir: null
   ratings:
     avg_total: 52.7442
     home_field_advantage: 4.9105
@@ -38,7 +61,18 @@ fcs:
     defense_factor: 0.2318
     special_teams_factor: 1.4226
     spread_sigma: 16.0
+    spread_model_path: "calibration/fcs_spread_model.json"
   backtest:
     spread_edge_min: 1.0
     total_edge_min: 1.0
     min_provider_count: 1
+  bayesian:
+    enabled: true
+    spread_prior_strength: 5.0
+    total_prior_strength: 7.0
+    spread_prior_mean: 0.0
+    total_prior_mean: null
+    min_games: 1.0
+    max_games: 12.0
+    default_games: 6.0
+    prob_sigma_scale: 5.0

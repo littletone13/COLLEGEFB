@@ -1,0 +1,57 @@
+{
+  "defense": {
+    "adj_ppa_defense_pass_z": 0.6510793075897826,
+    "adj_ppa_defense_rush_z": 1.0938788665678931,
+    "adj_ppa_defense_z": 1.5887027491981207,
+    "adv_def_explosiveness_z": -0.12906273875682248,
+    "adv_def_line_yards_z": -0.4084155324328454,
+    "adv_def_open_field_yards_z": -0.23225423000698042,
+    "adv_def_pass_explosiveness_z": 0.0,
+    "adv_def_passing_down_success_z": 0.0,
+    "adv_def_power_success_z": -0.28901420469900535,
+    "adv_def_rush_explosiveness_z": 0.0,
+    "adv_def_second_level_yards_z": 0.11363489478026603,
+    "adv_def_standard_down_success_z": 0.0,
+    "adv_def_stuff_rate_z": -0.31718979756546267,
+    "adv_def_success_rate_z": -0.45403213824417066,
+    "fpi_defense_z": 0.0,
+    "ppa_def_pass_z": 0.30555664644535435,
+    "ppa_def_rush_z": 0.48319410249176586,
+    "ppa_defense_z": -1.5010611272693923,
+    "sp_defense_z": 6.325219853969092
+  },
+  "generated": "2025-11-05T17:52:38Z",
+  "meta": {
+    "defense_rows": 518,
+    "offense_rows": 518,
+    "power_rows": 518
+  },
+  "offense": {
+    "adj_ppa_offense_pass_z": 0.902613026155048,
+    "adj_ppa_offense_rush_z": 1.0541011438091634,
+    "adj_ppa_offense_z": 1.6951215886790152,
+    "adv_off_line_yards_z": -0.4608273106002348,
+    "adv_off_open_field_yards_z": -0.23993082789690623,
+    "adv_off_pass_explosiveness_z": 0.0,
+    "adv_off_passing_down_success_z": 0.0,
+    "adv_off_power_success_z": -0.416499589671902,
+    "adv_off_rush_explosiveness_z": 0.0,
+    "adv_off_second_level_yards_z": -0.15507442152653764,
+    "adv_off_standard_down_success_z": 0.0,
+    "adv_off_stuff_rate_z": -0.304911430173991,
+    "adv_off_success_rate_z": 0.2070128659228984,
+    "fpi_offense_z": 0.0,
+    "ppa_offense_z": -0.7931624531801984,
+    "ppa_passing_z": -0.5823597332479331,
+    "ppa_rushing_z": -0.10971484244208826,
+    "sp_offense_z": 6.13899101810807,
+    "sp_special_z": 0.0
+  },
+  "power": {
+    "defense_rating": 0.6149617065355968,
+    "elo_z": -0.40774060552002966,
+    "fpi_z": 6.6144797407217215,
+    "offense_rating": 0.587246777763097,
+    "sp_rating_z": -0.2459049031564245
+  }
+}
