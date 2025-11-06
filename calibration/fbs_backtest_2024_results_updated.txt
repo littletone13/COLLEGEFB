@@ -1,0 +1,19 @@
+Season 2024 backtest over 741 games
+Spread MAE (pure): 10.64 pts
+Spread MAE (market-adjusted): 10.92 pts
+Total MAE (pure): 11.76 pts
+Total MAE (market-adjusted): 12.01 pts
+Brier (pure): 0.1481
+Brier (market-adjusted): 0.1541
+ATS record (pure): 455-197-10
+ATS ROI (pure, per bet, -110 assumed): 32.72%
+Pure bets placed: 662 (spread edge ≥ 1.0, providers ≥ 1)
+ATS record (market-adjusted): 430-186-10
+ATS ROI (market-adjusted, per bet, -110 assumed): 32.73%
+Market-adjusted bets placed: 626 (spread edge ≥ 1.0, providers ≥ 1)
+Totals record (pure): 403-197-15
+Totals ROI (pure, per bet, -110 assumed): 27.53%
+Pure total bets: 615 (total edge ≥ 1.0, providers ≥ 1)
+Totals record (market-adjusted): 353-165-11
+Totals ROI (market-adjusted, per bet, -110 assumed): 29.47%
+Market-adjusted total bets: 529 (total edge ≥ 1.0, providers ≥ 1)

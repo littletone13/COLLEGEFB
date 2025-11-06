@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: stl-leads
+Version: 0.1.0
+Summary: St. Louis Landscaping/Tree Services: Scrape (Places API) + Verify (Twilio/Numverify) + Queue (no send)
+Requires-Python: >=3.9
+Requires-Dist: pandas
+Requires-Dist: requests
+Requires-Dist: openpyxl
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

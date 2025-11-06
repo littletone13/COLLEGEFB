@@ -97,7 +97,7 @@ def main() -> None:
         providers_fcs = st.text_input("Provider filter (comma separated)", key="providers_fcs")
         min_spread_edge_fcs = st.slider("Min spread edge", min_value=0.0, max_value=10.0, value=1.0, step=0.5, key="spread_edge_fcs")
         min_total_edge_fcs = st.slider("Min total edge", min_value=0.0, max_value=10.0, value=0.0, step=0.5, key="total_edge_fcs")
-        min_provider_count_fcs = st.number_input("Min providers", min_value=0, max_value=10, value=1, step=1, key="providers_count_fcs")
+        min_provider_count_fcs = st.number_input("Min providers", min_value=0, max_value=10, value=0, step=1, key="providers_count_fcs")
 
         if st.button("Run FCS Sims", type="primary"):
             params = {

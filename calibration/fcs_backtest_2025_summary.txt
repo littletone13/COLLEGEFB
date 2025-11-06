@@ -1,0 +1,5 @@
+Season 2025 summary (FCS)
+Spread MAE: 19.26
+Total MAE: 13.38
+Brier score: 0.2498
+Games: 1458

@@ -75,10 +75,17 @@ def load_closing_lines(path: Optional[Path], provider: str, year: int, api_key: 
     for entry in lines:
         game_id = entry.get("id")
         for line in entry.get("lines", []):
+            raw_spread = line.get("spread")
+            spread_value = None
+            if raw_spread is not None:
+                try:
+                    spread_value = -float(raw_spread)
+                except (TypeError, ValueError):
+                    spread_value = None
             records.append(
                 {
                     "Id": game_id,
-                    "Spread": line.get("spread"),
+                    "Spread": spread_value,
                     "OverUnder": line.get("overUnder"),
                     "HomeMoneyline": line.get("homeMoneyline"),
                     "AwayMoneyline": line.get("awayMoneyline"),
@@ -96,6 +103,9 @@ class BacktestResult:
     spread_mae: float
     total_mae: float
     brier: float
+    spread_mae_blended: float
+    total_mae_blended: float
+    brier_blended: float
     games: int
     ats_record: tuple[int, int, int]
     ats_roi: float
@@ -103,6 +113,12 @@ class BacktestResult:
     total_record: tuple[int, int, int]
     total_roi: float
     total_bets: int
+    ats_record_blended: tuple[int, int, int]
+    ats_roi_blended: float
+    bets_blended: int
+    total_record_blended: tuple[int, int, int]
+    total_roi_blended: float
+    total_bets_blended: int
 
 
 def evaluate_season(
@@ -116,7 +132,8 @@ def evaluate_season(
     spread_edge_min: float = 0.0,
     min_provider_count: int = 0,
     total_edge_min: float = 0.0,
-) -> BacktestResult:
+    return_rows: bool = False,
+) -> BacktestResult | tuple[BacktestResult, pd.DataFrame]:
     games = _fetch_cfbd("/games", api_key=api_key, params={"year": year, "seasonType": "regular"})
     if max_week is not None:
         games = [game for game in games if (game.get("week") or 0) <= max_week]
@@ -131,13 +148,19 @@ def evaluate_season(
         lines = load_closing_lines(hist_path, provider, year, api_key)
 
     rows: list[dict] = []
-    ats_wins = ats_losses = pushes = 0
-    roi = 0.0
-    bets = 0
+    pure_ats_wins = pure_ats_losses = pure_pushes = 0
+    pure_roi = 0.0
+    pure_bets = 0
+    blended_ats_wins = blended_ats_losses = blended_pushes = 0
+    blended_roi = 0.0
+    blended_bets = 0
     missing_closings = 0
-    total_wins = total_losses = total_pushes = 0
-    total_roi = 0.0
-    total_bets = 0
+    pure_total_wins = pure_total_losses = pure_total_pushes = 0
+    pure_total_roi = 0.0
+    pure_total_bets = 0
+    blended_total_wins = blended_total_losses = blended_total_pushes = 0
+    blended_total_roi = 0.0
+    blended_total_bets = 0
 
     edge_config = edge_utils.EdgeFilterConfig(
         spread_edge_min=spread_edge_min,
@@ -163,10 +186,15 @@ def evaluate_season(
         spread = None
         total_line = None
         provider_count = 0
-        edge = None
+        pure_spread_edge = None
+        blended_spread_edge = None
+        pure_total_edge = None
+        blended_total_edge = None
 
         closing = None
         invert = False
+        provider_lines: Dict[str, dict] = {}
+        market_payload: Optional[dict] = None
         if oddslogic_lookup is not None:
             kickoff_str = game.get("startDate") or game.get("startTime")
             if kickoff_str:
@@ -198,6 +226,16 @@ def evaluate_season(
             total_raw = closing.get("total_value")
             if total_raw is not None and not pd.isna(total_raw):
                 total_line = float(total_raw)
+            provider_lines = closing.get("providers") or {}
+            if invert and provider_lines:
+                adjusted: Dict[str, dict] = {}
+                for pname, payload in provider_lines.items():
+                    payload_copy = dict(payload)
+                    value = payload_copy.get("spread_value")
+                    if value is not None and not pd.isna(value):
+                        payload_copy["spread_value"] = -float(value)
+                    adjusted[pname] = payload_copy
+                provider_lines = adjusted
         else:
             try:
                 line_row = lines.loc[identifier]
@@ -206,6 +244,14 @@ def evaluate_season(
             spread = float(line_row["Spread"]) if not pd.isna(line_row["Spread"]) else None
             total_line = float(line_row["OverUnder"]) if not pd.isna(line_row["OverUnder"]) else None
             provider_count = 1 if (spread is not None or total_line is not None) else 0
+            if provider_count:
+                payload: Dict[str, float] = {}
+                if spread is not None:
+                    payload["spread_value"] = spread
+                if total_line is not None:
+                    payload["total_value"] = total_line
+                if payload:
+                    provider_lines = {provider or "provider": payload}
 
         if spread is None and total_line is None:
             continue
@@ -214,74 +260,159 @@ def evaluate_season(
             pred = book.predict(home_team, away_team, neutral_site=game.get("neutralSite", False))
         except KeyError:
             continue
-        pred = fbs.apply_weather_adjustment(pred, weather_lookup.get(identifier))
+
+        weather_adjusted = fbs.apply_weather_adjustment(pred, weather_lookup.get(identifier))
+        primary_provider_key = fbs.select_primary_provider([provider] if provider else [])
+        pure_result = fbs.apply_bias_recenter(
+            weather_adjusted.copy(),
+            provider_hint=primary_provider_key,
+            prob_sigma=book.prob_sigma,
+        )
+
+        if spread is not None or total_line is not None:
+            providers_list = sorted(provider_lines.keys())
+            market_payload = {
+                "spread": spread,
+                "total": total_line,
+                "providers": providers_list,
+                "provider_lines": provider_lines,
+                "primary_provider": primary_provider_key,
+            }
+        weight_multiplier = fbs.market_weight_for_provider(primary_provider_key)
+        blended_result = fbs.apply_market_prior(
+            pure_result.copy(),
+            market_payload,
+            prob_sigma=book.prob_sigma,
+            spread_weight=fbs.MARKET_SPREAD_WEIGHT * weight_multiplier,
+            total_weight=fbs.MARKET_TOTAL_WEIGHT * weight_multiplier,
+        )
+
+        provider_count = int(blended_result.get("market_provider_count") or provider_count or 0)
 
         actual_margin = home_points - away_points
         actual_total = home_points + away_points
 
         if spread is not None:
-            edge = pred["spread_home_minus_away"] - spread
-            bet_allowed = edge_utils.allow_spread_bet(edge, provider_count, edge_config)
-            if bet_allowed:
-                bets += 1
-                pick_home = edge > 0
+            pure_spread_edge = pure_result["spread_home_minus_away"] - spread
+            blended_spread_edge = blended_result["spread_home_minus_away"] - spread
+
+            if edge_utils.allow_spread_bet(pure_spread_edge, provider_count, edge_config):
+                pure_bets += 1
+                pick_home = pure_spread_edge > 0
                 cover_margin = actual_margin + spread
                 if pick_home:
                     if cover_margin > 0:
-                        ats_wins += 1
-                        roi += 0.909
+                        pure_ats_wins += 1
+                        pure_roi += 0.909
                     elif cover_margin < 0:
-                        ats_losses += 1
-                        roi -= 1.0
+                        pure_ats_losses += 1
+                        pure_roi -= 1.0
                     else:
-                        pushes += 1
+                        pure_pushes += 1
                 else:
                     if cover_margin < 0:
-                        ats_wins += 1
-                        roi += 0.909
+                        pure_ats_wins += 1
+                        pure_roi += 0.909
                     elif cover_margin > 0:
-                        ats_losses += 1
-                        roi -= 1.0
+                        pure_ats_losses += 1
+                        pure_roi -= 1.0
                     else:
-                        pushes += 1
+                        pure_pushes += 1
 
-        total_edge = None
+            if edge_utils.allow_spread_bet(blended_spread_edge, provider_count, edge_config):
+                blended_bets += 1
+                pick_home_blended = blended_spread_edge > 0
+                cover_margin = actual_margin + spread
+                if pick_home_blended:
+                    if cover_margin > 0:
+                        blended_ats_wins += 1
+                        blended_roi += 0.909
+                    elif cover_margin < 0:
+                        blended_ats_losses += 1
+                        blended_roi -= 1.0
+                    else:
+                        blended_pushes += 1
+                else:
+                    if cover_margin < 0:
+                        blended_ats_wins += 1
+                        blended_roi += 0.909
+                    elif cover_margin > 0:
+                        blended_ats_losses += 1
+                        blended_roi -= 1.0
+                    else:
+                        blended_pushes += 1
+
         if total_line is not None:
-            total_edge = pred["total_points"] - total_line
-            bet_allowed = edge_utils.allow_total_bet(total_edge, provider_count, edge_config)
-            if bet_allowed:
-                total_bets += 1
-                pick_over = total_edge > 0
+            pure_total_edge = pure_result["total_points"] - total_line
+            blended_total_edge = blended_result["total_points"] - total_line
+
+            if edge_utils.allow_total_bet(pure_total_edge, provider_count, edge_config):
+                pure_total_bets += 1
+                pick_over = pure_total_edge > 0
                 margin = actual_total - total_line
                 if pick_over:
                     if margin > 0:
-                        total_wins += 1
-                        total_roi += 0.909
+                        pure_total_wins += 1
+                        pure_total_roi += 0.909
                     elif margin < 0:
-                        total_losses += 1
-                        total_roi -= 1.0
+                        pure_total_losses += 1
+                        pure_total_roi -= 1.0
                     else:
-                        total_pushes += 1
+                        pure_total_pushes += 1
                 else:
                     if margin < 0:
-                        total_wins += 1
-                        total_roi += 0.909
+                        pure_total_wins += 1
+                        pure_total_roi += 0.909
                     elif margin > 0:
-                        total_losses += 1
-                        total_roi -= 1.0
+                        pure_total_losses += 1
+                        pure_total_roi -= 1.0
                     else:
-                        total_pushes += 1
+                        pure_total_pushes += 1
+
+            if edge_utils.allow_total_bet(blended_total_edge, provider_count, edge_config):
+                blended_total_bets += 1
+                pick_over_blended = blended_total_edge > 0
+                margin = actual_total - total_line
+                if pick_over_blended:
+                    if margin > 0:
+                        blended_total_wins += 1
+                        blended_total_roi += 0.909
+                    elif margin < 0:
+                        blended_total_losses += 1
+                        blended_total_roi -= 1.0
+                    else:
+                        blended_total_pushes += 1
+                else:
+                    if margin < 0:
+                        blended_total_wins += 1
+                        blended_total_roi += 0.909
+                    elif margin > 0:
+                        blended_total_losses += 1
+                        blended_total_roi -= 1.0
+                    else:
+                        blended_total_pushes += 1
 
         rows.append(
             {
-                "spread_error": pred["spread_home_minus_away"] - actual_margin,
-                "total_error": pred["total_points"] - actual_total if total_line is not None else np.nan,
-                "brier": (pred["home_win_prob"] - (1.0 if actual_margin > 0 else 0.0)) ** 2,
-                "spread_edge": edge if edge is not None else np.nan,
-                "total_edge": total_edge if total_edge is not None else np.nan,
+                "spread_error_pure": pure_result["spread_home_minus_away"] - actual_margin,
+                "spread_error_blended": blended_result["spread_home_minus_away"] - actual_margin,
+                "total_error_pure": pure_result["total_points"] - actual_total if total_line is not None else np.nan,
+                "total_error_blended": blended_result["total_points"] - actual_total if total_line is not None else np.nan,
+                "brier_pure": (pure_result["home_win_prob"] - (1.0 if actual_margin > 0 else 0.0)) ** 2,
+                "brier_blended": (blended_result["home_win_prob"] - (1.0 if actual_margin > 0 else 0.0)) ** 2,
+                "spread_edge_pure": pure_spread_edge if pure_spread_edge is not None else np.nan,
+                "spread_edge_blended": blended_spread_edge if blended_spread_edge is not None else np.nan,
+                "total_edge_pure": pure_total_edge if pure_total_edge is not None else np.nan,
+                "total_edge_blended": blended_total_edge if blended_total_edge is not None else np.nan,
+                "model_spread": pure_result["spread_home_minus_away"],
+                "model_total": pure_result["total_points"],
                 "market_spread": spread,
                 "market_total": total_line,
                 "market_provider_count": provider_count,
+                "actual_margin": actual_margin,
+                "actual_total": actual_total,
+                "model_home_win_prob": pure_result["home_win_prob"],
+                "market_home_win_prob": blended_result["home_win_prob"],
             }
         )
 
@@ -292,26 +423,43 @@ def evaluate_season(
         print(f"Warning: {missing_closings} games skipped due to missing OddsLogic closings.")
 
     df = pd.DataFrame(rows)
-    spread_mae = df["spread_error"].abs().mean()
-    total_mae = df["total_error"].abs().mean(skipna=True)
-    brier = df["brier"].mean()
+    spread_mae = df["spread_error_pure"].abs().mean()
+    spread_mae_blended = df["spread_error_blended"].abs().mean()
+    total_mae = df["total_error_pure"].abs().mean(skipna=True)
+    total_mae_blended = df["total_error_blended"].abs().mean(skipna=True)
+    brier = df["brier_pure"].mean()
+    brier_blended = df["brier_blended"].mean()
     games_eval = len(df)
 
-    ats_roi = (roi / bets) if bets else 0.0
-    total_roi_per_bet = (total_roi / total_bets) if total_bets else 0.0
+    pure_ats_roi = (pure_roi / pure_bets) if pure_bets else 0.0
+    blended_ats_roi = (blended_roi / blended_bets) if blended_bets else 0.0
+    pure_total_roi_per_bet = (pure_total_roi / pure_total_bets) if pure_total_bets else 0.0
+    blended_total_roi_per_bet = (blended_total_roi / blended_total_bets) if blended_total_bets else 0.0
 
-    return BacktestResult(
+    result = BacktestResult(
         spread_mae=spread_mae,
         total_mae=total_mae,
         brier=brier,
+        spread_mae_blended=spread_mae_blended,
+        total_mae_blended=total_mae_blended,
+        brier_blended=brier_blended,
         games=games_eval,
-        ats_record=(ats_wins, ats_losses, pushes),
-        ats_roi=ats_roi,
-        bets=bets,
-        total_record=(total_wins, total_losses, total_pushes),
-        total_roi=total_roi_per_bet,
-        total_bets=total_bets,
+        ats_record=(pure_ats_wins, pure_ats_losses, pure_pushes),
+        ats_roi=pure_ats_roi,
+        bets=pure_bets,
+        total_record=(pure_total_wins, pure_total_losses, pure_total_pushes),
+        total_roi=pure_total_roi_per_bet,
+        total_bets=pure_total_bets,
+        ats_record_blended=(blended_ats_wins, blended_ats_losses, blended_pushes),
+        ats_roi_blended=blended_ats_roi,
+        bets_blended=blended_bets,
+        total_record_blended=(blended_total_wins, blended_total_losses, blended_total_pushes),
+        total_roi_blended=blended_total_roi_per_bet,
+        total_bets_blended=blended_total_bets,
     )
+    if return_rows:
+        return result, df
+    return result
 
 
 def parse_args() -> argparse.Namespace:
@@ -365,17 +513,31 @@ def main() -> None:
         total_edge_min=total_edge_min,
     )
     print(f"Season {args.year} backtest over {result.games} games")
-    print(f"Spread MAE: {result.spread_mae:.2f} pts")
-    print(f"Total MAE: {result.total_mae:.2f} pts")
-    print(f"Brier score: {result.brier:.4f}")
+    print(f"Spread MAE (pure): {result.spread_mae:.2f} pts")
+    print(f"Spread MAE (market-adjusted): {result.spread_mae_blended:.2f} pts")
+    print(f"Total MAE (pure): {result.total_mae:.2f} pts")
+    print(f"Total MAE (market-adjusted): {result.total_mae_blended:.2f} pts")
+    print(f"Brier (pure): {result.brier:.4f}")
+    print(f"Brier (market-adjusted): {result.brier_blended:.4f}")
     w, l, p = result.ats_record
-    print(f"ATS record: {w}-{l}-{p}")
-    print(f"ATS ROI (per bet, -110 assumed): {result.ats_roi*100:0.2f}%")
-    print(f"Bets placed: {result.bets} (spread edge ≥ {spread_edge_min}, providers ≥ {min_provider_count})")
+    print(f"ATS record (pure): {w}-{l}-{p}")
+    print(f"ATS ROI (pure, per bet, -110 assumed): {result.ats_roi*100:0.2f}%")
+    print(f"Pure bets placed: {result.bets} (spread edge ≥ {spread_edge_min}, providers ≥ {min_provider_count})")
+    bw, bl, bp = result.ats_record_blended
+    print(f"ATS record (market-adjusted): {bw}-{bl}-{bp}")
+    print(f"ATS ROI (market-adjusted, per bet, -110 assumed): {result.ats_roi_blended*100:0.2f}%")
+    print(f"Market-adjusted bets placed: {result.bets_blended} (spread edge ≥ {spread_edge_min}, providers ≥ {min_provider_count})")
     tw, tl, tp = result.total_record
-    print(f"Totals record: {tw}-{tl}-{tp}")
-    print(f"Totals ROI (per bet, -110 assumed): {result.total_roi*100:0.2f}%")
-    print(f"Totals bets: {result.total_bets} (total edge ≥ {total_edge_min}, providers ≥ {min_provider_count})")
+    print(f"Totals record (pure): {tw}-{tl}-{tp}")
+    print(f"Totals ROI (pure, per bet, -110 assumed): {result.total_roi*100:0.2f}%")
+    print(f"Pure total bets: {result.total_bets} (total edge ≥ {total_edge_min}, providers ≥ {min_provider_count})")
+    btw, btl, btp = result.total_record_blended
+    print(f"Totals record (market-adjusted): {btw}-{btl}-{btp}")
+    print(f"Totals ROI (market-adjusted, per bet, -110 assumed): {result.total_roi_blended*100:0.2f}%")
+    print(
+        f"Market-adjusted total bets: {result.total_bets_blended} "
+        f"(total edge ≥ {total_edge_min}, providers ≥ {min_provider_count})"
+    )
 
 
 if __name__ == "__main__":

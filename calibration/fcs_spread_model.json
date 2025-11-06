@@ -1,0 +1,38 @@
+{
+  "alpha": 0.1,
+  "coefficients": {
+    "intercept": 2.601839808946103,
+    "spread_rating_diff": 0.5524936236056242,
+    "power_diff": 0.7297949534491518,
+    "offense_diff": 1.1708760961136544,
+    "defense_diff": 0.3022232915602239,
+    "special_diff": -0.69428925547057,
+    "sr_x_power": 0.00010300054882190154,
+    "off_x_def": 0.24222329670873508,
+    "power_x_special": -0.09227099120871667,
+    "power_sq": 0.11816458792404073
+  },
+  "features": [
+    "spread_rating_diff",
+    "power_diff",
+    "offense_diff",
+    "defense_diff",
+    "special_diff",
+    "sr_x_power",
+    "off_x_def",
+    "power_x_special",
+    "power_sq"
+  ],
+  "calibration": {
+    "intercept": 0.011935769658185037,
+    "slope": 0.9945604927666224
+  },
+  "metrics": {
+    "alpha": 0.1,
+    "train_mae": 9.594772901251382,
+    "valid_mae": 8.592752351698218,
+    "future_mae": 9.391840419766652,
+    "baseline_valid_mae": 9.535527844784873,
+    "baseline_future_mae": 11.03842173535536
+  }
+}

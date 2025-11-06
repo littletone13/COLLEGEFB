@@ -4,1414 +4,364 @@
         <meta charset="utf-8" />
         <title>FBS Week 10 Simulations</title>
         <style>
-          body { font-family: Arial, sans-serif; margin: 2rem; background: #fafafa; color: #222; }
-          h1 { margin-bottom: 0.5rem; }
-          section { margin-bottom: 1.5rem; }
-          table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
-          th, td { padding: 0.4rem 0.6rem; text-align: center; }
-          ul { margin: 0.4rem 0 0.4rem 1.2rem; }
+          :root {
+            --bg: #f5f7fb;
+            --card: #ffffff;
+            --card-border: #dfe3eb;
+            --text: #1f2630;
+            --muted: #687385;
+            --edge-strong: #03835a;
+            --edge-medium: #d48806;
+            --edge-light: #7b8899;
+            --edge-negative: #c23f31;
+            font-family: 'Inter', 'Segoe UI', Roboto, sans-serif;
+          }
+          body {
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+          }
+          header {
+            padding: 32px 40px 20px;
+            background: var(--card);
+            border-bottom: 1px solid var(--card-border);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+          }
+          .brand {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+          }
+          .brand-logo {
+            width: 72px;
+            height: 72px;
+            object-fit: contain;
+            border-radius: 50%;
+            border: 2px solid rgba(0,0,0,0.08);
+          }
+          .brand-copy {
+            display: flex;
+            flex-direction: column;
+          }
+          header h1 {
+            margin: 0;
+            font-size: 28px;
+          }
+          .brand-tagline {
+            margin: 6px 0 0;
+            color: var(--muted);
+          }
+          .edge-callouts {
+            display: grid;
+            gap: 10px;
+          }
+          .edge-callout {
+            display: grid;
+            grid-template-columns: auto auto auto 1fr;
+            gap: 12px;
+            align-items: center;
+            background: rgba(3, 131, 90, 0.05);
+            border-radius: 10px;
+            padding: 8px 12px;
+          }
+          .edge-callout.empty {
+            background: rgba(104, 115, 133, 0.08);
+            color: var(--muted);
+            font-style: italic;
+          }
+          .edge-callout .edge-bet {
+            font-weight: 600;
+          }
+          .edge-callout .edge-ev {
+            font-weight: 600;
+            color: var(--muted);
+          }
+          .edge-callout .edge-game {
+            color: var(--muted);
+            font-size: 13px;
+          }
+          .layout {
+            display: grid;
+            grid-template-columns: minmax(260px, 320px) 1fr;
+            gap: 28px;
+            padding: 24px 40px 40px;
+          }
+          .sidebar {
+            position: sticky;
+            top: 24px;
+            align-self: start;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+          }
+          .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+          }
+          .kpi {
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 12px 16px;
+          }
+          .kpi-label {
+            display: block;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--muted);
+          }
+          .kpi-value {
+            font-size: 20px;
+            font-weight: 600;
+            margin-top: 4px;
+          }
+          .top-card {
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 14px 16px;
+          }
+          .top-card h3 {
+            margin: 0 0 10px;
+            font-size: 16px;
+          }
+          .top-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: grid;
+            gap: 10px;
+          }
+          .top-list li {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+          }
+          .top-game {
+            font-weight: 600;
+            font-size: 13px;
+          }
+          .top-note {
+            color: var(--muted);
+            font-size: 12px;
+          }
+          main {
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 16px 20px 20px;
+            overflow-x: auto;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+          }
+          thead th {
+            text-align: left;
+            padding: 10px 8px;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--muted);
+            letter-spacing: 0.04em;
+            position: sticky;
+            top: 0;
+            background: var(--card);
+            border-bottom: 1px solid var(--card-border);
+            z-index: 1;
+          }
+          tbody td {
+            padding: 10px 8px;
+            border-bottom: 1px solid rgba(223, 227, 235, 0.6);
+            vertical-align: middle;
+          }
+          tbody tr.row-total {
+            background: rgba(3, 131, 90, 0.04);
+          }
+          tbody tr.row-total td.cell-bet {
+            padding-left: 24px;
+            font-style: italic;
+            color: var(--muted);
+          }
+          tbody tr.row-total td.cell-market {
+            color: var(--muted);
+          }
+          tbody tr.row-total td.cell-game {
+            color: var(--muted);
+          }
+          .total-label {
+            font-style: italic;
+            color: var(--muted);
+          }
+          tbody tr:hover {
+            background: rgba(3, 131, 90, 0.08);
+          }
+          .chip {
+            display: inline-block;
+            background: rgba(3, 131, 90, 0.12);
+            color: #026a49;
+            padding: 2px 8px;
+            border-radius: 999px;
+            margin-right: 4px;
+            font-size: 12px;
+            font-weight: 600;
+          }
+          .chip.muted {
+            background: rgba(104, 115, 133, 0.15);
+            color: var(--muted);
+          }
+          .flag {
+            display: inline-block;
+            background: rgba(194, 63, 49, 0.15);
+            color: #b22d21;
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-right: 4px;
+          }
+          .flag.muted {
+            background: rgba(104, 115, 133, 0.1);
+            color: var(--muted);
+          }
+          .cell-bet {
+            font-weight: 600;
+          }
+          .cell-game {
+            font-weight: 500;
+          }
+          .cell-market {
+            font-weight: 500;
+            color: var(--muted);
+          }
+          .cell-primary {
+            color: #026a49;
+            font-weight: 600;
+          }
+          .edge {
+            font-weight: 600;
+          }
+          .edge.positive {
+            color: var(--edge-strong);
+          }
+          .edge.negative {
+            color: var(--edge-negative);
+          }
+          .edge.medium {
+            color: var(--edge-medium);
+          }
+          .edge.light {
+            color: var(--edge-light);
+          }
+          .edge-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 48px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-weight: 600;
+            margin-right: 8px;
+            background: rgba(3, 131, 90, 0.1);
+          }
+          .edge-badge.negative {
+            background: rgba(194, 63, 49, 0.1);
+          }
+          footer {
+            padding: 16px 40px 28px;
+            color: var(--muted);
+            font-size: 12px;
+          }
+          @media (max-width: 1080px) {
+            .layout {
+              grid-template-columns: 1fr;
+            }
+            .sidebar {
+              position: static;
+              grid-row: 2;
+            }
+            .kpi-grid {
+              grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            }
+            table {
+              font-size: 12px;
+            }
+          }
         </style>
       </head>
       <body>
-        <h1>FBS Week 10 Simulations</h1>
-        <p>Projection run generated via CFBD advanced metrics with opponent-adjusted power updates.</p>
-        <section><h2>Close calls (≤ 3 pts)</h2><ul><li><strong>San José State</strong> vs <strong>Hawai'i</strong> | Spread +2.6 | Total 56.1 | Home Win 58.1% | Mkt Spread +1.3 / Δ +1.3 / Mkt Total 58.0 / Δ -1.9</li><li><strong>Missouri State</strong> vs <strong>Florida International</strong> | Spread +2.2 | Total 49.2 | Home Win 56.7% | Mkt Spread +3.2 / Δ -1.0 / Mkt Total 50.0 / Δ -0.8 | Weather Cloudy / 49F / wind 14 mph</li><li><strong>Baylor</strong> vs <strong>UCF</strong> | Spread +1.7 | Total 57.4 | Home Win 55.4% | Mkt Spread +4.0 / Δ -2.3 / Mkt Total 59.7 / Δ -2.3</li><li><strong>Tennessee</strong> vs <strong>Oklahoma</strong> | Spread +1.7 | Total 51.0 | Home Win 55.3% | Mkt Spread +3.2 / Δ -1.5 / Mkt Total 56.5 / Δ -5.5</li><li><strong>Texas</strong> vs <strong>Vanderbilt</strong> | Spread +1.4 | Total 49.9 | Home Win 54.4% | Mkt Spread +2.7 / Δ -1.3 / Mkt Total 44.5 / Δ +5.4</li><li><strong>UTSA</strong> vs <strong>Tulane</strong> | Spread -0.0 | Total 53.9 | Home Win 49.9% | Mkt Spread -5.8 / Δ +5.8 / Mkt Total 54.5 / Δ -0.6</li><li><strong>Bowling Green</strong> vs <strong>Buffalo</strong> | Spread -0.4 | Total 43.1 | Home Win 48.9% | Mkt Spread +2.5 / Δ -2.9 / Mkt Total 43.3 / Δ -0.2</li><li><strong>Colorado</strong> vs <strong>Arizona</strong> | Spread -1.5 | Total 49.2 | Home Win 45.4% | Mkt Spread -3.8 / Δ +2.3 / Mkt Total 52.3 / Δ -3.1</li><li><strong>Air Force</strong> vs <strong>Army</strong> | Spread -1.7 | Total 66.0 | Home Win 44.8% | Mkt Spread +1.3 / Δ -3.0 / Mkt Total 49.5 / Δ +16.5 | Weather Fair / 44F / wind 5 mph</li></ul></section><section><h2>Projected shootouts</h2><ul><li><strong>Arkansas</strong> vs <strong>Mississippi State</strong> | Spread +4.8 | Total 68.6 | Home Win 64.6% | Mkt Spread +4.2 / Δ +0.7 / Mkt Total 68.0 / Δ +0.6</li><li><strong>North Texas</strong> vs <strong>Navy</strong> | Spread +5.6 | Total 68.4 | Home Win 66.8% | Mkt Spread +6.5 / Δ -0.9 / Mkt Total 65.8 / Δ +2.6</li><li><strong>Air Force</strong> vs <strong>Army</strong> | Spread -1.7 | Total 66.0 | Home Win 44.8% | Mkt Spread +1.3 / Δ -3.0 / Mkt Total 49.5 / Δ +16.5 | Weather Fair / 44F / wind 5 mph</li><li><strong>Illinois</strong> vs <strong>Rutgers</strong> | Spread +12.9 | Total 65.5 | Home Win 84.3% | Mkt Spread +12.5 / Δ +0.4 / Mkt Total 62.0 / Δ +3.5 | Weather 50F / wind 11 mph</li><li><strong>UConn</strong> vs <strong>UAB</strong> | Spread +16.5 | Total 65.0 | Home Win 90.0% | Mkt Spread +12.0 / Δ +4.5 / Mkt Total 63.7 / Δ +1.3 | Weather 54F / wind 14 mph</li></ul></section><section><h2>Defensive slogs</h2><ul><li><strong>San Diego State</strong> vs <strong>Wyoming</strong> | Spread +18.2 | Total 40.1 | Home Win 92.1% | Mkt Spread +10.5 / Δ +7.7 / Mkt Total 42.5 / Δ -2.4</li><li><strong>Kennesaw State</strong> vs <strong>UTEP</strong> | Spread +14.6 | Total 40.6 | Home Win 87.2% | Mkt Spread +12.2 / Δ +2.5 / Mkt Total 53.0 / Δ -12.4 | Weather Fair / 50F / wind 9 mph</li><li><strong>Western Michigan</strong> vs <strong>Central Michigan</strong> | Spread +6.2 | Total 42.6 | Home Win 68.5% | Mkt Spread +4.2 / Δ +2.0 / Mkt Total 41.3 / Δ +1.2 | Weather 49F / wind 7 mph</li><li><strong>Bowling Green</strong> vs <strong>Buffalo</strong> | Spread -0.4 | Total 43.1 | Home Win 48.9% | Mkt Spread +2.5 / Δ -2.9 / Mkt Total 43.3 / Δ -0.2</li><li><strong>Auburn</strong> vs <strong>Kentucky</strong> | Spread +16.2 | Total 43.5 | Home Win 89.6% | Mkt Spread +11.0 / Δ +5.2 / Mkt Total 44.7 / Δ -1.1</li></ul></section><section><h2>Upset radar</h2><ul><li><strong>Boston College</strong> vs <strong>Notre Dame</strong> | Spread -24.6 | Total 54.3 | Home Win 2.8% | Mkt Spread -28.5 / Δ +3.9 / Mkt Total 56.0 / Δ -1.7 | Weather Fair / 54F / wind 16 mph</li><li><strong>Maryland</strong> vs <strong>Indiana</strong> | Spread -17.8 | Total 46.4 | Home Win 8.3% | Mkt Spread -21.5 / Δ +3.7 / Mkt Total 50.5 / Δ -4.1 | Weather Fair / 61F / wind 12 mph</li><li><strong>Rice</strong> vs <strong>Memphis</strong> | Spread -16.7 | Total 50.4 | Home Win 9.7% | Mkt Spread -13.8 / Δ -2.9 / Mkt Total 48.7 / Δ +1.7</li><li><strong>UL Monroe</strong> vs <strong>Old Dominion</strong> | Spread -16.6 | Total 53.9 | Home Win 9.8% | Mkt Spread -17.2 / Δ +0.5 / Mkt Total 53.7 / Δ +0.2</li><li><strong>Stanford</strong> vs <strong>Pittsburgh</strong> | Spread -14.3 | Total 46.3 | Home Win 13.3% | Mkt Spread -14.3 / Δ +0.0 / Mkt Total 51.5 / Δ -5.2 | Weather 63F / wind 4 mph</li></ul></section>
-        <section>
-          <h2>Full Board</h2>
-          <style type="text/css">
-#T_92a96_row0_col3 {
-  background-color: #fba05b;
-  color: #000000;
-}
-#T_92a96_row0_col7, #T_92a96_row28_col3 {
-  background-color: #2aa054;
-  color: #f1f1f1;
-}
-#T_92a96_row1_col3, #T_92a96_row35_col3 {
-  background-color: #b1de71;
-  color: #000000;
-}
-#T_92a96_row1_col7, #T_92a96_row35_col7 {
-  background-color: #fb9d59;
-  color: #000000;
-}
-#T_92a96_row2_col3, #T_92a96_row26_col7 {
-  background-color: #bbe278;
-  color: #000000;
-}
-#T_92a96_row2_col7 {
-  background-color: #fdb163;
-  color: #000000;
-}
-#T_92a96_row3_col3 {
-  background-color: #fbfdba;
-  color: #000000;
-}
-#T_92a96_row3_col7 {
-  background-color: #e8f59f;
-  color: #000000;
-}
-#T_92a96_row4_col3 {
-  background-color: #ecf7a6;
-  color: #000000;
-}
-#T_92a96_row4_col7 {
-  background-color: #fffcba;
-  color: #000000;
-}
-#T_92a96_row5_col3 {
-  background-color: #d5ed88;
-  color: #000000;
-}
-#T_92a96_row5_col7 {
-  background-color: #feda86;
-  color: #000000;
-}
-#T_92a96_row6_col3 {
-  background-color: #39a758;
-  color: #f1f1f1;
-}
-#T_92a96_row6_col7, #T_92a96_row30_col7 {
-  background-color: #c82227;
-  color: #f1f1f1;
-}
-#T_92a96_row7_col3 {
-  background-color: #fff3ac;
-  color: #000000;
-}
-#T_92a96_row7_col7, #T_92a96_row44_col3 {
-  background-color: #c5e67e;
-  color: #000000;
-}
-#T_92a96_row8_col3 {
-  background-color: #d02927;
-  color: #f1f1f1;
-}
-#T_92a96_row8_col7 {
-  background-color: #04703b;
-  color: #f1f1f1;
-}
-#T_92a96_row9_col3, #T_92a96_row44_col7 {
-  background-color: #fdc171;
-  color: #000000;
-}
-#T_92a96_row9_col7 {
-  background-color: #57b65f;
-  color: #f1f1f1;
-}
-#T_92a96_row10_col3, #T_92a96_row45_col3 {
-  background-color: #f8fcb6;
-  color: #000000;
-}
-#T_92a96_row10_col7, #T_92a96_row45_col7 {
-  background-color: #eef8a8;
-  color: #000000;
-}
-#T_92a96_row11_col3 {
-  background-color: #f7fcb4;
-  color: #000000;
-}
-#T_92a96_row11_col7 {
-  background-color: #f1f9ac;
-  color: #000000;
-}
-#T_92a96_row12_col3 {
-  background-color: #feefa3;
-  color: #000000;
-}
-#T_92a96_row12_col7 {
-  background-color: #b7e075;
-  color: #000000;
-}
-#T_92a96_row13_col3, #T_92a96_row38_col7 {
-  background-color: #afdd70;
-  color: #000000;
-}
-#T_92a96_row13_col7 {
-  background-color: #fa9857;
-  color: #000000;
-}
-#T_92a96_row14_col3 {
-  background-color: #de402e;
-  color: #f1f1f1;
-}
-#T_92a96_row14_col7 {
-  background-color: #07753e;
-  color: #f1f1f1;
-}
-#T_92a96_row15_col3 {
-  background-color: #e0f295;
-  color: #000000;
-}
-#T_92a96_row15_col7, #T_92a96_row38_col3 {
-  background-color: #feeb9d;
-  color: #000000;
-}
-#T_92a96_row16_col3 {
-  background-color: #f88950;
-  color: #f1f1f1;
-}
-#T_92a96_row16_col7 {
-  background-color: #17934e;
-  color: #f1f1f1;
-}
-#T_92a96_row17_col3, #T_92a96_row22_col3, #T_92a96_row36_col3 {
-  background-color: #fff2aa;
-  color: #000000;
-}
-#T_92a96_row17_col7, #T_92a96_row22_col7, #T_92a96_row36_col7 {
-  background-color: #c3e67d;
-  color: #000000;
-}
-#T_92a96_row18_col3 {
-  background-color: #e9f6a1;
-  color: #000000;
-}
-#T_92a96_row18_col7 {
-  background-color: #fff8b4;
-  color: #000000;
-}
-#T_92a96_row19_col3 {
-  background-color: #fdb365;
-  color: #000000;
-}
-#T_92a96_row19_col7 {
-  background-color: #42ac5a;
-  color: #f1f1f1;
-}
-#T_92a96_row20_col3, #T_92a96_row32_col3 {
-  background-color: #fedc88;
-  color: #000000;
-}
-#T_92a96_row20_col7, #T_92a96_row32_col7 {
-  background-color: #87cb67;
-  color: #000000;
-}
-#T_92a96_row21_col3 {
-  background-color: #c1e57b;
-  color: #000000;
-}
-#T_92a96_row21_col7, #T_92a96_row49_col3 {
-  background-color: #fdb96a;
-  color: #000000;
-}
-#T_92a96_row23_col3 {
-  background-color: #63bc62;
-  color: #f1f1f1;
-}
-#T_92a96_row23_col7 {
-  background-color: #db382b;
-  color: #f1f1f1;
-}
-#T_92a96_row24_col3, #T_92a96_row37_col7 {
-  background-color: #006837;
-  color: #f1f1f1;
-}
-#T_92a96_row24_col7, #T_92a96_row37_col3 {
-  background-color: #a50026;
-  color: #f1f1f1;
-}
-#T_92a96_row25_col3 {
-  background-color: #6ec064;
-  color: #000000;
-}
-#T_92a96_row25_col7 {
-  background-color: #e14430;
-  color: #f1f1f1;
-}
-#T_92a96_row26_col3 {
-  background-color: #fff0a6;
-  color: #000000;
-}
-#T_92a96_row27_col3 {
-  background-color: #f57245;
-  color: #f1f1f1;
-}
-#T_92a96_row27_col7 {
-  background-color: #118848;
-  color: #f1f1f1;
-}
-#T_92a96_row28_col7 {
-  background-color: #c01a27;
-  color: #f1f1f1;
-}
-#T_92a96_row29_col3 {
-  background-color: #5db961;
-  color: #f1f1f1;
-}
-#T_92a96_row29_col7 {
-  background-color: #d93429;
-  color: #f1f1f1;
-}
-#T_92a96_row30_col3, #T_92a96_row40_col7 {
-  background-color: #3ca959;
-  color: #f1f1f1;
-}
-#T_92a96_row31_col3 {
-  background-color: #feea9b;
-  color: #000000;
-}
-#T_92a96_row31_col7 {
-  background-color: #addc6f;
-  color: #000000;
-}
-#T_92a96_row33_col3 {
-  background-color: #fff6b0;
-  color: #000000;
-}
-#T_92a96_row33_col7 {
-  background-color: #cdea83;
-  color: #000000;
-}
-#T_92a96_row34_col3 {
-  background-color: #abdb6d;
-  color: #000000;
-}
-#T_92a96_row34_col7 {
-  background-color: #f99355;
-  color: #000000;
-}
-#T_92a96_row39_col3, #T_92a96_row46_col7 {
-  background-color: #f57547;
-  color: #f1f1f1;
-}
-#T_92a96_row39_col7 {
-  background-color: #128a49;
-  color: #f1f1f1;
-}
-#T_92a96_row40_col3 {
-  background-color: #fdaf62;
-  color: #000000;
-}
-#T_92a96_row41_col3, #T_92a96_row51_col7 {
-  background-color: #e2f397;
-  color: #000000;
-}
-#T_92a96_row41_col7 {
-  background-color: #feeda1;
-  color: #000000;
-}
-#T_92a96_row42_col3 {
-  background-color: #dd3d2d;
-  color: #f1f1f1;
-}
-#T_92a96_row42_col7 {
-  background-color: #06733d;
-  color: #f1f1f1;
-}
-#T_92a96_row43_col3 {
-  background-color: #c7e77f;
-  color: #000000;
-}
-#T_92a96_row43_col7 {
-  background-color: #fdc372;
-  color: #000000;
-}
-#T_92a96_row46_col3 {
-  background-color: #98d368;
-  color: #000000;
-}
-#T_92a96_row47_col3 {
-  background-color: #f98e52;
-  color: #f1f1f1;
-}
-#T_92a96_row47_col7 {
-  background-color: #18954f;
-  color: #f1f1f1;
-}
-#T_92a96_row48_col3 {
-  background-color: #fece7c;
-  color: #000000;
-}
-#T_92a96_row48_col7 {
-  background-color: #73c264;
-  color: #000000;
-}
-#T_92a96_row49_col7 {
-  background-color: #4bb05c;
-  color: #f1f1f1;
-}
-#T_92a96_row50_col3 {
-  background-color: #fdad60;
-  color: #000000;
-}
-#T_92a96_row50_col7 {
-  background-color: #36a657;
-  color: #f1f1f1;
-}
-#T_92a96_row51_col3 {
-  background-color: #feffbe;
-  color: #000000;
-}
-</style>
-<table id="T_92a96">
-  <thead>
-    <tr>
-      <th id="T_92a96_level0_col0" class="col_heading level0 col0" >Kickoff (UTC)</th>
-      <th id="T_92a96_level0_col1" class="col_heading level0 col1" >Home</th>
-      <th id="T_92a96_level0_col2" class="col_heading level0 col2" >Away</th>
-      <th id="T_92a96_level0_col3" class="col_heading level0 col3" >Spread (H-A)</th>
-      <th id="T_92a96_level0_col4" class="col_heading level0 col4" >Total</th>
-      <th id="T_92a96_level0_col5" class="col_heading level0 col5" >Proj Home</th>
-      <th id="T_92a96_level0_col6" class="col_heading level0 col6" >Proj Away</th>
-      <th id="T_92a96_level0_col7" class="col_heading level0 col7" >Home Win%</th>
-      <th id="T_92a96_level0_col8" class="col_heading level0 col8" >Home ML</th>
-      <th id="T_92a96_level0_col9" class="col_heading level0 col9" >Away ML</th>
-      <th id="T_92a96_level0_col10" class="col_heading level0 col10" >Market Spread</th>
-      <th id="T_92a96_level0_col11" class="col_heading level0 col11" >Market Total</th>
-      <th id="T_92a96_level0_col12" class="col_heading level0 col12" >Spread Δ</th>
-      <th id="T_92a96_level0_col13" class="col_heading level0 col13" >Total Δ</th>
-      <th id="T_92a96_level0_col14" class="col_heading level0 col14" >Weather</th>
-      <th id="T_92a96_level0_col15" class="col_heading level0 col15" >Temp (F)</th>
-      <th id="T_92a96_level0_col16" class="col_heading level0 col16" >Wind (mph)</th>
-      <th id="T_92a96_level0_col17" class="col_heading level0 col17" >Total Adj</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td id="T_92a96_row0_col0" class="data row0 col0" >2025-10-29T00:00:00.000Z</td>
-      <td id="T_92a96_row0_col1" class="data row0 col1" >Kennesaw State</td>
-      <td id="T_92a96_row0_col2" class="data row0 col2" >UTEP</td>
-      <td id="T_92a96_row0_col3" class="data row0 col3" >+14.6</td>
-      <td id="T_92a96_row0_col4" class="data row0 col4" >40.6</td>
-      <td id="T_92a96_row0_col5" class="data row0 col5" >27.6</td>
-      <td id="T_92a96_row0_col6" class="data row0 col6" >13.0</td>
-      <td id="T_92a96_row0_col7" class="data row0 col7" >87.2</td>
-      <td id="T_92a96_row0_col8" class="data row0 col8" >-681</td>
-      <td id="T_92a96_row0_col9" class="data row0 col9" >+681</td>
-      <td id="T_92a96_row0_col10" class="data row0 col10" >+12.2</td>
-      <td id="T_92a96_row0_col11" class="data row0 col11" >53.0</td>
-      <td id="T_92a96_row0_col12" class="data row0 col12" >+2.5</td>
-      <td id="T_92a96_row0_col13" class="data row0 col13" >-12.4</td>
-      <td id="T_92a96_row0_col14" class="data row0 col14" >Fair</td>
-      <td id="T_92a96_row0_col15" class="data row0 col15" >50</td>
-      <td id="T_92a96_row0_col16" class="data row0 col16" >9</td>
-      <td id="T_92a96_row0_col17" class="data row0 col17" >-1.2</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row1_col0" class="data row1 col0" >2025-10-29T00:00:00.000Z</td>
-      <td id="T_92a96_row1_col1" class="data row1 col1" >Texas State</td>
-      <td id="T_92a96_row1_col2" class="data row1 col2" >James Madison</td>
-      <td id="T_92a96_row1_col3" class="data row1 col3" >-7.0</td>
-      <td id="T_92a96_row1_col4" class="data row1 col4" >53.3</td>
-      <td id="T_92a96_row1_col5" class="data row1 col5" >23.2</td>
-      <td id="T_92a96_row1_col6" class="data row1 col6" >30.1</td>
-      <td id="T_92a96_row1_col7" class="data row1 col7" >29.5</td>
-      <td id="T_92a96_row1_col8" class="data row1 col8" >+239</td>
-      <td id="T_92a96_row1_col9" class="data row1 col9" >-239</td>
-      <td id="T_92a96_row1_col10" class="data row1 col10" >-7.3</td>
-      <td id="T_92a96_row1_col11" class="data row1 col11" >55.3</td>
-      <td id="T_92a96_row1_col12" class="data row1 col12" >+0.4</td>
-      <td id="T_92a96_row1_col13" class="data row1 col13" >-2.0</td>
-      <td id="T_92a96_row1_col14" class="data row1 col14" >Clear</td>
-      <td id="T_92a96_row1_col15" class="data row1 col15" >74</td>
-      <td id="T_92a96_row1_col16" class="data row1 col16" >15</td>
-      <td id="T_92a96_row1_col17" class="data row1 col17" >-1.7</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row2_col0" class="data row2 col0" >2025-10-29T23:30:00.000Z</td>
-      <td id="T_92a96_row2_col1" class="data row2 col1" >Middle Tennessee</td>
-      <td id="T_92a96_row2_col2" class="data row2 col2" >Jacksonville State</td>
-      <td id="T_92a96_row2_col3" class="data row2 col3" >-5.9</td>
-      <td id="T_92a96_row2_col4" class="data row2 col4" >51.0</td>
-      <td id="T_92a96_row2_col5" class="data row2 col5" >22.5</td>
-      <td id="T_92a96_row2_col6" class="data row2 col6" >28.5</td>
-      <td id="T_92a96_row2_col7" class="data row2 col7" >32.2</td>
-      <td id="T_92a96_row2_col8" class="data row2 col8" >+210</td>
-      <td id="T_92a96_row2_col9" class="data row2 col9" >-210</td>
-      <td id="T_92a96_row2_col10" class="data row2 col10" >-4.3</td>
-      <td id="T_92a96_row2_col11" class="data row2 col11" >54.0</td>
-      <td id="T_92a96_row2_col12" class="data row2 col12" >-1.6</td>
-      <td id="T_92a96_row2_col13" class="data row2 col13" >-3.0</td>
-      <td id="T_92a96_row2_col14" class="data row2 col14" >Rain</td>
-      <td id="T_92a96_row2_col15" class="data row2 col15" >52</td>
-      <td id="T_92a96_row2_col16" class="data row2 col16" >4</td>
-      <td id="T_92a96_row2_col17" class="data row2 col17" >-4.1</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row3_col0" class="data row3 col0" >2025-10-30T00:00:00.000Z</td>
-      <td id="T_92a96_row3_col1" class="data row3 col1" >Missouri State</td>
-      <td id="T_92a96_row3_col2" class="data row3 col2" >Florida International</td>
-      <td id="T_92a96_row3_col3" class="data row3 col3" >+2.2</td>
-      <td id="T_92a96_row3_col4" class="data row3 col4" >49.2</td>
-      <td id="T_92a96_row3_col5" class="data row3 col5" >25.7</td>
-      <td id="T_92a96_row3_col6" class="data row3 col6" >23.5</td>
-      <td id="T_92a96_row3_col7" class="data row3 col7" >56.7</td>
-      <td id="T_92a96_row3_col8" class="data row3 col8" >-131</td>
-      <td id="T_92a96_row3_col9" class="data row3 col9" >+131</td>
-      <td id="T_92a96_row3_col10" class="data row3 col10" >+3.2</td>
-      <td id="T_92a96_row3_col11" class="data row3 col11" >50.0</td>
-      <td id="T_92a96_row3_col12" class="data row3 col12" >-1.0</td>
-      <td id="T_92a96_row3_col13" class="data row3 col13" >-0.8</td>
-      <td id="T_92a96_row3_col14" class="data row3 col14" >Cloudy</td>
-      <td id="T_92a96_row3_col15" class="data row3 col15" >49</td>
-      <td id="T_92a96_row3_col16" class="data row3 col16" >14</td>
-      <td id="T_92a96_row3_col17" class="data row3 col17" >-1.6</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row4_col0" class="data row4 col0" >2025-10-30T23:30:00.000Z</td>
-      <td id="T_92a96_row4_col1" class="data row4 col1" >UTSA</td>
-      <td id="T_92a96_row4_col2" class="data row4 col2" >Tulane</td>
-      <td id="T_92a96_row4_col3" class="data row4 col3" >-0.0</td>
-      <td id="T_92a96_row4_col4" class="data row4 col4" >53.9</td>
-      <td id="T_92a96_row4_col5" class="data row4 col5" >26.9</td>
-      <td id="T_92a96_row4_col6" class="data row4 col6" >27.0</td>
-      <td id="T_92a96_row4_col7" class="data row4 col7" >49.9</td>
-      <td id="T_92a96_row4_col8" class="data row4 col8" >+100</td>
-      <td id="T_92a96_row4_col9" class="data row4 col9" >-100</td>
-      <td id="T_92a96_row4_col10" class="data row4 col10" >-5.8</td>
-      <td id="T_92a96_row4_col11" class="data row4 col11" >54.5</td>
-      <td id="T_92a96_row4_col12" class="data row4 col12" >+5.8</td>
-      <td id="T_92a96_row4_col13" class="data row4 col13" >-0.6</td>
-      <td id="T_92a96_row4_col14" class="data row4 col14" >--</td>
-      <td id="T_92a96_row4_col15" class="data row4 col15" >nan</td>
-      <td id="T_92a96_row4_col16" class="data row4 col16" >nan</td>
-      <td id="T_92a96_row4_col17" class="data row4 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row5_col0" class="data row5 col0" >2025-10-30T23:30:00.000Z</td>
-      <td id="T_92a96_row5_col1" class="data row5 col1" >Coastal Carolina</td>
-      <td id="T_92a96_row5_col2" class="data row5 col2" >Marshall</td>
-      <td id="T_92a96_row5_col3" class="data row5 col3" >-3.2</td>
-      <td id="T_92a96_row5_col4" class="data row5 col4" >53.9</td>
-      <td id="T_92a96_row5_col5" class="data row5 col5" >25.3</td>
-      <td id="T_92a96_row5_col6" class="data row5 col6" >28.5</td>
-      <td id="T_92a96_row5_col7" class="data row5 col7" >40.2</td>
-      <td id="T_92a96_row5_col8" class="data row5 col8" >+149</td>
-      <td id="T_92a96_row5_col9" class="data row5 col9" >-149</td>
-      <td id="T_92a96_row5_col10" class="data row5 col10" >-6.2</td>
-      <td id="T_92a96_row5_col11" class="data row5 col11" >55.3</td>
-      <td id="T_92a96_row5_col12" class="data row5 col12" >+3.0</td>
-      <td id="T_92a96_row5_col13" class="data row5 col13" >-1.4</td>
-      <td id="T_92a96_row5_col14" class="data row5 col14" >--</td>
-      <td id="T_92a96_row5_col15" class="data row5 col15" >65</td>
-      <td id="T_92a96_row5_col16" class="data row5 col16" >13</td>
-      <td id="T_92a96_row5_col17" class="data row5 col17" >-0.9</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row6_col0" class="data row6 col0" >2025-10-31T23:00:00.000Z</td>
-      <td id="T_92a96_row6_col1" class="data row6 col1" >Rice</td>
-      <td id="T_92a96_row6_col2" class="data row6 col2" >Memphis</td>
-      <td id="T_92a96_row6_col3" class="data row6 col3" >-16.7</td>
-      <td id="T_92a96_row6_col4" class="data row6 col4" >50.4</td>
-      <td id="T_92a96_row6_col5" class="data row6 col5" >16.8</td>
-      <td id="T_92a96_row6_col6" class="data row6 col6" >33.5</td>
-      <td id="T_92a96_row6_col7" class="data row6 col7" >9.7</td>
-      <td id="T_92a96_row6_col8" class="data row6 col8" >+929</td>
-      <td id="T_92a96_row6_col9" class="data row6 col9" >-929</td>
-      <td id="T_92a96_row6_col10" class="data row6 col10" >-13.8</td>
-      <td id="T_92a96_row6_col11" class="data row6 col11" >48.7</td>
-      <td id="T_92a96_row6_col12" class="data row6 col12" >-2.9</td>
-      <td id="T_92a96_row6_col13" class="data row6 col13" >+1.7</td>
-      <td id="T_92a96_row6_col14" class="data row6 col14" >--</td>
-      <td id="T_92a96_row6_col15" class="data row6 col15" >nan</td>
-      <td id="T_92a96_row6_col16" class="data row6 col16" >nan</td>
-      <td id="T_92a96_row6_col17" class="data row6 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row7_col0" class="data row7 col0" >2025-10-31T23:30:00.000Z</td>
-      <td id="T_92a96_row7_col1" class="data row7 col1" >Syracuse</td>
-      <td id="T_92a96_row7_col2" class="data row7 col2" >North Carolina</td>
-      <td id="T_92a96_row7_col3" class="data row7 col3" >+4.7</td>
-      <td id="T_92a96_row7_col4" class="data row7 col4" >44.6</td>
-      <td id="T_92a96_row7_col5" class="data row7 col5" >24.7</td>
-      <td id="T_92a96_row7_col6" class="data row7 col6" >19.9</td>
-      <td id="T_92a96_row7_col7" class="data row7 col7" >64.4</td>
-      <td id="T_92a96_row7_col8" class="data row7 col8" >-181</td>
-      <td id="T_92a96_row7_col9" class="data row7 col9" >+181</td>
-      <td id="T_92a96_row7_col10" class="data row7 col10" >+2.5</td>
-      <td id="T_92a96_row7_col11" class="data row7 col11" >45.5</td>
-      <td id="T_92a96_row7_col12" class="data row7 col12" >+2.2</td>
-      <td id="T_92a96_row7_col13" class="data row7 col13" >-0.9</td>
-      <td id="T_92a96_row7_col14" class="data row7 col14" >Light Rain</td>
-      <td id="T_92a96_row7_col15" class="data row7 col15" >45</td>
-      <td id="T_92a96_row7_col16" class="data row7 col16" >16</td>
-      <td id="T_92a96_row7_col17" class="data row7 col17" >-2.6</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row8_col0" class="data row8 col0" >2025-11-01T00:00:00.000Z</td>
-      <td id="T_92a96_row8_col1" class="data row8 col1" >Louisiana Tech</td>
-      <td id="T_92a96_row8_col2" class="data row8 col2" >Sam Houston</td>
-      <td id="T_92a96_row8_col3" class="data row8 col3" >+25.1</td>
-      <td id="T_92a96_row8_col4" class="data row8 col4" >44.0</td>
-      <td id="T_92a96_row8_col5" class="data row8 col5" >34.5</td>
-      <td id="T_92a96_row8_col6" class="data row8 col6" >9.5</td>
-      <td id="T_92a96_row8_col7" class="data row8 col7" >97.4</td>
-      <td id="T_92a96_row8_col8" class="data row8 col8" >-3772</td>
-      <td id="T_92a96_row8_col9" class="data row8 col9" >+3772</td>
-      <td id="T_92a96_row8_col10" class="data row8 col10" >+16.5</td>
-      <td id="T_92a96_row8_col11" class="data row8 col11" >48.5</td>
-      <td id="T_92a96_row8_col12" class="data row8 col12" >+8.6</td>
-      <td id="T_92a96_row8_col13" class="data row8 col13" >-4.5</td>
-      <td id="T_92a96_row8_col14" class="data row8 col14" >--</td>
-      <td id="T_92a96_row8_col15" class="data row8 col15" >nan</td>
-      <td id="T_92a96_row8_col16" class="data row8 col16" >nan</td>
-      <td id="T_92a96_row8_col17" class="data row8 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row9_col0" class="data row9 col0" >2025-11-01T16:00:00.000Z</td>
-      <td id="T_92a96_row9_col1" class="data row9 col1" >Houston</td>
-      <td id="T_92a96_row9_col2" class="data row9 col2" >West Virginia</td>
-      <td id="T_92a96_row9_col3" class="data row9 col3" >+11.5</td>
-      <td id="T_92a96_row9_col4" class="data row9 col4" >45.2</td>
-      <td id="T_92a96_row9_col5" class="data row9 col5" >28.4</td>
-      <td id="T_92a96_row9_col6" class="data row9 col6" >16.8</td>
-      <td id="T_92a96_row9_col7" class="data row9 col7" >81.5</td>
-      <td id="T_92a96_row9_col8" class="data row9 col8" >-441</td>
-      <td id="T_92a96_row9_col9" class="data row9 col9" >+441</td>
-      <td id="T_92a96_row9_col10" class="data row9 col10" >+13.0</td>
-      <td id="T_92a96_row9_col11" class="data row9 col11" >49.5</td>
-      <td id="T_92a96_row9_col12" class="data row9 col12" >-1.5</td>
-      <td id="T_92a96_row9_col13" class="data row9 col13" >-4.3</td>
-      <td id="T_92a96_row9_col14" class="data row9 col14" >--</td>
-      <td id="T_92a96_row9_col15" class="data row9 col15" >nan</td>
-      <td id="T_92a96_row9_col16" class="data row9 col16" >nan</td>
-      <td id="T_92a96_row9_col17" class="data row9 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row10_col0" class="data row10 col0" >2025-11-01T16:00:00.000Z</td>
-      <td id="T_92a96_row10_col1" class="data row10 col1" >Baylor</td>
-      <td id="T_92a96_row10_col2" class="data row10 col2" >UCF</td>
-      <td id="T_92a96_row10_col3" class="data row10 col3" >+1.7</td>
-      <td id="T_92a96_row10_col4" class="data row10 col4" >57.4</td>
-      <td id="T_92a96_row10_col5" class="data row10 col5" >29.6</td>
-      <td id="T_92a96_row10_col6" class="data row10 col6" >27.8</td>
-      <td id="T_92a96_row10_col7" class="data row10 col7" >55.4</td>
-      <td id="T_92a96_row10_col8" class="data row10 col8" >-124</td>
-      <td id="T_92a96_row10_col9" class="data row10 col9" >+124</td>
-      <td id="T_92a96_row10_col10" class="data row10 col10" >+4.0</td>
-      <td id="T_92a96_row10_col11" class="data row10 col11" >59.7</td>
-      <td id="T_92a96_row10_col12" class="data row10 col12" >-2.3</td>
-      <td id="T_92a96_row10_col13" class="data row10 col13" >-2.3</td>
-      <td id="T_92a96_row10_col14" class="data row10 col14" >--</td>
-      <td id="T_92a96_row10_col15" class="data row10 col15" >nan</td>
-      <td id="T_92a96_row10_col16" class="data row10 col16" >nan</td>
-      <td id="T_92a96_row10_col17" class="data row10 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row11_col0" class="data row11 col0" >2025-11-01T16:00:00.000Z</td>
-      <td id="T_92a96_row11_col1" class="data row11 col1" >Texas</td>
-      <td id="T_92a96_row11_col2" class="data row11 col2" >Vanderbilt</td>
-      <td id="T_92a96_row11_col3" class="data row11 col3" >+1.4</td>
-      <td id="T_92a96_row11_col4" class="data row11 col4" >49.9</td>
-      <td id="T_92a96_row11_col5" class="data row11 col5" >25.7</td>
-      <td id="T_92a96_row11_col6" class="data row11 col6" >24.3</td>
-      <td id="T_92a96_row11_col7" class="data row11 col7" >54.4</td>
-      <td id="T_92a96_row11_col8" class="data row11 col8" >-119</td>
-      <td id="T_92a96_row11_col9" class="data row11 col9" >+119</td>
-      <td id="T_92a96_row11_col10" class="data row11 col10" >+2.7</td>
-      <td id="T_92a96_row11_col11" class="data row11 col11" >44.5</td>
-      <td id="T_92a96_row11_col12" class="data row11 col12" >-1.3</td>
-      <td id="T_92a96_row11_col13" class="data row11 col13" >+5.4</td>
-      <td id="T_92a96_row11_col14" class="data row11 col14" >--</td>
-      <td id="T_92a96_row11_col15" class="data row11 col15" >nan</td>
-      <td id="T_92a96_row11_col16" class="data row11 col16" >nan</td>
-      <td id="T_92a96_row11_col17" class="data row11 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row12_col0" class="data row12 col0" >2025-11-01T16:00:00.000Z</td>
-      <td id="T_92a96_row12_col1" class="data row12 col1" >North Texas</td>
-      <td id="T_92a96_row12_col2" class="data row12 col2" >Navy</td>
-      <td id="T_92a96_row12_col3" class="data row12 col3" >+5.6</td>
-      <td id="T_92a96_row12_col4" class="data row12 col4" >68.4</td>
-      <td id="T_92a96_row12_col5" class="data row12 col5" >37.0</td>
-      <td id="T_92a96_row12_col6" class="data row12 col6" >31.4</td>
-      <td id="T_92a96_row12_col7" class="data row12 col7" >66.8</td>
-      <td id="T_92a96_row12_col8" class="data row12 col8" >-201</td>
-      <td id="T_92a96_row12_col9" class="data row12 col9" >+201</td>
-      <td id="T_92a96_row12_col10" class="data row12 col10" >+6.5</td>
-      <td id="T_92a96_row12_col11" class="data row12 col11" >65.8</td>
-      <td id="T_92a96_row12_col12" class="data row12 col12" >-0.9</td>
-      <td id="T_92a96_row12_col13" class="data row12 col13" >+2.6</td>
-      <td id="T_92a96_row12_col14" class="data row12 col14" >--</td>
-      <td id="T_92a96_row12_col15" class="data row12 col15" >nan</td>
-      <td id="T_92a96_row12_col16" class="data row12 col16" >nan</td>
-      <td id="T_92a96_row12_col17" class="data row12 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row13_col0" class="data row13 col0" >2025-11-01T16:00:00.000Z</td>
-      <td id="T_92a96_row13_col1" class="data row13 col1" >SMU</td>
-      <td id="T_92a96_row13_col2" class="data row13 col2" >Miami</td>
-      <td id="T_92a96_row13_col3" class="data row13 col3" >-7.3</td>
-      <td id="T_92a96_row13_col4" class="data row13 col4" >46.6</td>
-      <td id="T_92a96_row13_col5" class="data row13 col5" >19.6</td>
-      <td id="T_92a96_row13_col6" class="data row13 col6" >26.9</td>
-      <td id="T_92a96_row13_col7" class="data row13 col7" >28.6</td>
-      <td id="T_92a96_row13_col8" class="data row13 col8" >+249</td>
-      <td id="T_92a96_row13_col9" class="data row13 col9" >-249</td>
-      <td id="T_92a96_row13_col10" class="data row13 col10" >-12.2</td>
-      <td id="T_92a96_row13_col11" class="data row13 col11" >50.5</td>
-      <td id="T_92a96_row13_col12" class="data row13 col12" >+4.9</td>
-      <td id="T_92a96_row13_col13" class="data row13 col13" >-3.9</td>
-      <td id="T_92a96_row13_col14" class="data row13 col14" >--</td>
-      <td id="T_92a96_row13_col15" class="data row13 col15" >nan</td>
-      <td id="T_92a96_row13_col16" class="data row13 col16" >nan</td>
-      <td id="T_92a96_row13_col17" class="data row13 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row14_col0" class="data row14 col0" >2025-11-01T16:00:00.000Z</td>
-      <td id="T_92a96_row14_col1" class="data row14 col1" >Ohio State</td>
-      <td id="T_92a96_row14_col2" class="data row14 col2" >Penn State</td>
-      <td id="T_92a96_row14_col3" class="data row14 col3" >+22.9</td>
-      <td id="T_92a96_row14_col4" class="data row14 col4" >47.5</td>
-      <td id="T_92a96_row14_col5" class="data row14 col5" >35.2</td>
-      <td id="T_92a96_row14_col6" class="data row14 col6" >12.3</td>
-      <td id="T_92a96_row14_col7" class="data row14 col7" >96.2</td>
-      <td id="T_92a96_row14_col8" class="data row14 col8" >-2548</td>
-      <td id="T_92a96_row14_col9" class="data row14 col9" >+2548</td>
-      <td id="T_92a96_row14_col10" class="data row14 col10" >+20.7</td>
-      <td id="T_92a96_row14_col11" class="data row14 col11" >44.5</td>
-      <td id="T_92a96_row14_col12" class="data row14 col12" >+2.2</td>
-      <td id="T_92a96_row14_col13" class="data row14 col13" >+3.0</td>
-      <td id="T_92a96_row14_col14" class="data row14 col14" >--</td>
-      <td id="T_92a96_row14_col15" class="data row14 col15" >53</td>
-      <td id="T_92a96_row14_col16" class="data row14 col16" >11</td>
-      <td id="T_92a96_row14_col17" class="data row14 col17" >-0.4</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row15_col0" class="data row15 col0" >2025-11-01T16:00:00.000Z</td>
-      <td id="T_92a96_row15_col1" class="data row15 col1" >Air Force</td>
-      <td id="T_92a96_row15_col2" class="data row15 col2" >Army</td>
-      <td id="T_92a96_row15_col3" class="data row15 col3" >-1.7</td>
-      <td id="T_92a96_row15_col4" class="data row15 col4" >66.0</td>
-      <td id="T_92a96_row15_col5" class="data row15 col5" >32.1</td>
-      <td id="T_92a96_row15_col6" class="data row15 col6" >33.8</td>
-      <td id="T_92a96_row15_col7" class="data row15 col7" >44.8</td>
-      <td id="T_92a96_row15_col8" class="data row15 col8" >+123</td>
-      <td id="T_92a96_row15_col9" class="data row15 col9" >-123</td>
-      <td id="T_92a96_row15_col10" class="data row15 col10" >+1.3</td>
-      <td id="T_92a96_row15_col11" class="data row15 col11" >49.5</td>
-      <td id="T_92a96_row15_col12" class="data row15 col12" >-3.0</td>
-      <td id="T_92a96_row15_col13" class="data row15 col13" >+16.5</td>
-      <td id="T_92a96_row15_col14" class="data row15 col14" >Fair</td>
-      <td id="T_92a96_row15_col15" class="data row15 col15" >44</td>
-      <td id="T_92a96_row15_col16" class="data row15 col16" >5</td>
-      <td id="T_92a96_row15_col17" class="data row15 col17" >-0.3</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row16_col0" class="data row16 col0" >2025-11-01T16:00:00.000Z</td>
-      <td id="T_92a96_row16_col1" class="data row16 col1" >UConn</td>
-      <td id="T_92a96_row16_col2" class="data row16 col2" >UAB</td>
-      <td id="T_92a96_row16_col3" class="data row16 col3" >+16.5</td>
-      <td id="T_92a96_row16_col4" class="data row16 col4" >65.0</td>
-      <td id="T_92a96_row16_col5" class="data row16 col5" >40.8</td>
-      <td id="T_92a96_row16_col6" class="data row16 col6" >24.2</td>
-      <td id="T_92a96_row16_col7" class="data row16 col7" >90.0</td>
-      <td id="T_92a96_row16_col8" class="data row16 col8" >-904</td>
-      <td id="T_92a96_row16_col9" class="data row16 col9" >+904</td>
-      <td id="T_92a96_row16_col10" class="data row16 col10" >+12.0</td>
-      <td id="T_92a96_row16_col11" class="data row16 col11" >63.7</td>
-      <td id="T_92a96_row16_col12" class="data row16 col12" >+4.5</td>
-      <td id="T_92a96_row16_col13" class="data row16 col13" >+1.3</td>
-      <td id="T_92a96_row16_col14" class="data row16 col14" >--</td>
-      <td id="T_92a96_row16_col15" class="data row16 col15" >54</td>
-      <td id="T_92a96_row16_col16" class="data row16 col16" >14</td>
-      <td id="T_92a96_row16_col17" class="data row16 col17" >-1.4</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row17_col0" class="data row17 col0" >2025-11-01T16:00:00.000Z</td>
-      <td id="T_92a96_row17_col1" class="data row17 col1" >Clemson</td>
-      <td id="T_92a96_row17_col2" class="data row17 col2" >Duke</td>
-      <td id="T_92a96_row17_col3" class="data row17 col3" >+4.9</td>
-      <td id="T_92a96_row17_col4" class="data row17 col4" >56.1</td>
-      <td id="T_92a96_row17_col5" class="data row17 col5" >30.5</td>
-      <td id="T_92a96_row17_col6" class="data row17 col6" >25.6</td>
-      <td id="T_92a96_row17_col7" class="data row17 col7" >64.7</td>
-      <td id="T_92a96_row17_col8" class="data row17 col8" >-183</td>
-      <td id="T_92a96_row17_col9" class="data row17 col9" >+183</td>
-      <td id="T_92a96_row17_col10" class="data row17 col10" >+2.5</td>
-      <td id="T_92a96_row17_col11" class="data row17 col11" >54.7</td>
-      <td id="T_92a96_row17_col12" class="data row17 col12" >+2.4</td>
-      <td id="T_92a96_row17_col13" class="data row17 col13" >+1.4</td>
-      <td id="T_92a96_row17_col14" class="data row17 col14" >--</td>
-      <td id="T_92a96_row17_col15" class="data row17 col15" >nan</td>
-      <td id="T_92a96_row17_col16" class="data row17 col16" >nan</td>
-      <td id="T_92a96_row17_col17" class="data row17 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row18_col0" class="data row18 col0" >2025-11-01T16:00:00.000Z</td>
-      <td id="T_92a96_row18_col1" class="data row18 col1" >Bowling Green</td>
-      <td id="T_92a96_row18_col2" class="data row18 col2" >Buffalo</td>
-      <td id="T_92a96_row18_col3" class="data row18 col3" >-0.4</td>
-      <td id="T_92a96_row18_col4" class="data row18 col4" >43.1</td>
-      <td id="T_92a96_row18_col5" class="data row18 col5" >21.4</td>
-      <td id="T_92a96_row18_col6" class="data row18 col6" >21.7</td>
-      <td id="T_92a96_row18_col7" class="data row18 col7" >48.9</td>
-      <td id="T_92a96_row18_col8" class="data row18 col8" >+105</td>
-      <td id="T_92a96_row18_col9" class="data row18 col9" >-105</td>
-      <td id="T_92a96_row18_col10" class="data row18 col10" >+2.5</td>
-      <td id="T_92a96_row18_col11" class="data row18 col11" >43.3</td>
-      <td id="T_92a96_row18_col12" class="data row18 col12" >-2.9</td>
-      <td id="T_92a96_row18_col13" class="data row18 col13" >-0.2</td>
-      <td id="T_92a96_row18_col14" class="data row18 col14" >--</td>
-      <td id="T_92a96_row18_col15" class="data row18 col15" >nan</td>
-      <td id="T_92a96_row18_col16" class="data row18 col16" >nan</td>
-      <td id="T_92a96_row18_col17" class="data row18 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row19_col0" class="data row19 col0" >2025-11-01T16:00:00.000Z</td>
-      <td id="T_92a96_row19_col1" class="data row19 col1" >Illinois</td>
-      <td id="T_92a96_row19_col2" class="data row19 col2" >Rutgers</td>
-      <td id="T_92a96_row19_col3" class="data row19 col3" >+12.9</td>
-      <td id="T_92a96_row19_col4" class="data row19 col4" >65.5</td>
-      <td id="T_92a96_row19_col5" class="data row19 col5" >39.2</td>
-      <td id="T_92a96_row19_col6" class="data row19 col6" >26.3</td>
-      <td id="T_92a96_row19_col7" class="data row19 col7" >84.3</td>
-      <td id="T_92a96_row19_col8" class="data row19 col8" >-536</td>
-      <td id="T_92a96_row19_col9" class="data row19 col9" >+536</td>
-      <td id="T_92a96_row19_col10" class="data row19 col10" >+12.5</td>
-      <td id="T_92a96_row19_col11" class="data row19 col11" >62.0</td>
-      <td id="T_92a96_row19_col12" class="data row19 col12" >+0.4</td>
-      <td id="T_92a96_row19_col13" class="data row19 col13" >+3.5</td>
-      <td id="T_92a96_row19_col14" class="data row19 col14" >--</td>
-      <td id="T_92a96_row19_col15" class="data row19 col15" >50</td>
-      <td id="T_92a96_row19_col16" class="data row19 col16" >11</td>
-      <td id="T_92a96_row19_col17" class="data row19 col17" >-0.3</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row20_col0" class="data row20 col0" >2025-11-01T17:00:00.000Z</td>
-      <td id="T_92a96_row20_col1" class="data row20 col1" >Iowa State</td>
-      <td id="T_92a96_row20_col2" class="data row20 col2" >Arizona State</td>
-      <td id="T_92a96_row20_col3" class="data row20 col3" >+8.6</td>
-      <td id="T_92a96_row20_col4" class="data row20 col4" >50.0</td>
-      <td id="T_92a96_row20_col5" class="data row20 col5" >29.3</td>
-      <td id="T_92a96_row20_col6" class="data row20 col6" >20.7</td>
-      <td id="T_92a96_row20_col7" class="data row20 col7" >74.7</td>
-      <td id="T_92a96_row20_col8" class="data row20 col8" >-295</td>
-      <td id="T_92a96_row20_col9" class="data row20 col9" >+295</td>
-      <td id="T_92a96_row20_col10" class="data row20 col10" >+8.0</td>
-      <td id="T_92a96_row20_col11" class="data row20 col11" >48.5</td>
-      <td id="T_92a96_row20_col12" class="data row20 col12" >+0.6</td>
-      <td id="T_92a96_row20_col13" class="data row20 col13" >+1.5</td>
-      <td id="T_92a96_row20_col14" class="data row20 col14" >--</td>
-      <td id="T_92a96_row20_col15" class="data row20 col15" >44</td>
-      <td id="T_92a96_row20_col16" class="data row20 col16" >11</td>
-      <td id="T_92a96_row20_col17" class="data row20 col17" >-0.7</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row21_col0" class="data row21 col0" >2025-11-01T18:00:00.000Z</td>
-      <td id="T_92a96_row21_col1" class="data row21 col1" >Temple</td>
-      <td id="T_92a96_row21_col2" class="data row21 col2" >East Carolina</td>
-      <td id="T_92a96_row21_col3" class="data row21 col3" >-5.4</td>
-      <td id="T_92a96_row21_col4" class="data row21 col4" >52.8</td>
-      <td id="T_92a96_row21_col5" class="data row21 col5" >23.7</td>
-      <td id="T_92a96_row21_col6" class="data row21 col6" >29.1</td>
-      <td id="T_92a96_row21_col7" class="data row21 col7" >33.9</td>
-      <td id="T_92a96_row21_col8" class="data row21 col8" >+195</td>
-      <td id="T_92a96_row21_col9" class="data row21 col9" >-195</td>
-      <td id="T_92a96_row21_col10" class="data row21 col10" >-4.8</td>
-      <td id="T_92a96_row21_col11" class="data row21 col11" >57.5</td>
-      <td id="T_92a96_row21_col12" class="data row21 col12" >-0.5</td>
-      <td id="T_92a96_row21_col13" class="data row21 col13" >-4.7</td>
-      <td id="T_92a96_row21_col14" class="data row21 col14" >Fair</td>
-      <td id="T_92a96_row21_col15" class="data row21 col15" >57</td>
-      <td id="T_92a96_row21_col16" class="data row21 col16" >16</td>
-      <td id="T_92a96_row21_col17" class="data row21 col17" >-2.1</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row22_col0" class="data row22 col0" >2025-11-01T19:00:00.000Z</td>
-      <td id="T_92a96_row22_col1" class="data row22 col1" >UNLV</td>
-      <td id="T_92a96_row22_col2" class="data row22 col2" >New Mexico</td>
-      <td id="T_92a96_row22_col3" class="data row22 col3" >+4.9</td>
-      <td id="T_92a96_row22_col4" class="data row22 col4" >64.9</td>
-      <td id="T_92a96_row22_col5" class="data row22 col5" >34.9</td>
-      <td id="T_92a96_row22_col6" class="data row22 col6" >30.0</td>
-      <td id="T_92a96_row22_col7" class="data row22 col7" >64.7</td>
-      <td id="T_92a96_row22_col8" class="data row22 col8" >-184</td>
-      <td id="T_92a96_row22_col9" class="data row22 col9" >+184</td>
-      <td id="T_92a96_row22_col10" class="data row22 col10" >+3.5</td>
-      <td id="T_92a96_row22_col11" class="data row22 col11" >61.5</td>
-      <td id="T_92a96_row22_col12" class="data row22 col12" >+1.4</td>
-      <td id="T_92a96_row22_col13" class="data row22 col13" >+3.4</td>
-      <td id="T_92a96_row22_col14" class="data row22 col14" >--</td>
-      <td id="T_92a96_row22_col15" class="data row22 col15" >nan</td>
-      <td id="T_92a96_row22_col16" class="data row22 col16" >nan</td>
-      <td id="T_92a96_row22_col17" class="data row22 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row23_col0" class="data row23 col0" >2025-11-01T19:00:00.000Z</td>
-      <td id="T_92a96_row23_col1" class="data row23 col1" >Virginia Tech</td>
-      <td id="T_92a96_row23_col2" class="data row23 col2" >Louisville</td>
-      <td id="T_92a96_row23_col3" class="data row23 col3" >-13.9</td>
-      <td id="T_92a96_row23_col4" class="data row23 col4" >53.9</td>
-      <td id="T_92a96_row23_col5" class="data row23 col5" >20.0</td>
-      <td id="T_92a96_row23_col6" class="data row23 col6" >33.9</td>
-      <td id="T_92a96_row23_col7" class="data row23 col7" >14.1</td>
-      <td id="T_92a96_row23_col8" class="data row23 col8" >+610</td>
-      <td id="T_92a96_row23_col9" class="data row23 col9" >-610</td>
-      <td id="T_92a96_row23_col10" class="data row23 col10" >-10.5</td>
-      <td id="T_92a96_row23_col11" class="data row23 col11" >53.5</td>
-      <td id="T_92a96_row23_col12" class="data row23 col12" >-3.4</td>
-      <td id="T_92a96_row23_col13" class="data row23 col13" >+0.4</td>
-      <td id="T_92a96_row23_col14" class="data row23 col14" >--</td>
-      <td id="T_92a96_row23_col15" class="data row23 col15" >56</td>
-      <td id="T_92a96_row23_col16" class="data row23 col16" >10</td>
-      <td id="T_92a96_row23_col17" class="data row23 col17" >-0.2</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row24_col0" class="data row24 col0" >2025-11-01T19:30:00.000Z</td>
-      <td id="T_92a96_row24_col1" class="data row24 col1" >Boston College</td>
-      <td id="T_92a96_row24_col2" class="data row24 col2" >Notre Dame</td>
-      <td id="T_92a96_row24_col3" class="data row24 col3" >-24.6</td>
-      <td id="T_92a96_row24_col4" class="data row24 col4" >54.3</td>
-      <td id="T_92a96_row24_col5" class="data row24 col5" >14.9</td>
-      <td id="T_92a96_row24_col6" class="data row24 col6" >39.4</td>
-      <td id="T_92a96_row24_col7" class="data row24 col7" >2.8</td>
-      <td id="T_92a96_row24_col8" class="data row24 col8" >+3440</td>
-      <td id="T_92a96_row24_col9" class="data row24 col9" >-3440</td>
-      <td id="T_92a96_row24_col10" class="data row24 col10" >-28.5</td>
-      <td id="T_92a96_row24_col11" class="data row24 col11" >56.0</td>
-      <td id="T_92a96_row24_col12" class="data row24 col12" >+3.9</td>
-      <td id="T_92a96_row24_col13" class="data row24 col13" >-1.7</td>
-      <td id="T_92a96_row24_col14" class="data row24 col14" >Fair</td>
-      <td id="T_92a96_row24_col15" class="data row24 col15" >54</td>
-      <td id="T_92a96_row24_col16" class="data row24 col16" >16</td>
-      <td id="T_92a96_row24_col17" class="data row24 col17" >-2.1</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row25_col0" class="data row25 col0" >2025-11-01T19:30:00.000Z</td>
-      <td id="T_92a96_row25_col1" class="data row25 col1" >Kansas State</td>
-      <td id="T_92a96_row25_col2" class="data row25 col2" >Texas Tech</td>
-      <td id="T_92a96_row25_col3" class="data row25 col3" >-12.9</td>
-      <td id="T_92a96_row25_col4" class="data row25 col4" >48.8</td>
-      <td id="T_92a96_row25_col5" class="data row25 col5" >18.0</td>
-      <td id="T_92a96_row25_col6" class="data row25 col6" >30.9</td>
-      <td id="T_92a96_row25_col7" class="data row25 col7" >15.8</td>
-      <td id="T_92a96_row25_col8" class="data row25 col8" >+534</td>
-      <td id="T_92a96_row25_col9" class="data row25 col9" >-534</td>
-      <td id="T_92a96_row25_col10" class="data row25 col10" >-7.3</td>
-      <td id="T_92a96_row25_col11" class="data row25 col11" >52.0</td>
-      <td id="T_92a96_row25_col12" class="data row25 col12" >-5.6</td>
-      <td id="T_92a96_row25_col13" class="data row25 col13" >-3.2</td>
-      <td id="T_92a96_row25_col14" class="data row25 col14" >--</td>
-      <td id="T_92a96_row25_col15" class="data row25 col15" >49</td>
-      <td id="T_92a96_row25_col16" class="data row25 col16" >7</td>
-      <td id="T_92a96_row25_col17" class="data row25 col17" >-0.1</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row26_col0" class="data row26 col0" >2025-11-01T19:30:00.000Z</td>
-      <td id="T_92a96_row26_col1" class="data row26 col1" >South Alabama</td>
-      <td id="T_92a96_row26_col2" class="data row26 col2" >Louisiana</td>
-      <td id="T_92a96_row26_col3" class="data row26 col3" >+5.3</td>
-      <td id="T_92a96_row26_col4" class="data row26 col4" >56.5</td>
-      <td id="T_92a96_row26_col5" class="data row26 col5" >30.9</td>
-      <td id="T_92a96_row26_col6" class="data row26 col6" >25.6</td>
-      <td id="T_92a96_row26_col7" class="data row26 col7" >66.0</td>
-      <td id="T_92a96_row26_col8" class="data row26 col8" >-194</td>
-      <td id="T_92a96_row26_col9" class="data row26 col9" >+194</td>
-      <td id="T_92a96_row26_col10" class="data row26 col10" >+3.8</td>
-      <td id="T_92a96_row26_col11" class="data row26 col11" >53.7</td>
-      <td id="T_92a96_row26_col12" class="data row26 col12" >+1.5</td>
-      <td id="T_92a96_row26_col13" class="data row26 col13" >+2.8</td>
-      <td id="T_92a96_row26_col14" class="data row26 col14" >--</td>
-      <td id="T_92a96_row26_col15" class="data row26 col15" >nan</td>
-      <td id="T_92a96_row26_col16" class="data row26 col16" >nan</td>
-      <td id="T_92a96_row26_col17" class="data row26 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row27_col0" class="data row27 col0" >2025-11-01T19:30:00.000Z</td>
-      <td id="T_92a96_row27_col1" class="data row27 col1" >Boise State</td>
-      <td id="T_92a96_row27_col2" class="data row27 col2" >Fresno State</td>
-      <td id="T_92a96_row27_col3" class="data row27 col3" >+18.4</td>
-      <td id="T_92a96_row27_col4" class="data row27 col4" >51.9</td>
-      <td id="T_92a96_row27_col5" class="data row27 col5" >35.2</td>
-      <td id="T_92a96_row27_col6" class="data row27 col6" >16.8</td>
-      <td id="T_92a96_row27_col7" class="data row27 col7" >92.4</td>
-      <td id="T_92a96_row27_col8" class="data row27 col8" >-1213</td>
-      <td id="T_92a96_row27_col9" class="data row27 col9" >+1213</td>
-      <td id="T_92a96_row27_col10" class="data row27 col10" >+17.3</td>
-      <td id="T_92a96_row27_col11" class="data row27 col11" >50.5</td>
-      <td id="T_92a96_row27_col12" class="data row27 col12" >+1.1</td>
-      <td id="T_92a96_row27_col13" class="data row27 col13" >+1.4</td>
-      <td id="T_92a96_row27_col14" class="data row27 col14" >--</td>
-      <td id="T_92a96_row27_col15" class="data row27 col15" >nan</td>
-      <td id="T_92a96_row27_col16" class="data row27 col16" >nan</td>
-      <td id="T_92a96_row27_col17" class="data row27 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row28_col0" class="data row28 col0" >2025-11-01T19:30:00.000Z</td>
-      <td id="T_92a96_row28_col1" class="data row28 col1" >Maryland</td>
-      <td id="T_92a96_row28_col2" class="data row28 col2" >Indiana</td>
-      <td id="T_92a96_row28_col3" class="data row28 col3" >-17.8</td>
-      <td id="T_92a96_row28_col4" class="data row28 col4" >46.4</td>
-      <td id="T_92a96_row28_col5" class="data row28 col5" >14.3</td>
-      <td id="T_92a96_row28_col6" class="data row28 col6" >32.1</td>
-      <td id="T_92a96_row28_col7" class="data row28 col7" >8.3</td>
-      <td id="T_92a96_row28_col8" class="data row28 col8" >+1102</td>
-      <td id="T_92a96_row28_col9" class="data row28 col9" >-1102</td>
-      <td id="T_92a96_row28_col10" class="data row28 col10" >-21.5</td>
-      <td id="T_92a96_row28_col11" class="data row28 col11" >50.5</td>
-      <td id="T_92a96_row28_col12" class="data row28 col12" >+3.7</td>
-      <td id="T_92a96_row28_col13" class="data row28 col13" >-4.1</td>
-      <td id="T_92a96_row28_col14" class="data row28 col14" >Fair</td>
-      <td id="T_92a96_row28_col15" class="data row28 col15" >61</td>
-      <td id="T_92a96_row28_col16" class="data row28 col16" >12</td>
-      <td id="T_92a96_row28_col17" class="data row28 col17" >-0.5</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row29_col0" class="data row29 col0" >2025-11-01T19:30:00.000Z</td>
-      <td id="T_92a96_row29_col1" class="data row29 col1" >Stanford</td>
-      <td id="T_92a96_row29_col2" class="data row29 col2" >Pittsburgh</td>
-      <td id="T_92a96_row29_col3" class="data row29 col3" >-14.3</td>
-      <td id="T_92a96_row29_col4" class="data row29 col4" >46.3</td>
-      <td id="T_92a96_row29_col5" class="data row29 col5" >16.0</td>
-      <td id="T_92a96_row29_col6" class="data row29 col6" >30.3</td>
-      <td id="T_92a96_row29_col7" class="data row29 col7" >13.3</td>
-      <td id="T_92a96_row29_col8" class="data row29 col8" >+652</td>
-      <td id="T_92a96_row29_col9" class="data row29 col9" >-652</td>
-      <td id="T_92a96_row29_col10" class="data row29 col10" >-14.3</td>
-      <td id="T_92a96_row29_col11" class="data row29 col11" >51.5</td>
-      <td id="T_92a96_row29_col12" class="data row29 col12" >+0.0</td>
-      <td id="T_92a96_row29_col13" class="data row29 col13" >-5.2</td>
-      <td id="T_92a96_row29_col14" class="data row29 col14" >--</td>
-      <td id="T_92a96_row29_col15" class="data row29 col15" >63</td>
-      <td id="T_92a96_row29_col16" class="data row29 col16" >4</td>
-      <td id="T_92a96_row29_col17" class="data row29 col17" >-1.4</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row30_col0" class="data row30 col0" >2025-11-01T19:30:00.000Z</td>
-      <td id="T_92a96_row30_col1" class="data row30 col1" >UL Monroe</td>
-      <td id="T_92a96_row30_col2" class="data row30 col2" >Old Dominion</td>
-      <td id="T_92a96_row30_col3" class="data row30 col3" >-16.6</td>
-      <td id="T_92a96_row30_col4" class="data row30 col4" >53.9</td>
-      <td id="T_92a96_row30_col5" class="data row30 col5" >18.6</td>
-      <td id="T_92a96_row30_col6" class="data row30 col6" >35.2</td>
-      <td id="T_92a96_row30_col7" class="data row30 col7" >9.8</td>
-      <td id="T_92a96_row30_col8" class="data row30 col8" >+916</td>
-      <td id="T_92a96_row30_col9" class="data row30 col9" >-916</td>
-      <td id="T_92a96_row30_col10" class="data row30 col10" >-17.2</td>
-      <td id="T_92a96_row30_col11" class="data row30 col11" >53.7</td>
-      <td id="T_92a96_row30_col12" class="data row30 col12" >+0.5</td>
-      <td id="T_92a96_row30_col13" class="data row30 col13" >+0.2</td>
-      <td id="T_92a96_row30_col14" class="data row30 col14" >--</td>
-      <td id="T_92a96_row30_col15" class="data row30 col15" >nan</td>
-      <td id="T_92a96_row30_col16" class="data row30 col16" >nan</td>
-      <td id="T_92a96_row30_col17" class="data row30 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row31_col0" class="data row31 col0" >2025-11-01T19:30:00.000Z</td>
-      <td id="T_92a96_row31_col1" class="data row31 col1" >Minnesota</td>
-      <td id="T_92a96_row31_col2" class="data row31 col2" >Michigan State</td>
-      <td id="T_92a96_row31_col3" class="data row31 col3" >+6.3</td>
-      <td id="T_92a96_row31_col4" class="data row31 col4" >45.5</td>
-      <td id="T_92a96_row31_col5" class="data row31 col5" >25.9</td>
-      <td id="T_92a96_row31_col6" class="data row31 col6" >19.6</td>
-      <td id="T_92a96_row31_col7" class="data row31 col7" >68.7</td>
-      <td id="T_92a96_row31_col8" class="data row31 col8" >-219</td>
-      <td id="T_92a96_row31_col9" class="data row31 col9" >+219</td>
-      <td id="T_92a96_row31_col10" class="data row31 col10" >+3.3</td>
-      <td id="T_92a96_row31_col11" class="data row31 col11" >44.5</td>
-      <td id="T_92a96_row31_col12" class="data row31 col12" >+2.9</td>
-      <td id="T_92a96_row31_col13" class="data row31 col13" >+1.0</td>
-      <td id="T_92a96_row31_col14" class="data row31 col14" >Cloudy</td>
-      <td id="T_92a96_row31_col15" class="data row31 col15" >49</td>
-      <td id="T_92a96_row31_col16" class="data row31 col16" >7</td>
-      <td id="T_92a96_row31_col17" class="data row31 col17" >-0.1</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row32_col0" class="data row32 col0" >2025-11-01T19:30:00.000Z</td>
-      <td id="T_92a96_row32_col1" class="data row32 col1" >Western Kentucky</td>
-      <td id="T_92a96_row32_col2" class="data row32 col2" >New Mexico State</td>
-      <td id="T_92a96_row32_col3" class="data row32 col3" >+8.6</td>
-      <td id="T_92a96_row32_col4" class="data row32 col4" >47.8</td>
-      <td id="T_92a96_row32_col5" class="data row32 col5" >28.2</td>
-      <td id="T_92a96_row32_col6" class="data row32 col6" >19.6</td>
-      <td id="T_92a96_row32_col7" class="data row32 col7" >74.8</td>
-      <td id="T_92a96_row32_col8" class="data row32 col8" >-296</td>
-      <td id="T_92a96_row32_col9" class="data row32 col9" >+296</td>
-      <td id="T_92a96_row32_col10" class="data row32 col10" >+8.2</td>
-      <td id="T_92a96_row32_col11" class="data row32 col11" >52.0</td>
-      <td id="T_92a96_row32_col12" class="data row32 col12" >+0.4</td>
-      <td id="T_92a96_row32_col13" class="data row32 col13" >-4.2</td>
-      <td id="T_92a96_row32_col14" class="data row32 col14" >--</td>
-      <td id="T_92a96_row32_col15" class="data row32 col15" >nan</td>
-      <td id="T_92a96_row32_col16" class="data row32 col16" >nan</td>
-      <td id="T_92a96_row32_col17" class="data row32 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row33_col0" class="data row33 col0" >2025-11-01T19:30:00.000Z</td>
-      <td id="T_92a96_row33_col1" class="data row33 col1" >Liberty</td>
-      <td id="T_92a96_row33_col2" class="data row33 col2" >Delaware</td>
-      <td id="T_92a96_row33_col3" class="data row33 col3" >+4.2</td>
-      <td id="T_92a96_row33_col4" class="data row33 col4" >53.5</td>
-      <td id="T_92a96_row33_col5" class="data row33 col5" >28.8</td>
-      <td id="T_92a96_row33_col6" class="data row33 col6" >24.6</td>
-      <td id="T_92a96_row33_col7" class="data row33 col7" >62.8</td>
-      <td id="T_92a96_row33_col8" class="data row33 col8" >-169</td>
-      <td id="T_92a96_row33_col9" class="data row33 col9" >+169</td>
-      <td id="T_92a96_row33_col10" class="data row33 col10" >+3.2</td>
-      <td id="T_92a96_row33_col11" class="data row33 col11" >51.8</td>
-      <td id="T_92a96_row33_col12" class="data row33 col12" >+1.0</td>
-      <td id="T_92a96_row33_col13" class="data row33 col13" >+1.6</td>
-      <td id="T_92a96_row33_col14" class="data row33 col14" >--</td>
-      <td id="T_92a96_row33_col15" class="data row33 col15" >59</td>
-      <td id="T_92a96_row33_col16" class="data row33 col16" >11</td>
-      <td id="T_92a96_row33_col17" class="data row33 col17" >-0.3</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row34_col0" class="data row34 col0" >2025-11-01T19:30:00.000Z</td>
-      <td id="T_92a96_row34_col1" class="data row34 col1" >Florida</td>
-      <td id="T_92a96_row34_col2" class="data row34 col2" >Georgia</td>
-      <td id="T_92a96_row34_col3" class="data row34 col3" >-7.6</td>
-      <td id="T_92a96_row34_col4" class="data row34 col4" >51.7</td>
-      <td id="T_92a96_row34_col5" class="data row34 col5" >22.1</td>
-      <td id="T_92a96_row34_col6" class="data row34 col6" >29.6</td>
-      <td id="T_92a96_row34_col7" class="data row34 col7" >27.8</td>
-      <td id="T_92a96_row34_col8" class="data row34 col8" >+259</td>
-      <td id="T_92a96_row34_col9" class="data row34 col9" >-259</td>
-      <td id="T_92a96_row34_col10" class="data row34 col10" >-7.2</td>
-      <td id="T_92a96_row34_col11" class="data row34 col11" >50.5</td>
-      <td id="T_92a96_row34_col12" class="data row34 col12" >-0.4</td>
-      <td id="T_92a96_row34_col13" class="data row34 col13" >+1.2</td>
-      <td id="T_92a96_row34_col14" class="data row34 col14" >--</td>
-      <td id="T_92a96_row34_col15" class="data row34 col15" >nan</td>
-      <td id="T_92a96_row34_col16" class="data row34 col16" >nan</td>
-      <td id="T_92a96_row34_col17" class="data row34 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row35_col0" class="data row35 col0" >2025-11-01T19:45:00.000Z</td>
-      <td id="T_92a96_row35_col1" class="data row35 col1" >California</td>
-      <td id="T_92a96_row35_col2" class="data row35 col2" >Virginia</td>
-      <td id="T_92a96_row35_col3" class="data row35 col3" >-7.0</td>
-      <td id="T_92a96_row35_col4" class="data row35 col4" >52.5</td>
-      <td id="T_92a96_row35_col5" class="data row35 col5" >22.8</td>
-      <td id="T_92a96_row35_col6" class="data row35 col6" >29.7</td>
-      <td id="T_92a96_row35_col7" class="data row35 col7" >29.4</td>
-      <td id="T_92a96_row35_col8" class="data row35 col8" >+240</td>
-      <td id="T_92a96_row35_col9" class="data row35 col9" >-240</td>
-      <td id="T_92a96_row35_col10" class="data row35 col10" >-4.5</td>
-      <td id="T_92a96_row35_col11" class="data row35 col11" >53.7</td>
-      <td id="T_92a96_row35_col12" class="data row35 col12" >-2.5</td>
-      <td id="T_92a96_row35_col13" class="data row35 col13" >-1.2</td>
-      <td id="T_92a96_row35_col14" class="data row35 col14" >--</td>
-      <td id="T_92a96_row35_col15" class="data row35 col15" >nan</td>
-      <td id="T_92a96_row35_col16" class="data row35 col16" >nan</td>
-      <td id="T_92a96_row35_col17" class="data row35 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row36_col0" class="data row36 col0" >2025-11-01T20:00:00.000Z</td>
-      <td id="T_92a96_row36_col1" class="data row36 col1" >Arkansas</td>
-      <td id="T_92a96_row36_col2" class="data row36 col2" >Mississippi State</td>
-      <td id="T_92a96_row36_col3" class="data row36 col3" >+4.8</td>
-      <td id="T_92a96_row36_col4" class="data row36 col4" >68.6</td>
-      <td id="T_92a96_row36_col5" class="data row36 col5" >36.7</td>
-      <td id="T_92a96_row36_col6" class="data row36 col6" >31.9</td>
-      <td id="T_92a96_row36_col7" class="data row36 col7" >64.6</td>
-      <td id="T_92a96_row36_col8" class="data row36 col8" >-183</td>
-      <td id="T_92a96_row36_col9" class="data row36 col9" >+183</td>
-      <td id="T_92a96_row36_col10" class="data row36 col10" >+4.2</td>
-      <td id="T_92a96_row36_col11" class="data row36 col11" >68.0</td>
-      <td id="T_92a96_row36_col12" class="data row36 col12" >+0.7</td>
-      <td id="T_92a96_row36_col13" class="data row36 col13" >+0.6</td>
-      <td id="T_92a96_row36_col14" class="data row36 col14" >--</td>
-      <td id="T_92a96_row36_col15" class="data row36 col15" >nan</td>
-      <td id="T_92a96_row36_col16" class="data row36 col16" >nan</td>
-      <td id="T_92a96_row36_col17" class="data row36 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row37_col0" class="data row37 col0" >2025-11-01T20:00:00.000Z</td>
-      <td id="T_92a96_row37_col1" class="data row37 col1" >Kansas</td>
-      <td id="T_92a96_row37_col2" class="data row37 col2" >Oklahoma State</td>
-      <td id="T_92a96_row37_col3" class="data row37 col3" >+29.8</td>
-      <td id="T_92a96_row37_col4" class="data row37 col4" >55.8</td>
-      <td id="T_92a96_row37_col5" class="data row37 col5" >42.8</td>
-      <td id="T_92a96_row37_col6" class="data row37 col6" >13.0</td>
-      <td id="T_92a96_row37_col7" class="data row37 col7" >99.0</td>
-      <td id="T_92a96_row37_col8" class="data row37 col8" >-9675</td>
-      <td id="T_92a96_row37_col9" class="data row37 col9" >+9675</td>
-      <td id="T_92a96_row37_col10" class="data row37 col10" >+24.5</td>
-      <td id="T_92a96_row37_col11" class="data row37 col11" >56.7</td>
-      <td id="T_92a96_row37_col12" class="data row37 col12" >+5.3</td>
-      <td id="T_92a96_row37_col13" class="data row37 col13" >-0.9</td>
-      <td id="T_92a96_row37_col14" class="data row37 col14" >--</td>
-      <td id="T_92a96_row37_col15" class="data row37 col15" >nan</td>
-      <td id="T_92a96_row37_col16" class="data row37 col16" >nan</td>
-      <td id="T_92a96_row37_col17" class="data row37 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row38_col0" class="data row38 col0" >2025-11-01T20:00:00.000Z</td>
-      <td id="T_92a96_row38_col1" class="data row38 col1" >Western Michigan</td>
-      <td id="T_92a96_row38_col2" class="data row38 col2" >Central Michigan</td>
-      <td id="T_92a96_row38_col3" class="data row38 col3" >+6.2</td>
-      <td id="T_92a96_row38_col4" class="data row38 col4" >42.6</td>
-      <td id="T_92a96_row38_col5" class="data row38 col5" >24.4</td>
-      <td id="T_92a96_row38_col6" class="data row38 col6" >18.2</td>
-      <td id="T_92a96_row38_col7" class="data row38 col7" >68.5</td>
-      <td id="T_92a96_row38_col8" class="data row38 col8" >-218</td>
-      <td id="T_92a96_row38_col9" class="data row38 col9" >+218</td>
-      <td id="T_92a96_row38_col10" class="data row38 col10" >+4.2</td>
-      <td id="T_92a96_row38_col11" class="data row38 col11" >41.3</td>
-      <td id="T_92a96_row38_col12" class="data row38 col12" >+2.0</td>
-      <td id="T_92a96_row38_col13" class="data row38 col13" >+1.2</td>
-      <td id="T_92a96_row38_col14" class="data row38 col14" >--</td>
-      <td id="T_92a96_row38_col15" class="data row38 col15" >49</td>
-      <td id="T_92a96_row38_col16" class="data row38 col16" >7</td>
-      <td id="T_92a96_row38_col17" class="data row38 col17" >-0.1</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row39_col0" class="data row39 col0" >2025-11-01T23:00:00.000Z</td>
-      <td id="T_92a96_row39_col1" class="data row39 col1" >San Diego State</td>
-      <td id="T_92a96_row39_col2" class="data row39 col2" >Wyoming</td>
-      <td id="T_92a96_row39_col3" class="data row39 col3" >+18.2</td>
-      <td id="T_92a96_row39_col4" class="data row39 col4" >40.1</td>
-      <td id="T_92a96_row39_col5" class="data row39 col5" >29.2</td>
-      <td id="T_92a96_row39_col6" class="data row39 col6" >11.0</td>
-      <td id="T_92a96_row39_col7" class="data row39 col7" >92.1</td>
-      <td id="T_92a96_row39_col8" class="data row39 col8" >-1174</td>
-      <td id="T_92a96_row39_col9" class="data row39 col9" >+1174</td>
-      <td id="T_92a96_row39_col10" class="data row39 col10" >+10.5</td>
-      <td id="T_92a96_row39_col11" class="data row39 col11" >42.5</td>
-      <td id="T_92a96_row39_col12" class="data row39 col12" >+7.7</td>
-      <td id="T_92a96_row39_col13" class="data row39 col13" >-2.4</td>
-      <td id="T_92a96_row39_col14" class="data row39 col14" >--</td>
-      <td id="T_92a96_row39_col15" class="data row39 col15" >nan</td>
-      <td id="T_92a96_row39_col16" class="data row39 col16" >nan</td>
-      <td id="T_92a96_row39_col17" class="data row39 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row40_col0" class="data row40 col0" >2025-11-01T23:00:00.000Z</td>
-      <td id="T_92a96_row40_col1" class="data row40 col1" >Ole Miss</td>
-      <td id="T_92a96_row40_col2" class="data row40 col2" >South Carolina</td>
-      <td id="T_92a96_row40_col3" class="data row40 col3" >+13.3</td>
-      <td id="T_92a96_row40_col4" class="data row40 col4" >53.8</td>
-      <td id="T_92a96_row40_col5" class="data row40 col5" >33.5</td>
-      <td id="T_92a96_row40_col6" class="data row40 col6" >20.2</td>
-      <td id="T_92a96_row40_col7" class="data row40 col7" >84.9</td>
-      <td id="T_92a96_row40_col8" class="data row40 col8" >-564</td>
-      <td id="T_92a96_row40_col9" class="data row40 col9" >+564</td>
-      <td id="T_92a96_row40_col10" class="data row40 col10" >+12.5</td>
-      <td id="T_92a96_row40_col11" class="data row40 col11" >55.5</td>
-      <td id="T_92a96_row40_col12" class="data row40 col12" >+0.8</td>
-      <td id="T_92a96_row40_col13" class="data row40 col13" >-1.7</td>
-      <td id="T_92a96_row40_col14" class="data row40 col14" >--</td>
-      <td id="T_92a96_row40_col15" class="data row40 col15" >nan</td>
-      <td id="T_92a96_row40_col16" class="data row40 col16" >nan</td>
-      <td id="T_92a96_row40_col17" class="data row40 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row41_col0" class="data row41 col0" >2025-11-01T23:00:00.000Z</td>
-      <td id="T_92a96_row41_col1" class="data row41 col1" >Colorado</td>
-      <td id="T_92a96_row41_col2" class="data row41 col2" >Arizona</td>
-      <td id="T_92a96_row41_col3" class="data row41 col3" >-1.5</td>
-      <td id="T_92a96_row41_col4" class="data row41 col4" >49.2</td>
-      <td id="T_92a96_row41_col5" class="data row41 col5" >23.9</td>
-      <td id="T_92a96_row41_col6" class="data row41 col6" >25.3</td>
-      <td id="T_92a96_row41_col7" class="data row41 col7" >45.4</td>
-      <td id="T_92a96_row41_col8" class="data row41 col8" >+120</td>
-      <td id="T_92a96_row41_col9" class="data row41 col9" >-120</td>
-      <td id="T_92a96_row41_col10" class="data row41 col10" >-3.8</td>
-      <td id="T_92a96_row41_col11" class="data row41 col11" >52.3</td>
-      <td id="T_92a96_row41_col12" class="data row41 col12" >+2.3</td>
-      <td id="T_92a96_row41_col13" class="data row41 col13" >-3.1</td>
-      <td id="T_92a96_row41_col14" class="data row41 col14" >--</td>
-      <td id="T_92a96_row41_col15" class="data row41 col15" >nan</td>
-      <td id="T_92a96_row41_col16" class="data row41 col16" >nan</td>
-      <td id="T_92a96_row41_col17" class="data row41 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row42_col0" class="data row42 col0" >2025-11-01T23:00:00.000Z</td>
-      <td id="T_92a96_row42_col1" class="data row42 col1" >Michigan</td>
-      <td id="T_92a96_row42_col2" class="data row42 col2" >Purdue</td>
-      <td id="T_92a96_row42_col3" class="data row42 col3" >+23.2</td>
-      <td id="T_92a96_row42_col4" class="data row42 col4" >51.2</td>
-      <td id="T_92a96_row42_col5" class="data row42 col5" >37.2</td>
-      <td id="T_92a96_row42_col6" class="data row42 col6" >14.0</td>
-      <td id="T_92a96_row42_col7" class="data row42 col7" >96.4</td>
-      <td id="T_92a96_row42_col8" class="data row42 col8" >-2684</td>
-      <td id="T_92a96_row42_col9" class="data row42 col9" >+2684</td>
-      <td id="T_92a96_row42_col10" class="data row42 col10" >+21.5</td>
-      <td id="T_92a96_row42_col11" class="data row42 col11" >49.3</td>
-      <td id="T_92a96_row42_col12" class="data row42 col12" >+1.7</td>
-      <td id="T_92a96_row42_col13" class="data row42 col13" >+1.8</td>
-      <td id="T_92a96_row42_col14" class="data row42 col14" >--</td>
-      <td id="T_92a96_row42_col15" class="data row42 col15" >nan</td>
-      <td id="T_92a96_row42_col16" class="data row42 col16" >nan</td>
-      <td id="T_92a96_row42_col17" class="data row42 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row43_col0" class="data row43 col0" >2025-11-01T23:30:00.000Z</td>
-      <td id="T_92a96_row43_col1" class="data row43 col1" >Oregon State</td>
-      <td id="T_92a96_row43_col2" class="data row43 col2" >Washington State</td>
-      <td id="T_92a96_row43_col3" class="data row43 col3" >-4.7</td>
-      <td id="T_92a96_row43_col4" class="data row43 col4" >48.3</td>
-      <td id="T_92a96_row43_col5" class="data row43 col5" >21.8</td>
-      <td id="T_92a96_row43_col6" class="data row43 col6" >26.5</td>
-      <td id="T_92a96_row43_col7" class="data row43 col7" >35.8</td>
-      <td id="T_92a96_row43_col8" class="data row43 col8" >+180</td>
-      <td id="T_92a96_row43_col9" class="data row43 col9" >-180</td>
-      <td id="T_92a96_row43_col10" class="data row43 col10" >-4.0</td>
-      <td id="T_92a96_row43_col11" class="data row43 col11" >47.8</td>
-      <td id="T_92a96_row43_col12" class="data row43 col12" >-0.7</td>
-      <td id="T_92a96_row43_col13" class="data row43 col13" >+0.4</td>
-      <td id="T_92a96_row43_col14" class="data row43 col14" >--</td>
-      <td id="T_92a96_row43_col15" class="data row43 col15" >60</td>
-      <td id="T_92a96_row43_col16" class="data row43 col16" >11</td>
-      <td id="T_92a96_row43_col17" class="data row43 col17" >-3.6</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row44_col0" class="data row44 col0" >2025-11-01T23:30:00.000Z</td>
-      <td id="T_92a96_row44_col1" class="data row44 col1" >NC State</td>
-      <td id="T_92a96_row44_col2" class="data row44 col2" >Georgia Tech</td>
-      <td id="T_92a96_row44_col3" class="data row44 col3" >-4.9</td>
-      <td id="T_92a96_row44_col4" class="data row44 col4" >59.6</td>
-      <td id="T_92a96_row44_col5" class="data row44 col5" >27.4</td>
-      <td id="T_92a96_row44_col6" class="data row44 col6" >32.2</td>
-      <td id="T_92a96_row44_col7" class="data row44 col7" >35.2</td>
-      <td id="T_92a96_row44_col8" class="data row44 col8" >+184</td>
-      <td id="T_92a96_row44_col9" class="data row44 col9" >-184</td>
-      <td id="T_92a96_row44_col10" class="data row44 col10" >-5.5</td>
-      <td id="T_92a96_row44_col11" class="data row44 col11" >58.5</td>
-      <td id="T_92a96_row44_col12" class="data row44 col12" >+0.6</td>
-      <td id="T_92a96_row44_col13" class="data row44 col13" >+1.1</td>
-      <td id="T_92a96_row44_col14" class="data row44 col14" >--</td>
-      <td id="T_92a96_row44_col15" class="data row44 col15" >nan</td>
-      <td id="T_92a96_row44_col16" class="data row44 col16" >nan</td>
-      <td id="T_92a96_row44_col17" class="data row44 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row45_col0" class="data row45 col0" >2025-11-01T23:30:00.000Z</td>
-      <td id="T_92a96_row45_col1" class="data row45 col1" >Tennessee</td>
-      <td id="T_92a96_row45_col2" class="data row45 col2" >Oklahoma</td>
-      <td id="T_92a96_row45_col3" class="data row45 col3" >+1.7</td>
-      <td id="T_92a96_row45_col4" class="data row45 col4" >51.0</td>
-      <td id="T_92a96_row45_col5" class="data row45 col5" >26.3</td>
-      <td id="T_92a96_row45_col6" class="data row45 col6" >24.6</td>
-      <td id="T_92a96_row45_col7" class="data row45 col7" >55.3</td>
-      <td id="T_92a96_row45_col8" class="data row45 col8" >-124</td>
-      <td id="T_92a96_row45_col9" class="data row45 col9" >+124</td>
-      <td id="T_92a96_row45_col10" class="data row45 col10" >+3.2</td>
-      <td id="T_92a96_row45_col11" class="data row45 col11" >56.5</td>
-      <td id="T_92a96_row45_col12" class="data row45 col12" >-1.5</td>
-      <td id="T_92a96_row45_col13" class="data row45 col13" >-5.5</td>
-      <td id="T_92a96_row45_col14" class="data row45 col14" >--</td>
-      <td id="T_92a96_row45_col15" class="data row45 col15" >nan</td>
-      <td id="T_92a96_row45_col16" class="data row45 col16" >nan</td>
-      <td id="T_92a96_row45_col17" class="data row45 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row46_col0" class="data row46 col0" >2025-11-01T23:30:00.000Z</td>
-      <td id="T_92a96_row46_col1" class="data row46 col1" >Nebraska</td>
-      <td id="T_92a96_row46_col2" class="data row46 col2" >USC</td>
-      <td id="T_92a96_row46_col3" class="data row46 col3" >-9.3</td>
-      <td id="T_92a96_row46_col4" class="data row46 col4" >59.7</td>
-      <td id="T_92a96_row46_col5" class="data row46 col5" >25.2</td>
-      <td id="T_92a96_row46_col6" class="data row46 col6" >34.5</td>
-      <td id="T_92a96_row46_col7" class="data row46 col7" >23.4</td>
-      <td id="T_92a96_row46_col8" class="data row46 col8" >+327</td>
-      <td id="T_92a96_row46_col9" class="data row46 col9" >-327</td>
-      <td id="T_92a96_row46_col10" class="data row46 col10" >-6.3</td>
-      <td id="T_92a96_row46_col11" class="data row46 col11" >58.5</td>
-      <td id="T_92a96_row46_col12" class="data row46 col12" >-3.0</td>
-      <td id="T_92a96_row46_col13" class="data row46 col13" >+1.2</td>
-      <td id="T_92a96_row46_col14" class="data row46 col14" >--</td>
-      <td id="T_92a96_row46_col15" class="data row46 col15" >47</td>
-      <td id="T_92a96_row46_col16" class="data row46 col16" >13</td>
-      <td id="T_92a96_row46_col17" class="data row46 col17" >-1.1</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row47_col0" class="data row47 col0" >2025-11-01T23:30:00.000Z</td>
-      <td id="T_92a96_row47_col1" class="data row47 col1" >Auburn</td>
-      <td id="T_92a96_row47_col2" class="data row47 col2" >Kentucky</td>
-      <td id="T_92a96_row47_col3" class="data row47 col3" >+16.2</td>
-      <td id="T_92a96_row47_col4" class="data row47 col4" >43.5</td>
-      <td id="T_92a96_row47_col5" class="data row47 col5" >29.9</td>
-      <td id="T_92a96_row47_col6" class="data row47 col6" >13.6</td>
-      <td id="T_92a96_row47_col7" class="data row47 col7" >89.6</td>
-      <td id="T_92a96_row47_col8" class="data row47 col8" >-865</td>
-      <td id="T_92a96_row47_col9" class="data row47 col9" >+865</td>
-      <td id="T_92a96_row47_col10" class="data row47 col10" >+11.0</td>
-      <td id="T_92a96_row47_col11" class="data row47 col11" >44.7</td>
-      <td id="T_92a96_row47_col12" class="data row47 col12" >+5.2</td>
-      <td id="T_92a96_row47_col13" class="data row47 col13" >-1.1</td>
-      <td id="T_92a96_row47_col14" class="data row47 col14" >--</td>
-      <td id="T_92a96_row47_col15" class="data row47 col15" >nan</td>
-      <td id="T_92a96_row47_col16" class="data row47 col16" >nan</td>
-      <td id="T_92a96_row47_col17" class="data row47 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row48_col0" class="data row48 col0" >2025-11-01T23:30:00.000Z</td>
-      <td id="T_92a96_row48_col1" class="data row48 col1" >Florida State</td>
-      <td id="T_92a96_row48_col2" class="data row48 col2" >Wake Forest</td>
-      <td id="T_92a96_row48_col3" class="data row48 col3" >+9.9</td>
-      <td id="T_92a96_row48_col4" class="data row48 col4" >50.1</td>
-      <td id="T_92a96_row48_col5" class="data row48 col5" >30.0</td>
-      <td id="T_92a96_row48_col6" class="data row48 col6" >20.1</td>
-      <td id="T_92a96_row48_col7" class="data row48 col7" >77.9</td>
-      <td id="T_92a96_row48_col8" class="data row48 col8" >-353</td>
-      <td id="T_92a96_row48_col9" class="data row48 col9" >+353</td>
-      <td id="T_92a96_row48_col10" class="data row48 col10" >+9.8</td>
-      <td id="T_92a96_row48_col11" class="data row48 col11" >50.3</td>
-      <td id="T_92a96_row48_col12" class="data row48 col12" >+0.1</td>
-      <td id="T_92a96_row48_col13" class="data row48 col13" >-0.2</td>
-      <td id="T_92a96_row48_col14" class="data row48 col14" >--</td>
-      <td id="T_92a96_row48_col15" class="data row48 col15" >nan</td>
-      <td id="T_92a96_row48_col16" class="data row48 col16" >nan</td>
-      <td id="T_92a96_row48_col17" class="data row48 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row49_col0" class="data row49 col0" >2025-11-02T00:00:00.000Z</td>
-      <td id="T_92a96_row49_col1" class="data row49 col1" >Troy</td>
-      <td id="T_92a96_row49_col2" class="data row49 col2" >Arkansas State</td>
-      <td id="T_92a96_row49_col3" class="data row49 col3" >+12.3</td>
-      <td id="T_92a96_row49_col4" class="data row49 col4" >53.1</td>
-      <td id="T_92a96_row49_col5" class="data row49 col5" >32.7</td>
-      <td id="T_92a96_row49_col6" class="data row49 col6" >20.4</td>
-      <td id="T_92a96_row49_col7" class="data row49 col7" >83.0</td>
-      <td id="T_92a96_row49_col8" class="data row49 col8" >-490</td>
-      <td id="T_92a96_row49_col9" class="data row49 col9" >+490</td>
-      <td id="T_92a96_row49_col10" class="data row49 col10" >+7.3</td>
-      <td id="T_92a96_row49_col11" class="data row49 col11" >53.0</td>
-      <td id="T_92a96_row49_col12" class="data row49 col12" >+5.0</td>
-      <td id="T_92a96_row49_col13" class="data row49 col13" >+0.1</td>
-      <td id="T_92a96_row49_col14" class="data row49 col14" >--</td>
-      <td id="T_92a96_row49_col15" class="data row49 col15" >nan</td>
-      <td id="T_92a96_row49_col16" class="data row49 col16" >nan</td>
-      <td id="T_92a96_row49_col17" class="data row49 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row50_col0" class="data row50 col0" >2025-11-02T02:15:00.000Z</td>
-      <td id="T_92a96_row50_col1" class="data row50 col1" >Utah</td>
-      <td id="T_92a96_row50_col2" class="data row50 col2" >Cincinnati</td>
-      <td id="T_92a96_row50_col3" class="data row50 col3" >+13.6</td>
-      <td id="T_92a96_row50_col4" class="data row50 col4" >56.2</td>
-      <td id="T_92a96_row50_col5" class="data row50 col5" >34.9</td>
-      <td id="T_92a96_row50_col6" class="data row50 col6" >21.3</td>
-      <td id="T_92a96_row50_col7" class="data row50 col7" >85.5</td>
-      <td id="T_92a96_row50_col8" class="data row50 col8" >-592</td>
-      <td id="T_92a96_row50_col9" class="data row50 col9" >+592</td>
-      <td id="T_92a96_row50_col10" class="data row50 col10" >+10.2</td>
-      <td id="T_92a96_row50_col11" class="data row50 col11" >54.5</td>
-      <td id="T_92a96_row50_col12" class="data row50 col12" >+3.5</td>
-      <td id="T_92a96_row50_col13" class="data row50 col13" >+1.7</td>
-      <td id="T_92a96_row50_col14" class="data row50 col14" >--</td>
-      <td id="T_92a96_row50_col15" class="data row50 col15" >nan</td>
-      <td id="T_92a96_row50_col16" class="data row50 col16" >nan</td>
-      <td id="T_92a96_row50_col17" class="data row50 col17" >+nan</td>
-    </tr>
-    <tr>
-      <td id="T_92a96_row51_col0" class="data row51 col0" >2025-11-02T02:30:00.000Z</td>
-      <td id="T_92a96_row51_col1" class="data row51 col1" >San José State</td>
-      <td id="T_92a96_row51_col2" class="data row51 col2" >Hawai'i</td>
-      <td id="T_92a96_row51_col3" class="data row51 col3" >+2.6</td>
-      <td id="T_92a96_row51_col4" class="data row51 col4" >56.1</td>
-      <td id="T_92a96_row51_col5" class="data row51 col5" >29.3</td>
-      <td id="T_92a96_row51_col6" class="data row51 col6" >26.7</td>
-      <td id="T_92a96_row51_col7" class="data row51 col7" >58.1</td>
-      <td id="T_92a96_row51_col8" class="data row51 col8" >-139</td>
-      <td id="T_92a96_row51_col9" class="data row51 col9" >+139</td>
-      <td id="T_92a96_row51_col10" class="data row51 col10" >+1.3</td>
-      <td id="T_92a96_row51_col11" class="data row51 col11" >58.0</td>
-      <td id="T_92a96_row51_col12" class="data row51 col12" >+1.3</td>
-      <td id="T_92a96_row51_col13" class="data row51 col13" >-1.9</td>
-      <td id="T_92a96_row51_col14" class="data row51 col14" >--</td>
-      <td id="T_92a96_row51_col15" class="data row51 col15" >nan</td>
-      <td id="T_92a96_row51_col16" class="data row51 col16" >nan</td>
-      <td id="T_92a96_row51_col17" class="data row51 col17" >+nan</td>
-    </tr>
-  </tbody>
-</table>
-
-        </section>
+        <header>
+          <div class="brand">
+            <img src='data:image/png;base64,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' alt='Betting Worldwide logo' class='brand-logo' />
+            <div class="brand-copy">
+              <h1>FBS Week 10 Simulations</h1>
+              <p class="brand-tagline">Betting Worldwide model vs. market snapshot.</p>
+            </div>
+          </div>
+          <div class="edge-callouts">
+            <div class='edge-callout'><span class='edge-badge edge positive strong'>+9.6</span><span class='edge-bet'>San Diego State -10.5</span><span class='edge-ev'>+17.8%</span><span class='edge-game'>Wyoming @ San Diego State</span></div><div class='edge-callout'><span class='edge-badge edge positive strong'>+9.1</span><span class='edge-bet'>Boston College +31.5</span><span class='edge-ev'>+17.0%</span><span class='edge-game'>Notre Dame @ Boston College</span></div><div class='edge-callout'><span class='edge-badge edge positive strong'>+8.9</span><span class='edge-bet'>USC -4.5</span><span class='edge-ev'>+16.7%</span><span class='edge-game'>USC @ Nebraska</span></div><div class='edge-callout'><span class='edge-badge edge positive strong'>+8.4</span><span class='edge-bet'>Texas Tech -7.5</span><span class='edge-ev'>+15.8%</span><span class='edge-game'>Texas Tech @ Kansas State</span></div><div class='edge-callout'><span class='edge-badge edge positive strong'>+8.3</span><span class='edge-bet'>Under 58.5</span><span class='edge-ev'>+24.8%</span><span class='edge-game'>East Carolina @ Temple</span></div>
+          </div>
+        </header>
+        <div class="layout">
+          <aside class="sidebar">
+            <div class="kpi-grid">
+              <div class="kpi"><span class="kpi-label">Games</span><span class="kpi-value">34</span></div>
+              <div class="kpi"><span class="kpi-label">Actionable ATS</span><span class="kpi-value">22</span></div>
+              <div class="kpi"><span class="kpi-label">Actionable Totals</span><span class="kpi-value">25</span></div>
+              <div class="kpi"><span class="kpi-label">Avg Edge (pts)</span><span class="kpi-value">+4.2</span></div>
+              <div class="kpi"><span class="kpi-label">Kelly f=0.5 (median)</span><span class="kpi-value">7.6%</span></div>
+              <div class="kpi"><span class="kpi-label">Providers Seen</span><span class="kpi-value">5</span></div>
+            </div>
+            <div class="top-card">
+              <h3>Top Spread Edges</h3>
+              <ul class="top-list">
+                <li><span class='edge-badge edge positive strong'>+9.6</span><span class='top-game'>San Diego State -10.5</span><span class='top-note'>Wyoming @ San Diego State</span></li><li><span class='edge-badge edge positive strong'>+9.1</span><span class='top-game'>Boston College +31.5</span><span class='top-note'>Notre Dame @ Boston College</span></li><li><span class='edge-badge edge positive strong'>+8.9</span><span class='top-game'>USC -4.5</span><span class='top-note'>USC @ Nebraska</span></li><li><span class='edge-badge edge positive strong'>+8.4</span><span class='top-game'>Texas Tech -7.5</span><span class='top-note'>Texas Tech @ Kansas State</span></li><li><span class='edge-badge edge positive strong'>+6.9</span><span class='top-game'>Kansas -24.5</span><span class='top-note'>Oklahoma State @ Kansas</span></li>
+              </ul>
+            </div>
+            <div class="top-card">
+              <h3>Top Total Edges</h3>
+              <ul class="top-list">
+                <li><span class='edge-badge edge positive strong'>+8.3</span><span class='top-game'>Under 58.5</span><span class='top-note'>East Carolina @ Temple</span></li><li><span class='edge-badge edge positive strong'>+6.9</span><span class='top-game'>Under 66.5</span><span class='top-note'>Mississippi State @ Arkansas</span></li><li><span class='edge-badge edge positive strong'>+5.5</span><span class='top-game'>Under 53.5</span><span class='top-note'>New Mexico State @ Western Kentucky</span></li><li><span class='edge-badge edge positive strong'>+5.2</span><span class='top-game'>Under 55.5</span><span class='top-note'>Oklahoma @ Tennessee</span></li><li><span class='edge-badge edge positive strong'>+4.8</span><span class='top-game'>Under 51.5</span><span class='top-note'>Pittsburgh @ Stanford</span></li>
+              </ul>
+            </div>
+          </aside>
+          <main>
+            <table>
+              <thead>
+                <tr>
+                  <th>Bet</th>
+                  <th>Game</th>
+                  <th>Market</th>
+                  <th>Model</th>
+                  <th>Market</th>
+                  <th>Weighted Spread</th>
+                  <th>Weighted Total</th>
+                  <th>Home ML (model)</th>
+                  <th>FanDuel OP</th>
+                  <th>FanDuel</th>
+                  <th>Sports411 OP</th>
+                  <th>Sports411</th>
+                  <th>Edge (pts)</th>
+                  <th>Edge (%)</th>
+                  <th>Kelly (0.5)</th>
+                  <th>Providers</th>
+                  <th>Primary</th>
+                  <th>Weather</th>
+                  <th>Kickoff</th>
+                  <th>Flags</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class='row-spread'><td class='cell-bet'>Arizona State +7.5</td><td class='cell-game'>Arizona State @ Iowa State</td><td class='cell-market'>Spread</td><td>+7.2</td><td>+7.5</td><td>—</td><td>—</td><td>-174</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive light'>+0.3</span></td><td>+0.6%</td><td>—</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>44°F · 11 mph wind</td><td>Sat 11/01 01:00 PM ET</td><td><span class='flag'>SMALL</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Over 48.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+51.5</td><td>+48.5</td><td>—</td><td>—</td><td>-174</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive strong'>+3.0</span></td><td>+9.6%</td><td>7.6%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>44°F · 11 mph wind</td><td>Sat 11/01 01:00 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-spread'><td class='cell-bet'>East Carolina -5.5</td><td class='cell-game'>East Carolina @ Temple</td><td class='cell-market'>Spread</td><td>-5.6</td><td>-5.5</td><td>—</td><td>—</td><td>+154</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive light'>+0.1</span></td><td>+0.2%</td><td>—</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>57°F · 16 mph wind</td><td>Sat 11/01 02:00 PM ET</td><td><span class='flag'>WX</span><span class='flag'>SMALL</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Under 58.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+50.2</td><td>+58.5</td><td>—</td><td>—</td><td>+154</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive strong'>+8.3</span></td><td>+24.8%</td><td>23.5%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>57°F · 16 mph wind</td><td>Sat 11/01 02:00 PM ET</td><td><span class='flag'>WX</span></td></tr><tr class='row-spread'><td class='cell-bet'>Louisville -10.5</td><td class='cell-game'>Louisville @ Virginia Tech</td><td class='cell-market'>Spread</td><td>-13.8</td><td>-10.5</td><td>—</td><td>—</td><td>+296</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive strong'>+3.3</span></td><td>+6.3%</td><td>4.2%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>56°F · 10 mph wind</td><td>Sat 11/01 03:00 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Over 52.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+52.6</td><td>+52.5</td><td>—</td><td>—</td><td>+296</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive light'>+0.1</span></td><td>+0.4%</td><td>—</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>56°F · 10 mph wind</td><td>Sat 11/01 03:00 PM ET</td><td><span class='flag'>SMALL</span></td></tr><tr class='row-spread'><td class='cell-bet'>UNLV -3.5</td><td class='cell-game'>New Mexico @ UNLV</td><td class='cell-market'>Spread</td><td>-5.4</td><td>-3.5</td><td>—</td><td>—</td><td>-151</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive strong'>+1.9</span></td><td>+3.6%</td><td>1.3%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 03:00 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Under 61.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+58.1</td><td>+61.5</td><td>—</td><td>—</td><td>-151</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive strong'>+3.4</span></td><td>+10.7%</td><td>8.8%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 03:00 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-spread'><td class='cell-bet'>Michigan State +4.5</td><td class='cell-game'>Michigan State @ Minnesota</td><td class='cell-market'>Spread</td><td>+3.9</td><td>+4.5</td><td>—</td><td>—</td><td>-135</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive light'>+0.6</span></td><td>+1.2%</td><td>—</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>Cloudy · 49°F · 7 mph wind</td><td>Sat 11/01 03:30 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Over 44.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+47.9</td><td>+44.5</td><td>—</td><td>—</td><td>-135</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive strong'>+3.4</span></td><td>+10.6%</td><td>8.6%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>Cloudy · 49°F · 7 mph wind</td><td>Sat 11/01 03:30 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-spread'><td class='cell-bet'>Pittsburgh -13.5</td><td class='cell-game'>Pittsburgh @ Stanford</td><td class='cell-market'>Spread</td><td>-14.2</td><td>-13.5</td><td>—</td><td>—</td><td>+307</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive light'>+0.7</span></td><td>+1.4%</td><td>—</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>63°F · 4 mph wind</td><td>Sat 11/01 03:30 PM ET</td><td><span class='flag'>WX</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Under 51.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+46.7</td><td>+51.5</td><td>—</td><td>—</td><td>+307</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive strong'>+4.8</span></td><td>+15.0%</td><td>13.2%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>63°F · 4 mph wind</td><td>Sat 11/01 03:30 PM ET</td><td><span class='flag'>WX</span></td></tr><tr class='row-spread'><td class='cell-bet'>Boston College +31.5</td><td class='cell-game'>Notre Dame @ Boston College</td><td class='cell-market'>Spread</td><td>+22.4</td><td>+31.5</td><td>—</td><td>—</td><td>+616</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive strong'>+9.1</span></td><td>+17.0%</td><td>15.3%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>54°F · 16 mph wind</td><td>Sat 11/01 03:30 PM ET</td><td><span class='flag'>WX</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Under 55.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+52.0</td><td>+55.5</td><td>—</td><td>—</td><td>+616</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive strong'>+3.5</span></td><td>+11.2%</td><td>9.2%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>54°F · 16 mph wind</td><td>Sat 11/01 03:30 PM ET</td><td><span class='flag'>WX</span></td></tr><tr class='row-spread'><td class='cell-bet'>Maryland +21.0</td><td class='cell-game'>Indiana @ Maryland</td><td class='cell-market'>Spread</td><td>+17.3</td><td>+21.0</td><td>—</td><td>—</td><td>+397</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive strong'>+3.7</span></td><td>+7.0%</td><td>4.9%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>61°F · 12 mph wind</td><td>Sat 11/01 03:30 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Under 50.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+48.9</td><td>+50.5</td><td>—</td><td>—</td><td>+397</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive strong'>+1.6</span></td><td>+5.0%</td><td>2.8%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>61°F · 12 mph wind</td><td>Sat 11/01 03:30 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-spread'><td class='cell-bet'>Delaware +3.5</td><td class='cell-game'>Delaware @ Liberty</td><td class='cell-market'>Spread</td><td>+2.4</td><td>+3.5</td><td>—</td><td>—</td><td>-120</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive medium'>+1.1</span></td><td>+2.2%</td><td>—</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>59°F · 11 mph wind</td><td>Sat 11/01 03:30 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Under 52.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+52.3</td><td>+52.5</td><td>—</td><td>—</td><td>-120</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive light'>+0.2</span></td><td>+0.5%</td><td>—</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>59°F · 11 mph wind</td><td>Sat 11/01 03:30 PM ET</td><td><span class='flag'>SMALL</span></td></tr><tr class='row-spread'><td class='cell-bet'>South Alabama -3.5</td><td class='cell-game'>Louisiana @ South Alabama</td><td class='cell-market'>Spread</td><td>-5.1</td><td>-3.5</td><td>—</td><td>—</td><td>-149</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive strong'>+1.6</span></td><td>+3.1%</td><td>0.8%</td><td><span class='chip'>1 book</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 03:30 PM ET</td><td><span class='flag'>STALE</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Over 52.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+53.9</td><td>+52.5</td><td>—</td><td>—</td><td>-149</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive medium'>+1.4</span></td><td>+4.3%</td><td>2.1%</td><td><span class='chip'>1 book</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 03:30 PM ET</td><td><span class='flag'>STALE</span></td></tr><tr class='row-spread'><td class='cell-bet'>Fresno State +17.5</td><td class='cell-game'>Fresno State @ Boise State</td><td class='cell-market'>Spread</td><td>+17.4</td><td>+17.5</td><td>—</td><td>—</td><td>-398</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive light'>+0.1</span></td><td>+0.2%</td><td>—</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 03:30 PM ET</td><td><span class='flag'>SMALL</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Over 47.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+52.1</td><td>+47.5</td><td>—</td><td>—</td><td>-398</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive strong'>+4.6</span></td><td>+14.2%</td><td>12.5%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 03:30 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-spread'><td class='cell-bet'>Old Dominion -16.5</td><td class='cell-game'>Old Dominion @ UL Monroe</td><td class='cell-market'>Spread</td><td>-17.2</td><td>-16.5</td><td>—</td><td>—</td><td>+391</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive light'>+0.7</span></td><td>+1.3%</td><td>—</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 03:30 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Under 55.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+52.4</td><td>+55.5</td><td>—</td><td>—</td><td>+391</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive strong'>+3.1</span></td><td>+9.7%</td><td>7.7%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 03:30 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-spread'><td class='cell-bet'>Georgia -7.0</td><td class='cell-game'>Georgia @ Florida</td><td class='cell-market'>Spread</td><td>-11.2</td><td>-7.0</td><td>—</td><td>—</td><td>+240</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive strong'>+4.2</span></td><td>+8.1%</td><td>6.0%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 03:30 PM ET</td><td><span class='flag'>NEU</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Over 50.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+52.4</td><td>+50.5</td><td>—</td><td>—</td><td>+240</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive strong'>+1.9</span></td><td>+6.2%</td><td>4.0%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 03:30 PM ET</td><td><span class='flag'>NEU</span></td></tr><tr class='row-spread'><td class='cell-bet'>Texas Tech -7.5</td><td class='cell-game'>Texas Tech @ Kansas State</td><td class='cell-market'>Spread</td><td>-15.9</td><td>-7.5</td><td>—</td><td>—</td><td>+353</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive strong'>+8.4</span></td><td>+15.8%</td><td>14.1%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>49°F · 7 mph wind</td><td>Sat 11/01 03:30 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Under 51.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+50.3</td><td>+51.5</td><td>—</td><td>—</td><td>+353</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive medium'>+1.2</span></td><td>+3.7%</td><td>1.4%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>49°F · 7 mph wind</td><td>Sat 11/01 03:30 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-spread'><td class='cell-bet'>Western Kentucky -7.5</td><td class='cell-game'>New Mexico State @ Western Kentucky</td><td class='cell-market'>Spread</td><td>-8.3</td><td>-7.5</td><td>—</td><td>—</td><td>-191</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive light'>+0.8</span></td><td>+1.6%</td><td>—</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 03:30 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Under 53.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+48.0</td><td>+53.5</td><td>—</td><td>—</td><td>-191</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive strong'>+5.5</span></td><td>+16.9%</td><td>15.2%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 03:30 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-spread'><td class='cell-bet'>Virginia -6.5</td><td class='cell-game'>Virginia @ California</td><td class='cell-market'>Spread</td><td>-10.5</td><td>-6.5</td><td>-4.2</td><td>—</td><td>+226</td><td>-6.5</td><td>-6.5</td><td>-3.5</td><td>-3.5</td><td><span class='edge positive strong'>+4.0</span></td><td>+7.6%</td><td>5.5%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 03:45 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Under 52.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+51.6</td><td>+52.5</td><td>—</td><td>+54.0</td><td>+226</td><td>+53.5</td><td>+53.5</td><td>+54.5</td><td>+54.5</td><td><span class='edge positive light'>+0.9</span></td><td>+2.9%</td><td>0.6%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 03:45 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-spread'><td class='cell-bet'>Central Michigan +6.0</td><td class='cell-game'>Central Michigan @ Western Michigan</td><td class='cell-market'>Spread</td><td>+5.1</td><td>+6.0</td><td>-3.8</td><td>—</td><td>-149</td><td>-1.5</td><td>-1.5</td><td>-6.5</td><td>-6.5</td><td><span class='edge positive light'>+0.9</span></td><td>+1.7%</td><td>—</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>49°F · 7 mph wind</td><td>Sat 11/01 04:00 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Over 43.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+47.6</td><td>+43.5</td><td>—</td><td>+42.9</td><td>-149</td><td>+45.5</td><td>+45.5</td><td>+41.0</td><td>+41.0</td><td><span class='edge positive strong'>+4.1</span></td><td>+12.7%</td><td>10.9%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>49°F · 7 mph wind</td><td>Sat 11/01 04:00 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-spread'><td class='cell-bet'>Arkansas -5.5</td><td class='cell-game'>Mississippi State @ Arkansas</td><td class='cell-market'>Spread</td><td>-5.7</td><td>-5.5</td><td>+3.3</td><td>—</td><td>-155</td><td>-4.5</td><td>-4.5</td><td>-4.0</td><td>-4.0</td><td><span class='edge positive light'>+0.2</span></td><td>+0.3%</td><td>—</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 04:00 PM ET</td><td><span class='flag'>SMALL</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Under 66.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+59.6</td><td>+66.5</td><td>—</td><td>+66.2</td><td>-155</td><td>+64.5</td><td>+64.5</td><td>+67.0</td><td>+67.0</td><td><span class='edge positive strong'>+6.9</span></td><td>+21.0%</td><td>19.5%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 04:00 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-spread'><td class='cell-bet'>Kansas -24.5</td><td class='cell-game'>Oklahoma State @ Kansas</td><td class='cell-market'>Spread</td><td>-31.4</td><td>-24.5</td><td>+19.2</td><td>—</td><td>-1442</td><td>-22.5</td><td>-22.5</td><td>-26.0</td><td>-26.0</td><td><span class='edge positive strong'>+6.9</span></td><td>+13.0%</td><td>11.1%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 04:00 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Under 54.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+52.4</td><td>+54.5</td><td>—</td><td>+55.1</td><td>-1442</td><td>+53.5</td><td>+53.5</td><td>+55.5</td><td>+55.5</td><td><span class='edge positive strong'>+2.1</span></td><td>+6.7%</td><td>4.5%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 04:00 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-spread'><td class='cell-bet'>Ole Miss -12.5</td><td class='cell-game'>South Carolina @ Ole Miss</td><td class='cell-market'>Spread</td><td>-14.3</td><td>-12.5</td><td>-12.5</td><td>—</td><td>-309</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive strong'>+1.8</span></td><td>+3.5%</td><td>1.2%</td><td><span class='chip'>1 book</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 07:00 PM ET</td><td><span class='flag'>STALE</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Under 55.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+52.4</td><td>+55.5</td><td>—</td><td>+55.5</td><td>-309</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive strong'>+3.1</span></td><td>+9.8%</td><td>7.8%</td><td><span class='chip'>1 book</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 07:00 PM ET</td><td><span class='flag'>STALE</span></td></tr><tr class='row-spread'><td class='cell-bet'>San Diego State -10.5</td><td class='cell-game'>Wyoming @ San Diego State</td><td class='cell-market'>Spread</td><td>-20.1</td><td>-10.5</td><td>+8.1</td><td>—</td><td>-503</td><td>-9.5</td><td>-9.5</td><td>-11.0</td><td>-11.0</td><td><span class='edge positive strong'>+9.6</span></td><td>+17.8%</td><td>16.2%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 07:00 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Over 42.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+46.3</td><td>+42.5</td><td>—</td><td>+43.9</td><td>-503</td><td>+48.5</td><td>+48.5</td><td>+41.5</td><td>+41.5</td><td><span class='edge positive strong'>+3.8</span></td><td>+11.9%</td><td>10.0%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 07:00 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-spread'><td class='cell-bet'>Michigan -21.0</td><td class='cell-game'>Purdue @ Michigan</td><td class='cell-market'>Spread</td><td>-21.3</td><td>-21.0</td><td>+15.3</td><td>—</td><td>-560</td><td>-19.5</td><td>-19.5</td><td>-21.0</td><td>-21.0</td><td><span class='edge positive light'>+0.3</span></td><td>+0.6%</td><td>—</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 07:00 PM ET</td><td><span class='flag'>SMALL</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Over 48.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+52.2</td><td>+48.5</td><td>—</td><td>+49.7</td><td>-560</td><td>+49.5</td><td>+49.5</td><td>+51.0</td><td>+51.0</td><td><span class='edge positive strong'>+3.7</span></td><td>+11.6%</td><td>9.6%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 07:00 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-spread'><td class='cell-bet'>Colorado +4.0</td><td class='cell-game'>Arizona @ Colorado</td><td class='cell-market'>Spread</td><td>-0.6</td><td>+4.0</td><td>+5.0</td><td>—</td><td>-105</td><td>-5.5</td><td>-5.5</td><td>-4.5</td><td>-4.5</td><td><span class='edge positive strong'>+4.6</span></td><td>+8.8%</td><td>6.8%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 07:00 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Under 52.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+49.5</td><td>+52.5</td><td>—</td><td>+52.3</td><td>-105</td><td>+51.5</td><td>+51.5</td><td>+52.5</td><td>+52.5</td><td><span class='edge positive strong'>+3.0</span></td><td>+9.6%</td><td>7.5%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 07:00 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-spread'><td class='cell-bet'>Georgia Tech -4.5</td><td class='cell-game'>Georgia Tech @ NC State</td><td class='cell-market'>Spread</td><td>-5.6</td><td>-4.5</td><td>-6.1</td><td>—</td><td>+154</td><td>-6.5</td><td>-6.5</td><td>-6.5</td><td>-6.5</td><td><span class='edge positive medium'>+1.1</span></td><td>+2.1%</td><td>—</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 07:30 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Under 58.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+55.9</td><td>+58.5</td><td>—</td><td>+56.3</td><td>+154</td><td>+54.5</td><td>+54.5</td><td>+57.0</td><td>+57.0</td><td><span class='edge positive strong'>+2.6</span></td><td>+8.3%</td><td>6.2%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 07:30 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-spread'><td class='cell-bet'>Oklahoma +2.5</td><td class='cell-game'>Oklahoma @ Tennessee</td><td class='cell-market'>Spread</td><td>+1.0</td><td>+2.5</td><td>-2.9</td><td>—</td><td>-108</td><td>-3.5</td><td>-3.5</td><td>-3.5</td><td>-3.5</td><td><span class='edge positive strong'>+1.5</span></td><td>+2.9%</td><td>0.6%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 07:30 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Under 55.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+50.3</td><td>+55.5</td><td>—</td><td>+55.7</td><td>-108</td><td>+56.5</td><td>+56.5</td><td>+55.0</td><td>+55.0</td><td><span class='edge positive strong'>+5.2</span></td><td>+16.2%</td><td>14.5%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 07:30 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-spread'><td class='cell-bet'>Florida State -10.5</td><td class='cell-game'>Wake Forest @ Florida State</td><td class='cell-market'>Spread</td><td>-10.5</td><td>-10.5</td><td>+6.2</td><td>—</td><td>-227</td><td>-9.5</td><td>-9.5</td><td>-8.5</td><td>-8.5</td><td><span class='edge positive light'>+0.0</span></td><td>+0.0%</td><td>—</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 07:30 PM ET</td><td><span class='flag'>SMALL</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Over 51.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+51.5</td><td>+51.5</td><td>—</td><td>+52.1</td><td>-227</td><td>+53.5</td><td>+53.5</td><td>+52.0</td><td>+52.0</td><td><span class='edge positive light'>+0.0</span></td><td>+0.1%</td><td>—</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 07:30 PM ET</td><td><span class='flag'>SMALL</span></td></tr><tr class='row-spread'><td class='cell-bet'>Washington State -4.0</td><td class='cell-game'>Washington State @ Oregon State</td><td class='cell-market'>Spread</td><td>-5.7</td><td>-4.0</td><td>-3.5</td><td>—</td><td>+155</td><td>-2.5</td><td>-2.5</td><td>-3.5</td><td>-3.5</td><td><span class='edge positive strong'>+1.7</span></td><td>+3.3%</td><td>0.9%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>60°F · 11 mph wind</td><td>Sat 11/01 07:30 PM ET</td><td><span class='flag'>WX</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Over 47.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+48.6</td><td>+47.5</td><td>—</td><td>+49.3</td><td>+155</td><td>+49.5</td><td>+49.5</td><td>+49.0</td><td>+49.0</td><td><span class='edge positive medium'>+1.1</span></td><td>+3.5%</td><td>1.2%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>60°F · 11 mph wind</td><td>Sat 11/01 07:30 PM ET</td><td><span class='flag'>WX</span></td></tr><tr class='row-spread'><td class='cell-bet'>Auburn -10.5</td><td class='cell-game'>Kentucky @ Auburn</td><td class='cell-market'>Spread</td><td>-16.7</td><td>-10.5</td><td>+7.7</td><td>—</td><td>-376</td><td>-9.5</td><td>-9.5</td><td>-10.0</td><td>-10.0</td><td><span class='edge positive strong'>+6.2</span></td><td>+11.8%</td><td>9.9%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 07:30 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Over 44.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+47.9</td><td>+44.5</td><td>—</td><td>+46.9</td><td>-376</td><td>+46.5</td><td>+46.5</td><td>+47.5</td><td>+47.5</td><td><span class='edge positive strong'>+3.4</span></td><td>+10.6%</td><td>8.6%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 07:30 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-spread'><td class='cell-bet'>USC -4.5</td><td class='cell-game'>USC @ Nebraska</td><td class='cell-market'>Spread</td><td>-13.4</td><td>-4.5</td><td>-6.0</td><td>—</td><td>+287</td><td>-6.5</td><td>-6.5</td><td>-6.5</td><td>-6.5</td><td><span class='edge positive strong'>+8.9</span></td><td>+16.7%</td><td>15.0%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>47°F · 13 mph wind</td><td>Sat 11/01 07:30 PM ET</td><td><span class='flag'>WX</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Under 59.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+56.3</td><td>+59.5</td><td>—</td><td>+58.2</td><td>+287</td><td>+57.5</td><td>+57.5</td><td>+58.0</td><td>+58.0</td><td><span class='edge positive strong'>+3.2</span></td><td>+10.2%</td><td>8.2%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>47°F · 13 mph wind</td><td>Sat 11/01 07:30 PM ET</td><td><span class='flag'>WX</span></td></tr><tr class='row-spread'><td class='cell-bet'>Troy -8.5</td><td class='cell-game'>Arkansas State @ Troy</td><td class='cell-market'>Spread</td><td>-13.4</td><td>-8.5</td><td>+5.2</td><td>—</td><td>-286</td><td>-5.5</td><td>-5.5</td><td>-7.5</td><td>-7.5</td><td><span class='edge positive strong'>+4.9</span></td><td>+9.4%</td><td>7.3%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 08:00 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Under 52.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+51.6</td><td>+52.5</td><td>—</td><td>+54.4</td><td>-286</td><td>+55.5</td><td>+55.5</td><td>+54.5</td><td>+54.5</td><td><span class='edge positive light'>+0.9</span></td><td>+2.8%</td><td>0.4%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 08:00 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-spread'><td class='cell-bet'>Utah -10.5</td><td class='cell-game'>Cincinnati @ Utah</td><td class='cell-market'>Spread</td><td>-11.6</td><td>-10.5</td><td>+5.2</td><td>—</td><td>-248</td><td>-7.5</td><td>-7.5</td><td>-7.0</td><td>-7.0</td><td><span class='edge positive medium'>+1.1</span></td><td>+2.2%</td><td>—</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 10:15 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Under 56.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+54.9</td><td>+56.5</td><td>—</td><td>+56.1</td><td>-248</td><td>+57.5</td><td>+57.5</td><td>+55.5</td><td>+55.5</td><td><span class='edge positive strong'>+1.6</span></td><td>+5.2%</td><td>3.0%</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 10:15 PM ET</td><td><span class='flag muted'>—</span></td></tr><tr class='row-spread'><td class='cell-bet'>San José State -1.5</td><td class='cell-game'>Hawai'i @ San José State</td><td class='cell-market'>Spread</td><td>-3.1</td><td>-1.5</td><td>-1.5</td><td>—</td><td>-127</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive strong'>+1.6</span></td><td>+3.0%</td><td>0.7%</td><td><span class='chip'>1 book</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 10:30 PM ET</td><td><span class='flag'>STALE</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Under 55.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+52.4</td><td>+55.5</td><td>—</td><td>+55.5</td><td>-127</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive strong'>+3.1</span></td><td>+9.8%</td><td>7.8%</td><td><span class='chip'>1 book</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 10:30 PM ET</td><td><span class='flag'>STALE</span></td></tr><tr class='row-spread'><td class='cell-bet'>Duke +4.0</td><td class='cell-game'>Duke @ Clemson</td><td class='cell-market'>Spread</td><td>+3.6</td><td>+4.0</td><td>—</td><td>—</td><td>-132</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive light'>+0.4</span></td><td>+0.8%</td><td>—</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 12:00 PM ET</td><td><span class='flag'>SMALL</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Under 54.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+54.1</td><td>+54.5</td><td>—</td><td>—</td><td>-132</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive light'>+0.4</span></td><td>+1.4%</td><td>—</td><td><span class='chip'>5 books</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 12:00 PM ET</td><td><span class='flag'>SMALL</span></td></tr><tr class='row-spread'><td class='cell-bet'>SMU +8.5</td><td class='cell-game'>Miami @ SMU</td><td class='cell-market'>Spread</td><td>+2.7</td><td>+8.5</td><td>—</td><td>—</td><td>+123</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive strong'>+5.8</span></td><td>+11.1%</td><td>9.1%</td><td><span class='chip'>1 book</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 12:00 PM ET</td><td><span class='flag'>STALE</span></td></tr><tr class='row-total'><td class='cell-bet'><span class='total-label'>Under 50.5</span></td><td class='cell-game'></td><td class='cell-market'>Total</td><td>+48.7</td><td>+50.5</td><td>—</td><td>—</td><td>+123</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class='edge positive strong'>+1.8</span></td><td>+5.6%</td><td>3.4%</td><td><span class='chip'>1 book</span></td><td class='cell-primary'>DraftKings</td><td>—</td><td>Sat 11/01 12:00 PM ET</td><td><span class='flag'>STALE</span></td></tr>
+              </tbody>
+            </table>
+          </main>
+        </div>
+        <footer>Edge ≥ 1.0 pts (spread) or 1.5 pts (total) highlighted in the KPI strip. Kelly assumes -110 pricing and halves the optimal fraction.</footer>
       </body>
     </html>
     

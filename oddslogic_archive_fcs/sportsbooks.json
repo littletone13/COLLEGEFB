@@ -1,0 +1,488 @@
+{
+  "92": {
+    "sportsbook_id": 92,
+    "active": false,
+    "name": "4caster",
+    "abbr": "4caster",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "73": {
+    "sportsbook_id": 73,
+    "active": false,
+    "name": "Amapola",
+    "abbr": "Amapola",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "77": {
+    "sportsbook_id": 77,
+    "active": false,
+    "name": "Bet105",
+    "abbr": "Bet105",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "104": {
+    "sportsbook_id": 104,
+    "active": false,
+    "name": "BetAnything",
+    "abbr": "BetAnything",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "96": {
+    "sportsbook_id": 96,
+    "active": false,
+    "name": "BetLimon",
+    "abbr": "BetLimon",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "61": {
+    "sportsbook_id": 61,
+    "active": false,
+    "name": "BetMGM",
+    "abbr": "BetMGM",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "57": {
+    "sportsbook_id": 57,
+    "active": false,
+    "name": "BetOnline",
+    "abbr": "BetOnline",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "60": {
+    "sportsbook_id": 60,
+    "active": false,
+    "name": "BetRivers",
+    "abbr": "BetRivers",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "81": {
+    "sportsbook_id": 81,
+    "active": false,
+    "name": "BetSTS",
+    "abbr": "BetSTS",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "105": {
+    "sportsbook_id": 105,
+    "active": false,
+    "name": "BettorsDen",
+    "abbr": "BettorsDen",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "59": {
+    "sportsbook_id": 59,
+    "active": false,
+    "name": "BetUS",
+    "abbr": "BetUS",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "85": {
+    "sportsbook_id": 85,
+    "active": false,
+    "name": "BetWar",
+    "abbr": "BetWar",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "65": {
+    "sportsbook_id": 65,
+    "active": false,
+    "name": "BOOKIE.ag",
+    "abbr": "BOOKIE.ag",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "18": {
+    "sportsbook_id": 18,
+    "active": false,
+    "name": "Bovada",
+    "abbr": "Bovada",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "121": {
+    "sportsbook_id": 121,
+    "active": false,
+    "name": "Bracco",
+    "abbr": "Bracco",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "44": {
+    "sportsbook_id": 44,
+    "active": false,
+    "name": "Buckeye",
+    "abbr": "Buckeye",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "56": {
+    "sportsbook_id": 56,
+    "active": false,
+    "name": "Caesars",
+    "abbr": "Caesars",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "9": {
+    "sportsbook_id": 9,
+    "active": false,
+    "name": "Circa",
+    "abbr": "Circa",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "31": {
+    "sportsbook_id": 31,
+    "active": false,
+    "name": "Draft Kings",
+    "abbr": "Draft Kings",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "64": {
+    "sportsbook_id": 64,
+    "active": false,
+    "name": "ESPNBet",
+    "abbr": "ESPNBet",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "71": {
+    "sportsbook_id": 71,
+    "active": false,
+    "name": "EZStreet",
+    "abbr": "EZStreet",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "63": {
+    "sportsbook_id": 63,
+    "active": false,
+    "name": "Fanatics",
+    "abbr": "Fanatics",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "54": {
+    "sportsbook_id": 54,
+    "active": false,
+    "name": "Fanduel",
+    "abbr": "Fanduel",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "101": {
+    "sportsbook_id": 101,
+    "active": false,
+    "name": "HardRock",
+    "abbr": "HardRock",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "41": {
+    "sportsbook_id": 41,
+    "active": false,
+    "name": "Heritage",
+    "abbr": "Heritage",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "20": {
+    "sportsbook_id": 20,
+    "active": false,
+    "name": "HeritageLP",
+    "abbr": "HeritageLP",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "94": {
+    "sportsbook_id": 94,
+    "active": false,
+    "name": "Horizon",
+    "abbr": "Horizon",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "98": {
+    "sportsbook_id": 98,
+    "active": false,
+    "name": "IAS",
+    "abbr": "IAS",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "53": {
+    "sportsbook_id": 53,
+    "active": false,
+    "name": "ISI Sports",
+    "abbr": "ISI Sports",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "42": {
+    "sportsbook_id": 42,
+    "active": false,
+    "name": "Jazz",
+    "abbr": "Jazz",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "87": {
+    "sportsbook_id": 87,
+    "active": false,
+    "name": "JConsensus",
+    "abbr": "JConsensus",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "119": {
+    "sportsbook_id": 119,
+    "active": false,
+    "name": "JConsensusAvg1",
+    "abbr": "JConsensusAvg1",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "120": {
+    "sportsbook_id": 120,
+    "active": false,
+    "name": "JConsensusAvg2",
+    "abbr": "JConsensusAvg2",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "22": {
+    "sportsbook_id": 22,
+    "active": false,
+    "name": "KiblTest4",
+    "abbr": "KiblTest4",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "83": {
+    "sportsbook_id": 83,
+    "active": false,
+    "name": "LowVig",
+    "abbr": "LowVig",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "78": {
+    "sportsbook_id": 78,
+    "active": false,
+    "name": "LP PH",
+    "abbr": "LP PH",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "26": {
+    "sportsbook_id": 26,
+    "active": false,
+    "name": "Money",
+    "abbr": "Money",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "103": {
+    "sportsbook_id": 103,
+    "active": false,
+    "name": "NoLimit",
+    "abbr": "NoLimit",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "100": {
+    "sportsbook_id": 100,
+    "active": false,
+    "name": "Novig",
+    "abbr": "Novig",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "28": {
+    "sportsbook_id": 28,
+    "active": false,
+    "name": "Open",
+    "abbr": "Open",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "75": {
+    "sportsbook_id": 75,
+    "active": false,
+    "name": "ParadiseWager",
+    "abbr": "ParadiseWager",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "82": {
+    "sportsbook_id": 82,
+    "active": false,
+    "name": "PerHead",
+    "abbr": "PerHead",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "47": {
+    "sportsbook_id": 47,
+    "active": false,
+    "name": "Pinnacle",
+    "abbr": "Pinnacle",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "102": {
+    "sportsbook_id": 102,
+    "active": false,
+    "name": "ProphetX",
+    "abbr": "ProphetX",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "99": {
+    "sportsbook_id": 99,
+    "active": false,
+    "name": "Sharp",
+    "abbr": "Sharp",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "13": {
+    "sportsbook_id": 13,
+    "active": false,
+    "name": "South Point",
+    "abbr": "South Point",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "32": {
+    "sportsbook_id": 32,
+    "active": false,
+    "name": "Sports411",
+    "abbr": "Sports411",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "45": {
+    "sportsbook_id": 45,
+    "active": false,
+    "name": "Superbook",
+    "abbr": "Superbook",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "25": {
+    "sportsbook_id": 25,
+    "active": false,
+    "name": "Tickets",
+    "abbr": "Tickets",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "93": {
+    "sportsbook_id": 93,
+    "active": false,
+    "name": "UCA",
+    "abbr": "UCA",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "97": {
+    "sportsbook_id": 97,
+    "active": false,
+    "name": "VSO247",
+    "abbr": "VSO247",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "122": {
+    "sportsbook_id": 122,
+    "active": false,
+    "name": "Bet365",
+    "abbr": "Bet365",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "76": {
+    "sportsbook_id": 76,
+    "active": false,
+    "name": "WPH",
+    "abbr": "WPH",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  },
+  "84": {
+    "sportsbook_id": 84,
+    "active": false,
+    "name": "YouWager",
+    "abbr": "YouWager",
+    "restricted": false,
+    "url": null,
+    "score_in_line_column": false
+  }
+}

@@ -37,14 +37,13 @@
   .chip{background:var(--chip); border:1px solid #1c2a38; color:var(--muted); padding:6px 10px; border-radius:999px; cursor:pointer; font-size:12px}
   .chip.active{background:#173149; color:#d6efff; border-color:#244966}
   main{max-width:1300px; margin:var(--main-top) auto 40px; padding:0 16px}
-  .tablewrap{background:var(--panel); border:1px solid #1b2734; border-radius:16px; overflow:hidden; margin-top:8px}
+  .tablewrap{background:var(--panel); border:1px solid #1b2734; border-radius:16px; overflow-x:auto; overflow-y:hidden; margin-top:8px}
   table{width:100%; border-collapse:collapse; font-size:14px}
-  thead th{position:sticky; top:var(--sticky-offset); background:var(--panel); border-bottom:1px solid #1b2734; padding:10px 8px; text-align:left; color:#cfe2f3; font-weight:600; z-index:6}
+  thead th{position:sticky; top:0; background:var(--panel); border-bottom:1px solid #1b2734; padding:10px 8px; text-align:left; color:#cfe2f3; font-weight:600; z-index:6}
   tbody td{padding:10px 8px; border-bottom:1px solid #13202c; vertical-align:middle}
   tbody tr:nth-child(odd){background:var(--table-stripe)}
   .num{font-feature-settings:"tnum" 1; font-variant-numeric:tabular-nums; text-align:right}
   .pill{padding:2px 6px; border-radius:999px; border:1px solid #1c2a38; background:#122030; font-size:12px; color:#cce7ff}
-  .spark{width:90px; height:26px}
   .good{color:var(--positive); font-weight:600}
   .danger{color:var(--negative); font-weight:600}
   .neutral{color:var(--muted)}
@@ -55,6 +54,8 @@
   .tagbtn{margin-right:4px; padding:2px 8px; border-radius:999px; border:1px solid #2b3c4b; background:#17232f; color:#a9bed2; font-size:12px; cursor:pointer}
   .tagbtn.active{background:#234058; color:#e6f3ff; border-color:#38668b}
   .oddswrap{display:flex; gap:6px; justify-content:flex-end; align-items:center}
+  .linewrap{display:flex; justify-content:flex-end; align-items:center}
+  .linewrap input{width:80px}
   .oddswrap input{width:88px}
   .foot{display:flex; gap:12px; align-items:center; justify-content:space-between; color:var(--muted); padding:12px 0}
   button{background:#19354e; color:#dff2ff; border:1px solid #2b5575; padding:10px 14px; border-radius:10px; cursor:pointer; font-size:13px}
@@ -64,7 +65,6 @@
   textarea{width:100%; min-height:120px; background:var(--panel-2); border:1px dashed #244966; border-radius:10px; color:var(--text); padding:8px 10px; margin-top:10px; font-size:12px}
   @media (max-width:960px){
     .controls{grid-template-columns:1fr 1fr;}
-    thead th{top:202px;}
   }
 </style>
 </head>
@@ -94,7 +94,7 @@
         <label>Bankroll / Kelly / Stake Cap</label>
         <div style="display:flex; gap:8px; align-items:center;">
           <input id="bankroll" type="number" min="0" step="10" placeholder="Bankroll">
-          <input id="kellyFrac" type="number" min="0" max="1" step="0.05" placeholder="Kelly%">
+          <input id="kellyFrac" type="number" min="0" max="1" step="0.05" value="0.25" placeholder="Kelly%">
           <input id="capFrac" type="number" min="0" max="1" step="0.01" placeholder="Stake cap">
         </div>
       </div>
@@ -115,12 +115,11 @@
           <th class="num">Line</th>
           <th class="num">Mean</th>
           <th class="num">Median</th>
-          <th class="num">P10–P90</th>
-          <th class="num">P(Over)</th>
-          <th class="num">Fair Over</th>
-          <th class="num">Offered (Dec)</th>
-          <th class="num">Offered (Amer)</th>
-          <th>Spark</th>
+          <th class="num">10th–90th</th>
+          <th class="num">P(side)</th>
+          <th class="num">Fair Price</th>
+          <th class="num">Offer Dec</th>
+          <th class="num">Offer Amer</th>
           <th class="num">Edge</th>
           <th class="num">Kelly</th>
           <th class="num">Stake</th>
@@ -149,7 +148,8 @@ const DATA = __DATA__;
 const META = __META__;
 
 const fmtPct = v => (v*100).toFixed(1) + "%";
-const fmtDec = v => v == null ? "" : (Math.round(parseFloat(v)*100)/100).toFixed(2);
+const fmtDec = v => v == null || isNaN(v) ? "" : (Math.round(parseFloat(v)*100)/100).toFixed(2);
+const fmtInput = v => v == null || isNaN(v) ? "" : Number(v).toFixed(2);
 const toAmerican = d => {
   const b = d - 1;
   if (d >= 2.0) return Math.round(b*100);
@@ -163,26 +163,45 @@ const kelly = (p, d) => {
   return Math.max(0, f);
 };
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+const clampProb = v => clamp(v, 1e-6, 1-1e-6);
 
-function sparkline(canvas, samples){
-  const ctx = canvas.getContext("2d");
-  const w = canvas.width, h = canvas.height;
-  ctx.clearRect(0,0,w,h);
-  if (!samples || samples.length === 0) return;
-  const n = samples.length;
-  const min = Math.min(...samples);
-  const max = Math.max(...samples);
-  const dx = n > 1 ? w/(n-1) : 0;
-  ctx.beginPath();
-  for(let i=0;i<n;i++){
-    const x = i*dx;
-    const y = h - ((samples[i]-min)/(max-min+1e-6))*h;
-    if(i===0) ctx.moveTo(x,y);
-    else ctx.lineTo(x,y);
+const erf = (x) => {
+  const sign = x < 0 ? -1 : 1;
+  x = Math.abs(x);
+  const a1 = 0.254829592;
+  const a2 = -0.284496736;
+  const a3 = 1.421413741;
+  const a4 = -1.453152027;
+  const a5 = 1.061405429;
+  const p = 0.3275911;
+  const t = 1 / (1 + p * x);
+  const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+  return sign * y;
+};
+
+const normalCdf = (x) => 0.5 * (1 + erf(x / Math.SQRT2));
+
+const toNumericSamples = (arr) => {
+  if (!Array.isArray(arr)) return [];
+  return arr.map(Number).filter(Number.isFinite);
+};
+
+function computeOverProb(row){
+  const rawLine = row.line;
+  const line = (rawLine === "" || rawLine === null || rawLine === undefined) ? NaN : Number(rawLine);
+  const samples = toNumericSamples(row.samples);
+  if (Number.isFinite(line) && samples.length > 0){
+    const overCount = samples.reduce((acc, val) => acc + (val > line ? 1 : 0), 0);
+    return clampProb(overCount / samples.length);
   }
-  ctx.strokeStyle = "#5cc8ff";
-  ctx.lineWidth = 1.25;
-  ctx.stroke();
+  if (Number.isFinite(line) && Number.isFinite(row.mean) && Number.isFinite(row.stdev) && row.stdev > 0){
+    const z = (line - row.mean) / row.stdev;
+    return clampProb(1 - normalCdf(z));
+  }
+  if (Number.isFinite(row.p_over)){
+    return clampProb(row.p_over);
+  }
+  return 0.5;
 }
 
 let DATA_STATE = [];
@@ -190,16 +209,20 @@ let FILTERS = { market:"All", pos:"All", q:"" };
 
 function fairAndProb(row){
   const side = row.side || "Over";
-  const p = side === "Over" ? row.p_over : (1 - row.p_over);
-  const fairDec = row.fairDec != null ? row.fairDec : 1 / clamp(p, 1e-6, 1-1e-6);
-  return {p, fairDec};
+  const pOver = computeOverProb(row);
+  const p = side === "Over" ? pOver : 1 - pOver;
+  const fairDec = 1 / clampProb(p);
+  row.p_over = pOver;
+  row.fairDec = fairDec;
+  row.fairAmer = toAmerican(fairDec);
+  return {p, fairDec, pOver};
 }
 
 function render(){
   const tbody = document.querySelector("#propTable tbody");
   tbody.innerHTML = "";
   const bankroll = +document.getElementById("bankroll").value || 100;
-  const kFrac = +document.getElementById("kellyFrac").value || 0.5;
+  const kFrac = +document.getElementById("kellyFrac").value || 0.25;
   const capFrac = +document.getElementById("capFrac").value || 0.05;
 
   const rows = DATA_STATE.filter(r => {
@@ -238,7 +261,7 @@ function render(){
       <td>${r.team}</td>
       <td>${r.opp}</td>
       <td>${r.market}</td>
-      <td class="num">${fmtDec(r.line)}</td>
+      <td class="num"><div class="linewrap"><input type="number" step="0.1" value="${fmtInput(r.line)}" data-row="${idx}" class="lineInput" title="Custom line"></div></td>
       <td class="num">${fmtDec(r.mean)}</td>
       <td class="num">${fmtDec(r.median)}</td>
       <td class="num">${fmtDec(r.p10 ?? r.p05)}–${fmtDec(r.p90 ?? r.p95)}</td>
@@ -246,7 +269,6 @@ function render(){
       <td class="num">${fmtDec(fairDec)} <span class="muted">(${toAmerican(fairDec)})</span></td>
       <td class="num"><div class="oddswrap"><input type="text" value="${fmtDec(offeredDec)}" data-row="${idx}" class="offeredDec" title="Decimal odds"></div></td>
       <td class="num"><div class="oddswrap"><input type="text" value="${amerVal}" data-row="${idx}" class="offeredAmer" title="American odds"></div></td>
-      <td><canvas class="spark" id="spark_${idx}" width="90" height="26"></canvas></td>
       <td class="num ${edge>0 ? 'good' : (edge<0 ? 'danger' : 'neutral')}">${(edge*100).toFixed(1)}%</td>
       <td class="num">${fmtPct(k)}</td>
       <td class="num">${stake.toFixed(2)}</td>
@@ -258,7 +280,6 @@ function render(){
       <td><input type="text" class="notes" data-row="${idx}" value="${r.notes ?? ''}" placeholder="notes…"></td>
     `;
     tbody.appendChild(tr);
-    if (r.samples && r.samples.length) sparkline(tr.querySelector("canvas"), r.samples.slice(0,64));
   });
 
   document.querySelectorAll(".sidechip").forEach(ch => ch.onclick = (e) => {
@@ -290,6 +311,15 @@ function render(){
       } else {
         DATA_STATE[idx].offeredAmer = null;
       }
+      render();
+    });
+  });
+
+  document.querySelectorAll(".lineInput").forEach(inp => {
+    inp.addEventListener("input", e => {
+      const idx = +e.target.getAttribute("data-row");
+      const val = parseFloat(e.target.value);
+      DATA_STATE[idx].line = isNaN(val) ? null : val;
       render();
     });
   });
@@ -401,7 +431,7 @@ document.addEventListener("DOMContentLoaded", function init(){
   window.addEventListener("resize", updateStickyOffset);
 
   const bankrollDefault = (META && META.bankroll_default != null) ? META.bankroll_default : 100;
-  const kellyDefault = (META && META.kelly_default != null) ? META.kelly_default : 0.5;
+  const kellyDefault = (META && META.kelly_default != null) ? META.kelly_default : 0.25;
   const capDefault = (META && META.cap_default != null) ? META.cap_default : 0.05;
   const bankrollEl = document.getElementById("bankroll");
   const kellyEl = document.getElementById("kellyFrac");

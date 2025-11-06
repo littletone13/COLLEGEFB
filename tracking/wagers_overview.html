@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Wager Tracking Overview</title>
+    <style>
+      body {
+        font-family: 'Inter', 'Segoe UI', sans-serif;
+        background: #f5f7fb;
+        color: #1f2630;
+        margin: 0;
+      }
+      header {
+        padding: 24px 32px;
+        background: #ffffff;
+        border-bottom: 1px solid #dfe3eb;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      header h1 {
+        margin: 0;
+        font-size: 28px;
+      }
+      header .meta {
+        color: #687385;
+        font-size: 13px;
+      }
+      main {
+        padding: 24px 32px 64px;
+        display: flex;
+        flex-direction: column;
+        gap: 32px;
+      }
+      .kpi-grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      }
+      .kpi-card {
+        background: #ffffff;
+        border-radius: 12px;
+        border: 1px solid #dfe3eb;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .kpi-label {
+        font-size: 12px;
+        text-transform: uppercase;
+        color: #687385;
+        letter-spacing: 0.08em;
+      }
+      .kpi-value {
+        font-size: 20px;
+        font-weight: 600;
+      }
+      .summary-table, .detail-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #ffffff;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid #dfe3eb;
+      }
+      .summary-table th, .summary-table td,
+      .detail-table th, .detail-table td {
+        padding: 10px 12px;
+        text-align: left;
+        border-bottom: 1px solid rgba(223,227,235,0.6);
+        font-size: 13px;
+      }
+      .summary-table th, .detail-table th {
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #687385;
+        background: #f9fbff;
+        font-size: 12px;
+      }
+      .detail-table tbody tr:nth-child(odd) {
+        background: rgba(3, 131, 90, 0.04);
+      }
+      footer {
+        padding: 12px 32px 32px;
+        color: #687385;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Wager Tracking Overview</h1>
+      <div class="meta">Updated: 2025-11-01T16:58:55.534603+00:00</div>
+    </header>
+    <main>
+      <section>
+        <div class="kpi-grid">
+          <div class='kpi-card'><span class='kpi-label'>Total Bets</span><span class='kpi-value'>35</span></div><div class='kpi-card'><span class='kpi-label'>Completed</span><span class='kpi-value'>17</span></div><div class='kpi-card'><span class='kpi-label'>Wins / Losses / Pushes</span><span class='kpi-value'>13 / 4 / 0</span></div><div class='kpi-card'><span class='kpi-label'>Stake (All)</span><span class='kpi-value'>$393.95</span></div><div class='kpi-card'><span class='kpi-label'>Net Profit</span><span class='kpi-value'>$182.15</span></div><div class='kpi-card'><span class='kpi-label'>ROI (Completed)</span><span class='kpi-value'>+46.2%</span></div><div class='kpi-card'><span class='kpi-label'>Pending Bets</span><span class='kpi-value'>18</span></div><div class='kpi-card'><span class='kpi-label'>Pending To Win</span><span class='kpi-value'>$238.96</span></div><div class='kpi-card'><span class='kpi-label'>Avg CLV (pts)</span><span class='kpi-value'>+2.70</span></div>
+        </div>
+      </section>
+      <section>
+        <h2>Segment Summary</h2>
+        <table class='summary-table'><thead><tr><th>Segment</th><th>Total</th><th>Completed</th><th>Wins</th><th>Losses</th><th>Pushes</th><th>Pending</th><th>Stake</th><th>Net</th><th>ROI</th><th>Avg CLV pts</th><th>Avg CLV price</th></tr></thead><tbody><tr><td>All Bets</td><td>35</td><td>17</td><td>13</td><td>4</td><td>0</td><td>18</td><td>$393.95</td><td>$182.15</td><td>+46.2%</td><td>+2.7</td><td>-21.7</td></tr><tr><td>Moneylines</td><td>4</td><td>2</td><td>1</td><td>1</td><td>0</td><td>2</td><td>$25.75</td><td>$5.00</td><td>+19.4%</td><td>—</td><td>—</td></tr><tr><td>Spreads</td><td>26</td><td>10</td><td>8</td><td>2</td><td>0</td><td>16</td><td>$262.70</td><td>$125.66</td><td>+47.8%</td><td>+4.2</td><td>-21.7</td></tr><tr><td>Totals</td><td>5</td><td>5</td><td>4</td><td>1</td><td>0</td><td>0</td><td>$105.50</td><td>$51.49</td><td>+48.8%</td><td>-0.1</td><td>—</td></tr></tbody></table>
+      </section>
+      <section>
+        <h2>Recent Wagers</h2>
+        <table class='detail-table'><thead><tr><th>Date</th><th>Book</th><th>Matchup</th><th>Selection</th><th>Market</th><th>Line</th><th>Price</th><th>Closing Line</th><th>Closing Price</th><th>CLV (pts)</th><th>CLV (price)</th><th>Closing Book</th><th>Stake</th><th>To Win</th><th>Net</th><th>ROI</th><th>Status</th></tr></thead><tbody><tr><td>2025-10-31</td><td>betonline</td><td>Syracuse</td><td>Syracuse</td><td>moneyline</td><td>—</td><td>-130.0</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>$15.00</td><td>$11.54</td><td>$-15.00</td><td>-100.0%</td><td>Loss</td></tr><tr><td>2025-10-31</td><td>betonline</td><td>Northern Arizona</td><td>Northern Arizona</td><td>spread</td><td>-4.5</td><td>-115.0</td><td>-5.0</td><td>-129.0</td><td>+0.5</td><td>+14.0</td><td>SharpConsensus</td><td>$23.00</td><td>$20.00</td><td>$-23.00</td><td>-100.0%</td><td>Loss</td></tr><tr><td>2025-10-31</td><td>betonline</td><td>Memphis</td><td>Memphis</td><td>spread</td><td>-13.5</td><td>-110.0</td><td>-14.0</td><td>-110.8</td><td>+0.5</td><td>+0.8</td><td>SharpConsensus</td><td>$27.50</td><td>$25.00</td><td>$25.00</td><td>+90.9%</td><td>Won</td></tr><tr><td>2025-10-31</td><td>betonline</td><td>Louisiana Tech</td><td>Louisiana Tech</td><td>spread</td><td>-17.0</td><td>-106.0</td><td>-4.1</td><td>-109.5</td><td>-12.9</td><td>+3.5</td><td>SharpConsensus</td><td>$31.80</td><td>$30.00</td><td>$30.00</td><td>+94.3%</td><td>Won</td></tr><tr><td>2025-10-31</td><td>betonline</td><td>Louisiana Tech buying -.</td><td>Louisiana Tech buying -.</td><td>spread</td><td>-16.5</td><td>-116.0</td><td>-4.1</td><td>-109.5</td><td>-12.4</td><td>-6.5</td><td>SharpConsensus</td><td>$23.20</td><td>$20.00</td><td>$20.00</td><td>+86.2%</td><td>Won</td></tr><tr><td>2025-10-31</td><td>betonline</td><td>Brown</td><td>Brown</td><td>spread</td><td>+12.5</td><td>-115.0</td><td>-11.8</td><td>+6.5</td><td>+24.2</td><td>-121.5</td><td>SharpConsensus</td><td>$23.00</td><td>$20.00</td><td>$20.00</td><td>+87.0%</td><td>Won</td></tr><tr><td>2025-10-30</td><td>betonline</td><td>Marshall/Coastal Carolina under</td><td>Under</td><td>total</td><td>+55.0</td><td>-115.0</td><td>+55.0</td><td>—</td><td>+0.0</td><td>—</td><td>SharpConsensus</td><td>$23.00</td><td>—</td><td>$-23.00</td><td>-100.0%</td><td>Lost</td></tr><tr><td>2025-10-30</td><td>betonline</td><td>Norfolk St/Delaware St under</td><td>Under</td><td>total</td><td>+56.5</td><td>+104.0</td><td>+57.5</td><td>—</td><td>-1.0</td><td>—</td><td>SharpConsensus</td><td>$10.00</td><td>$10.40</td><td>$10.40</td><td>+104.0%</td><td>Won</td></tr><tr><td>2025-10-30</td><td>betonline</td><td>Tulane/UTSA over</td><td>Over</td><td>total</td><td>+53.5</td><td>-115.0</td><td>+55.0</td><td>—</td><td>+1.5</td><td>—</td><td>SharpConsensus</td><td>$23.00</td><td>$20.00</td><td>$20.00</td><td>+87.0%</td><td>Won</td></tr><tr><td>2025-10-30</td><td>betonline</td><td>Baltimore Ravens</td><td>Baltimore Ravens</td><td>spread</td><td>-4.0</td><td>-117.0</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>$32.70</td><td>$27.95</td><td>$27.95</td><td>+85.5%</td><td>Won</td></tr><tr><td>2025-10-30</td><td>betonline</td><td>UTSA</td><td>UTSA</td><td>moneyline</td><td>—</td><td>+186.0</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>$10.75</td><td>$20.00</td><td>$20.00</td><td>+186.0%</td><td>Won</td></tr><tr><td>2025-10-30</td><td>betonline</td><td>Norfolk St</td><td>Norfolk St</td><td>spread</td><td>+17.5</td><td>-130.0</td><td>-17.5</td><td>-102.0</td><td>+35.0</td><td>-28.0</td><td>SharpConsensus</td><td>$19.00</td><td>$14.62</td><td>$14.62</td><td>+76.9%</td><td>Won</td></tr><tr><td>2025-10-29</td><td>betonline</td><td>Missouri St</td><td>Missouri St</td><td>spread</td><td>-3.0</td><td>-115.0</td><td>-3.4</td><td>-110.8</td><td>+0.4</td><td>-4.2</td><td>SharpConsensus</td><td>$23.00</td><td>$20.00</td><td>$20.00</td><td>+87.0%</td><td>Won</td></tr><tr><td>2025-10-29</td><td>betonline</td><td>Florida International/Missouri St under</td><td>Under</td><td>total</td><td>+50.5</td><td>-115.0</td><td>+51.2</td><td>—</td><td>-0.8</td><td>—</td><td>SharpConsensus</td><td>$23.00</td><td>$20.00</td><td>$20.00</td><td>+87.0%</td><td>Won</td></tr><tr><td>2025-10-28</td><td>betonline</td><td>Jacksonville State</td><td>Jacksonville State</td><td>spread</td><td>-4.5</td><td>-110.0</td><td>-5.6</td><td>-56.5</td><td>+1.1</td><td>-53.5</td><td>SharpConsensus</td><td>$33.00</td><td>—</td><td>$-33.00</td><td>-100.0%</td><td>Lost</td></tr><tr><td>2025-10-28</td><td>betonline</td><td>Kennesaw State</td><td>Kennesaw State</td><td>spread</td><td>-10.0</td><td>-110.0</td><td>-11.5</td><td>-110.0</td><td>+1.5</td><td>+0.0</td><td>SharpConsensus</td><td>$26.50</td><td>$24.09</td><td>$24.09</td><td>+90.9%</td><td>Won</td></tr><tr><td>2025-10-28</td><td>betonline</td><td>James Madison/Texas State over</td><td>Over</td><td>total</td><td>+55.5</td><td>-110.0</td><td>+55.5</td><td>—</td><td>+0.0</td><td>—</td><td>SharpConsensus</td><td>$26.50</td><td>$24.09</td><td>$24.09</td><td>+90.9%</td><td>Won</td></tr><tr><td>NaT</td><td>week10_fliff_betonline_combined</td><td>Maryland +21.5 vs Indiana</td><td>Maryland +21.5 vs Indiana</td><td>spread</td><td>+21.5</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>$20.00</td><td>—</td><td>—</td><td>Pending</td></tr><tr><td>NaT</td><td>week10_fliff_betonline_combined</td><td>Columbia Lions</td><td>Columbia Lions</td><td>spread</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>$23.86</td><td>—</td><td>—</td><td>Pending</td></tr><tr><td>NaT</td><td>week10_fliff_betonline_combined</td><td>Holy Cross Crusaders</td><td>Holy Cross Crusaders</td><td>spread</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>$20.25</td><td>—</td><td>—</td><td>Pending</td></tr><tr><td>NaT</td><td>week10_fliff_betonline_combined</td><td>Morehead State -12.5</td><td>Morehead State -12.5</td><td>spread</td><td>-12.5</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>$10.00</td><td>—</td><td>—</td><td>Pending</td></tr><tr><td>NaT</td><td>week10_fliff_betonline_combined</td><td>UConn -12.5</td><td>UConn -12.5</td><td>spread</td><td>-12.5</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>$30.00</td><td>—</td><td>—</td><td>Pending</td></tr><tr><td>NaT</td><td>week10_fliff_betonline_combined</td><td>Navy +6.5</td><td>Navy +6.5</td><td>spread</td><td>+6.5</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>$15.45</td><td>—</td><td>—</td><td>Pending</td></tr><tr><td>NaT</td><td>week10_fliff_betonline_combined</td><td>Mississippi -470 / Virginia -230 / San Diego State -415</td><td>Mississippi -470 / Virginia -230 / San Diego State -415</td><td>moneyline</td><td>—</td><td>-470.0</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>$4.90</td><td>—</td><td>—</td><td>Pending</td></tr><tr><td>NaT</td><td>week10_fliff_betonline_combined</td><td>Navy/North Texas over 34.5 1H</td><td>Navy/North Texas over 34.5 1H</td><td>spread</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>$-1.57</td><td>—</td><td>—</td><td>Pending</td></tr><tr><td>NaT</td><td>week10_fliff_betonline_combined</td><td>Ohio State -10 1H vs Penn State</td><td>Ohio State -10 1H vs Penn State</td><td>spread</td><td>-10.0</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>$-3.41</td><td>—</td><td>—</td><td>Pending</td></tr><tr><td>NaT</td><td>week10_fliff_betonline_combined</td><td>Columbia Lions</td><td>Columbia Lions</td><td>spread</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>$23.86</td><td>—</td><td>—</td><td>Pending</td></tr><tr><td>NaT</td><td>week10_fliff_betonline_combined</td><td>Holy Cross Crusaders</td><td>Holy Cross Crusaders</td><td>spread</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>$20.25</td><td>—</td><td>—</td><td>Pending</td></tr><tr><td>NaT</td><td>week10_fliff_betonline_combined</td><td>Morehead State -12.5</td><td>Morehead State -12.5</td><td>spread</td><td>-12.5</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>$10.00</td><td>—</td><td>—</td><td>Pending</td></tr><tr><td>NaT</td><td>week10_fliff_betonline_combined</td><td>UConn -12.5</td><td>UConn -12.5</td><td>spread</td><td>-12.5</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>$30.00</td><td>—</td><td>—</td><td>Pending</td></tr><tr><td>NaT</td><td>week10_fliff_betonline_combined</td><td>Navy +6.5</td><td>Navy +6.5</td><td>spread</td><td>+6.5</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>$15.45</td><td>—</td><td>—</td><td>Pending</td></tr><tr><td>NaT</td><td>week10_fliff_betonline_combined</td><td>Mississippi -470 / Virginia -230 / San Diego State -415</td><td>Mississippi -470 / Virginia -230 / San Diego State -415</td><td>moneyline</td><td>—</td><td>-470.0</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>$4.90</td><td>—</td><td>—</td><td>Pending</td></tr><tr><td>NaT</td><td>week10_fliff_betonline_combined</td><td>Navy/North Texas over 34.5 1H</td><td>Navy/North Texas over 34.5 1H</td><td>spread</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>$-1.57</td><td>—</td><td>—</td><td>Pending</td></tr><tr><td>NaT</td><td>week10_fliff_betonline_combined</td><td>Ohio State -10 1H vs Penn State</td><td>Ohio State -10 1H vs Penn State</td><td>spread</td><td>-10.0</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>$-3.41</td><td>—</td><td>—</td><td>Pending</td></tr><tr><td>NaT</td><td>week10_fliff_betonline_combined</td><td>Maryland +21.5 vs Indiana</td><td>Maryland +21.5 vs Indiana</td><td>spread</td><td>+21.5</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>$20.00</td><td>—</td><td>—</td><td>Pending</td></tr></tbody></table>
+      </section>
+    </main>
+    <footer>Tracked wagers sourced from sportsbook exports; CLV fields populate when closing lines are provided.</footer>
+  </body>
+</html>

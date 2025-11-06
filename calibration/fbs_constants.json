@@ -1,0 +1,18 @@
+{
+  "rating_constants": {
+    "avg_total": 53.51092282856989,
+    "home_field_advantage": 3.406640164031552,
+    "offense_factor": 6.217080955644807,
+    "defense_factor": 5.008806462723012,
+    "power_factor": 2.1034725772661322
+  },
+  "weather_coeffs": {
+    "wind_high": -0.346216,
+    "cold": -0.054606,
+    "heat": -0.17303,
+    "rain": 0.0,
+    "snow": -0.05,
+    "humid": -0.196032,
+    "dewpos": -0.055398
+  }
+}

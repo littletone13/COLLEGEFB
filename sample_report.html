@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Player Prop Edges – Report</title>
+<style>
+  :root { --bg:#0b0d10; --fg:#e8ecf1; --muted:#9aa5b1; --card:#14181d; --ok:#1e9e63; --warn:#c48f00; --bad:#b43f3f; --accent:#4ea1ff; --row:#11151a; --rowAlt:#0e1216; --chip:#263041; }
+  @media (prefers-color-scheme: light){ :root { --bg:#ffffff; --fg:#0c1a24; --muted:#52606d; --card:#f6f8fa; --row:#ffffff; --rowAlt:#f9fbfd; --chip:#e9f2ff; } }
+  body{ margin:0; background:var(--bg); color:var(--fg); font:14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+  header{ position:sticky; top:0; z-index:10; backdrop-filter:saturate(160%) blur(6px); background:color-mix(in oklab, var(--bg) 86%, transparent); border-bottom:1px solid color-mix(in oklab, var(--fg) 8%, transparent); }
+  .wrap{ max-width:1200px; margin:0 auto; padding:16px; }
+  h1{ margin:0 0 6px 0; font-size:20px; }
+  .sub{ color:var(--muted); font-size:12px; }
+  .controls{ display:grid; grid-template-columns: 1fr 1fr 1fr auto auto; gap:8px; margin-top:8px; }
+  input, select, button{ background:var(--card); color:var(--fg); border:1px solid color-mix(in oklab, var(--fg) 15%, transparent); border-radius:10px; padding:8px 10px; }
+  button{ cursor:pointer; }
+  .table{ margin-top:14px; border:1px solid color-mix(in oklab, var(--fg) 12%, transparent); border-radius:12px; overflow:hidden; }
+  table{ width:100%; border-collapse:separate; border-spacing:0; }
+  th, td{ padding:10px 12px; }
+  th{ position:sticky; top:66px; background:var(--card); text-align:left; font-weight:600; font-size:12px; color:var(--muted); cursor:pointer; }
+  tr:nth-child(even){ background:var(--rowAlt); }
+  tr:nth-child(odd){ background:var(--row); }
+  .badge{ display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; background:var(--chip); }
+  .evpos{ color:var(--ok); font-variant-numeric:tabular-nums; }
+  .evneg{ color:var(--bad); font-variant-numeric:tabular-nums; }
+  .bar{ height:8px; border-radius:6px; background:color-mix(in oklab, var(--fg) 12%, transparent); overflow:hidden; }
+  .bar > i{ display:block; height:100%; background:var(--accent); width:0%; }
+  .rowbtn{ background:none; border:none; color:var(--accent); padding:0; cursor:pointer; }
+  .details{ display:none; }
+  .footer{ color:var(--muted); font-size:12px; padding:18px 0 30px; }
+  @media print {
+    header, .controls, .footer, .export { display:none !important; }
+    th{ top:0; }
+    body{ background:#fff; color:#000; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>Player Prop Edges <span class="sub"><span id="titleSuffix"></span> • <span id="ts"></span> • <span id="model"></span></span></h1>
+    <div class="controls">
+      <input id="q" placeholder="Search player, team, opp…" />
+      <select id="team"><option value="">All teams</option></select>
+      <select id="stat">
+        <option value="">All stats</option>
+        <option>receptions</option><option>rec_yds</option><option>rush_yds</option><option>rush_att</option><option>pass_yds</option><option>pass_comp</option>
+      </select>
+      <input id="minEV" type="number" step="0.01" placeholder="Min EV (e.g. 0.03)" />
+      <button class="export" id="dlCSV">Export CSV</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div id="assumedNote" class="sub"></div>
+  <div class="table">
+    <table id="tbl" aria-describedby="table of player prop edges">
+      <thead>
+        <tr>
+          <th data-k="player">Player</th>
+          <th data-k="team">Team</th>
+          <th data-k="opponent">Opp</th>
+          <th data-k="line_type">Stat</th>
+          <th data-k="line">Line</th>
+          <th data-k="prob_over">Pr(&gt;)</th>
+          <th data-k="ev_over">EV</th>
+          <th data-k="mean">Mean</th>
+          <th data-k="p50">Median</th>
+          <th data-k="p95">P95</th>
+          <th data-k="book">Book</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <div class="footer">EV uses posted price when present; otherwise an assumed default (e.g., −115). If no price at all, we show the model's fair (no‑vig) price.</div>
+</div>
+
+<script id="data" type="application/json">[{"player":"QB1","team":"Alabama","opponent":"LSU","line_type":"pass_yds","line":255.5,"prob_over":0.513,"mean":258.2,"p25":225.0,"p50":256.0,"p75":289.0,"p95":335.0,"book":"DK","price_over":1.9,"notes":"clean pocket rate up","kickoff_iso":"2025-11-01T18:00:00Z","ev_over":-0.02529999999999999,"breakeven_prob":0.5263157894736842,"fair_price_decimal":1.949317738791423,"price_source":"posted"},{"player":"WR1","team":"Alabama","opponent":"LSU","line_type":"receptions","line":6.5,"prob_over":0.574,"mean":6.8,"p25":5.0,"p50":6.6,"p75":8.2,"p95":10.9,"book":NaN,"price_over":NaN,"notes":"wind 12 mph; \u03ba=60","kickoff_iso":"2025-11-01T18:00:00Z","ev_over":NaN,"breakeven_prob":NaN,"fair_price_decimal":1.7421602787456447,"price_source":"posted"},{"player":"RB1","team":"Alabama","opponent":"LSU","line_type":"rush_yds","line":86.5,"prob_over":0.428,"mean":79.1,"p25":61.0,"p50":78.5,"p75":95.2,"p95":118.0,"book":NaN,"price_over":NaN,"notes":"script risk","kickoff_iso":"2025-11-01T18:00:00Z","ev_over":NaN,"breakeven_prob":NaN,"fair_price_decimal":2.336448598130841,"price_source":"posted"}]</script>
+<script id="meta" type="application/json">{"title_suffix": "Week 10 (Late)", "model_tag": "CFB v0.7 - wk10L", "assumed_string": "receptions=1.83,rec_yds=1.87,rush_yds=1.87,rush_att=1.87,pass_yds=1.87,pass_comp=1.87"}</script>
+<script>
+(function(){
+  const data = JSON.parse(document.getElementById('data').textContent || '[]');
+  const meta = JSON.parse(document.getElementById('meta').textContent || '{}');
+  const tbody = document.getElementById('tbody');
+  const teamSel = document.getElementById('team');
+  const statSel = document.getElementById('stat');
+  const q = document.getElementById('q');
+  const minEV = document.getElementById('minEV');
+  const tsEl = document.getElementById('ts');
+  const modelEl = document.getElementById('model');
+  const titleSuffixEl = document.getElementById('titleSuffix');
+  const dl = document.getElementById('dlCSV');
+  const assumedNote = document.getElementById('assumedNote');
+
+  const now = new Date();
+  tsEl.textContent = now.toLocaleString();
+  modelEl.textContent = (meta.model_tag || data[0]?.model_tag || '');
+  titleSuffixEl.textContent = meta.title_suffix || 'Report';
+
+  if (meta.assumed_string && meta.assumed_string.length > 0) {
+    assumedNote.textContent = 'Using assumed prices for EV when live odds are unavailable: ' + meta.assumed_string;
+  }
+
+  [...new Set(data.map(d => d.team))].sort().forEach(t => {
+    if(!t) return;
+    const o = document.createElement('option'); o.textContent = t; o.value = t; teamSel.appendChild(o);
+  });
+
+  let state = { sortK: 'ev_over', sortDir: -1, rows: data.slice(0) };
+
+  function fmtPct(x){ return (x==null) ? '' : (x*100).toFixed(1)+'%'; }
+  function fmtEV(x){ if(x==null) return ''; return (x>=0?'+':'')+(x*100).toFixed(1)+'%'; }
+  function probWidth(x){ return Math.max(0, Math.min(100, Math.round((x||0)*100))); }
+
+  function rowHTML(d, i){
+    const tag = d.price_source==='assumed' ? '<span class="sub"> @ assumed</span>' : '';
+    const evCell = (d.ev_over!=null)
+      ? `<span class="${(d.ev_over>=0)?'evpos':'evneg'}">${(d.ev_over*100).toFixed(1)}%</span>${tag}`
+      : (d.fair_price_american!=null)
+        ? `<span class="badge">Fair ${d.fair_price_american>0?'+':''}${d.fair_price_american}</span>`
+        : '';
+    return `
+      <tr tabindex="0" aria-expanded="false" data-i="${i}">
+        <td><span class="badge">${d.player||''}</span></td>
+        <td>${d.team||''}</td>
+        <td>${d.opponent||''}</td>
+        <td>${d.line_type||''}</td>
+        <td>${d.line ?? ''}</td>
+        <td title="${(d.price_over?('Over @ '+d.price_over):'')}">
+          <div class="bar" aria-label="Probability over: ${fmtPct(d.prob_over)}"><i style="width:${probWidth(d.prob_over)}%"></i></div>
+          <div style="font-size:11px;color:var(--muted)">${fmtPct(d.prob_over)}</div>
+        </td>
+        <td>${evCell}</td>
+        <td>${d.mean?.toFixed?.(2) ?? ''}</td>
+        <td>${d.p50?.toFixed?.(2) ?? ''}</td>
+        <td>${d.p95?.toFixed?.(2) ?? ''}</td>
+        <td>${d.book||''}</td>
+        <td><button class="rowbtn" aria-label="Toggle details">details ▸</button></td>
+      </tr>
+      <tr class="details" aria-hidden="true" style="display:none">
+        <td colspan="12">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <strong>Distribution</strong>
+              <div style="display:flex;gap:8px;align-items:center;margin-top:6px;">
+                <svg width="180" height="28" aria-label="sparkline percentiles">
+                  ${sparkline([d.p5,d.p25,d.p50,d.p75,d.p95])}
+                </svg>
+                <div class="sub">p5 ${d.p5?.toFixed?.(1)||''} • p25 ${d.p25?.toFixed?.(1)||''} • p50 ${d.p50?.toFixed?.(1)||''} • p75 ${d.p75?.toFixed?.(1)||''} • p95 ${d.p95?.toFixed?.(1)||''}</div>
+              </div>
+            </div>
+            <div>
+              <strong>Context</strong>
+              <div class="sub">${d.notes||''}</div>
+              <div class="sub">Kickoff: ${d.kickoff_iso ? new Date(d.kickoff_iso).toLocaleString() : ''}</div>
+              <div class="sub">${d.price_source==='assumed' ? ('Assumed price: ' + d.price_over) : ''}</div>
+              <div class="sub">${(d.fair_price_american!=null) ? ('Fair: ' + (d.fair_price_american>0?'+':'') + d.fair_price_american) : ''}</div>
+            </div>
+          </div>
+        </td>
+      </tr>`;
+  }
+
+  function sparkline(vals){
+    if(!vals || vals.some(v => v==null)) return '';
+    const min = Math.min(...vals), max = Math.max(...vals); const w=180, h=28, pad=4;
+    const x = i => pad + i*( (w-2*pad)/(vals.length-1) );
+    const y = v => h-pad - ( (v-min)/(max-min+1e-9) )*(h-2*pad);
+    let d='M '+x(0)+' '+y(vals[0]);
+    for(let i=1;i<vals.length;i++) d += ' L '+x(i)+' '+y(vals[i]);
+    return `<path d="${d}" fill="none" stroke="currentColor" stroke-width="2"/>`;
+  }
+
+  function applyFilters(){
+    const qv = q.value.trim().toLowerCase();
+    const tv = teamSel.value;
+    const sv = statSel.value;
+    const mev = parseFloat(minEV.value);
+    state.rows = data.filter(d => {
+      if(qv && !(String(d.player||'').toLowerCase().includes(qv) || String(d.team||'').toLowerCase().includes(qv) || String(d.opponent||'').toLowerCase().includes(qv))) return false;
+      if(tv && d.team !== tv) return false;
+      if(sv && d.line_type !== sv) return false;
+      if(!isNaN(mev) && (d.ev_over ?? -1) < mev) return false;
+      return true;
+    });
+    sortAndRender();
+  }
+
+  function sortAndRender(){
+    const k = state.sortK, dir = state.sortDir;
+    state.rows.sort((a,b)=>{
+      const va = a[k]; const vb = b[k];
+      const na = (typeof va === 'number'); const nb = (typeof vb === 'number');
+      if(na && nb) return dir * (vb - va);
+      return dir * String(va||'').localeCompare(String(vb||''));
+    });
+    tbody.innerHTML = state.rows.map(rowHTML).join('');
+    wireRowToggles();
+  }
+
+  function wireRowToggles(){
+    tbody.querySelectorAll('.rowbtn').forEach((btn)=>{
+      btn.addEventListener('click', ()=>{
+        const tr = btn.closest('tr');
+        const det = tr.nextElementSibling;
+        const open = det.style.display === 'table-row';
+        det.style.display = open ? 'none':'table-row';
+        tr.setAttribute('aria-expanded', String(!open));
+        det.setAttribute('aria-hidden', String(open));
+        btn.textContent = open ? 'details ▸' : 'details ▾';
+      });
+    });
+  }
+
+  function toCSV(rows){
+    const keys = ["player","team","opponent","line_type","line","prob_over","ev_over","mean","p50","p95","book","price_over","notes","model_tag","kickoff_iso","price_source","fair_price_decimal","fair_price_american"];
+    const header = keys.join(',');
+    const body = rows.map(r => keys.map(k => JSON.stringify(r[k] ?? '')).join(',')).join('\n');
+    return header+'\n'+body;
+  }
+
+  [q, teamSel, statSel, minEV].forEach(el => el.addEventListener('input', applyFilters));
+  document.querySelectorAll('th[data-k]').forEach(th => {
+    th.addEventListener('click', ()=> {
+      const k = th.dataset.k;
+      if(state.sortK === k) state.sortDir *= -1; else { state.sortK = k; state.sortDir = (k==='player'||k==='team'||k==='opponent'||k==='line_type') ? 1 : -1; }
+      sortAndRender();
+    });
+  });
+  dl.addEventListener('click', ()=>{
+    const blob = new Blob([toCSV(state.rows)], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'player_prop_edges.csv'; a.click();
+  });
+
+  applyFilters();
+})();
+</script>
+</body>
+</html>

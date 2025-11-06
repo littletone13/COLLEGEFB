@@ -537,10 +537,12 @@ def build_team_feature_frame(season_year: Optional[int] = None) -> pd.DataFrame:
 
     offense = _coerce_numeric(tables["total_offense"], {"Rank", "Team", "slug"}).copy()
     offense["plays_per_game"] = offense["Plays"] / offense["G"]
-    offense_features = offense[["slug", "plays_per_game", "Yds/Play", "YPG"]].rename(
+    offense["games_played"] = offense["G"]
+    offense_features = offense[["slug", "plays_per_game", "Yds/Play", "YPG", "games_played"]].rename(
         columns={
             "Yds/Play": "offense_ypp",
             "YPG": "offense_ypg",
+            "games_played": "games_played",
         }
     )
 

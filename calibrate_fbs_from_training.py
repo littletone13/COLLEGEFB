@@ -39,6 +39,10 @@ def load_training_rows(training_dir: Path) -> pd.DataFrame:
             "neutral_site",
             "spread",
         ]].copy()
+        df["spread"] = pd.to_numeric(df["spread"], errors="coerce")
+        # CFBD training pack spreads reflect opening numbers, so persist that metadata.
+        df["vegas_spread_opening"] = df["spread"]
+        df["vegas_line_type"] = "opening"
         df["source_file"] = path.name
         frames.append(df)
     if not frames:
@@ -70,7 +74,8 @@ def main() -> None:
         except KeyError:
             missing += 1
             continue
-        vegas_home_minus_away = -float(row.spread)
+        opening_spread = getattr(row, "vegas_spread_opening", row.spread)
+        vegas_home_minus_away = -float(opening_spread)
         records.append(
             {
                 "week": row.week,

@@ -1,0 +1,9 @@
+{
+  "rating_constants": {
+    "avg_total": 52.74421146495291,
+    "home_field_advantage": 4.910521242504886,
+    "offense_factor": 0.7332806191131938,
+    "defense_factor": 0.23182681073960104,
+    "special_teams_factor": 1.4226031636625847
+  }
+}

@@ -1,0 +1,4 @@
+player,team,opponent,line_type,line,prob_over,mean,p25,p50,p75,p95,model_tag,book,kickoff_iso,notes,price_over
+WR1,Alabama,LSU,receptions,6.5,0.574,6.8,5.0,6.6,8.2,10.9,CFB v0.7 - wk10L,,2025-11-01T18:00:00Z,wind 12 mph; κ=60,
+RB1,Alabama,LSU,rush_yds,86.5,0.428,79.1,61.0,78.5,95.2,118.0,CFB v0.7 - wk10L,,2025-11-01T18:00:00Z,script risk,
+QB1,Alabama,LSU,pass_yds,255.5,0.513,258.2,225.0,256.0,289.0,335.0,CFB v0.7 - wk10L,DK,2025-11-01T18:00:00Z,clean pocket rate up,1.9

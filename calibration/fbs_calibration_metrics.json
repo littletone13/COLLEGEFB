@@ -1,0 +1,14 @@
+{
+  "train": {
+    "spread_mae_new": 11.320113322773066,
+    "total_mae_new": 11.798863074093505,
+    "spread_mae_old": 11.683553307913662,
+    "total_mae_old": 12.134367420691595
+  },
+  "valid": {
+    "spread_mae_new": 10.986363578278542,
+    "total_mae_new": 12.201130804391356,
+    "spread_mae_old": 11.031350233708146,
+    "total_mae_old": 12.476699120409275
+  }
+}

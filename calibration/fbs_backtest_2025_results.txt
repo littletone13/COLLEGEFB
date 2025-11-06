@@ -1,0 +1,20 @@
+Warning: 69 games skipped due to missing OddsLogic closings.
+Season 2025 backtest over 401 games
+Spread MAE (pure): 11.10 pts
+Spread MAE (market-adjusted): 11.97 pts
+Total MAE (pure): 11.66 pts
+Total MAE (market-adjusted): 11.65 pts
+Brier (pure): 0.1502
+Brier (market-adjusted): 0.1724
+ATS record (pure): 168-181-8
+ATS ROI (pure, per bet, -110 assumed): -7.92%
+Pure bets placed: 357 (spread edge ≥ 1.0, providers ≥ 1)
+ATS record (market-adjusted): 150-172-6
+ATS ROI (market-adjusted, per bet, -110 assumed): -10.87%
+Market-adjusted bets placed: 328 (spread edge ≥ 1.0, providers ≥ 1)
+Totals record (pure): 207-131-4
+Totals ROI (pure, per bet, -110 assumed): 16.71%
+Pure total bets: 342 (total edge ≥ 1.0, providers ≥ 1)
+Totals record (market-adjusted): 184-112-4
+Totals ROI (market-adjusted, per bet, -110 assumed): 18.42%
+Market-adjusted total bets: 300 (total edge ≥ 1.0, providers ≥ 1)

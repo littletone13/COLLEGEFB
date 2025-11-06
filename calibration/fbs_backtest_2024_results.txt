@@ -1,0 +1,20 @@
+Warning: 111 games skipped due to missing OddsLogic closings.
+Season 2024 backtest over 641 games
+Spread MAE (pure): 11.49 pts
+Spread MAE (market-adjusted): 12.03 pts
+Total MAE (pure): 11.91 pts
+Total MAE (market-adjusted): 11.41 pts
+Brier (pure): 0.1648
+Brier (market-adjusted): 0.1832
+ATS record (pure): 255-333-3
+ATS ROI (pure, per bet, -110 assumed): -17.12%
+Pure bets placed: 591 (spread edge ≥ 1.0, providers ≥ 1)
+ATS record (market-adjusted): 238-317-3
+ATS ROI (market-adjusted, per bet, -110 assumed): -18.04%
+Market-adjusted bets placed: 558 (spread edge ≥ 1.0, providers ≥ 1)
+Totals record (pure): 316-228-7
+Totals ROI (pure, per bet, -110 assumed): 10.75%
+Pure total bets: 551 (total edge ≥ 1.0, providers ≥ 1)
+Totals record (market-adjusted): 293-202-5
+Totals ROI (market-adjusted, per bet, -110 assumed): 12.87%
+Market-adjusted total bets: 500 (total edge ≥ 1.0, providers ≥ 1)

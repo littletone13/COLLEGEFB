@@ -1,0 +1,23 @@
+Season 2024: processed 2166 games
+Season 2025: processed 1468 games
+Saved per-game backtest data to fcs_backtest_games.csv
+Warning: 2024 games missing OddsLogic closings across requested span.
+Overall across 3634 games:
+  Spread MAE (pure): 18.20
+  Spread MAE (market-adjusted): 18.21
+  Total MAE (pure): 13.72
+  Total MAE (market-adjusted): 13.45
+  Brier (pure): 0.2322
+  Brier (market-adjusted): 0.2440
+  Spread record (pure): 539-880-14 (edge ≥ 1.0, providers ≥ 1)
+  Spread ROI (pure, per bet, -110 assumed): -27.22%
+  Spread bets (pure): 1433
+  Spread record (market-adjusted): 363-714-9 (edge ≥ 1.0, providers ≥ 1)
+  Spread ROI (market-adjusted, per bet, -110 assumed): -35.36%
+  Spread bets (market-adjusted): 1086
+  Totals record (pure): 699-677-20 (edge ≥ 1.0, providers ≥ 1)
+  Totals ROI (pure, per bet, -110 assumed): -2.98%
+  Totals bets (pure): 1396
+  Totals record (market-adjusted): 475-431-14 (edge ≥ 1.0, providers ≥ 1)
+  Totals ROI (market-adjusted, per bet, -110 assumed): 0.08%
+  Totals bets (market-adjusted): 920

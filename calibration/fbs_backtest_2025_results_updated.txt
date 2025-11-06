@@ -1,0 +1,19 @@
+Season 2025 backtest over 469 games
+Spread MAE (pure): 9.76 pts
+Spread MAE (market-adjusted): 10.36 pts
+Total MAE (pure): 10.91 pts
+Total MAE (market-adjusted): 11.37 pts
+Brier (pure): 0.1354
+Brier (market-adjusted): 0.1477
+ATS record (pure): 271-128-3
+ATS ROI (pure, per bet, -110 assumed): 29.44%
+Pure bets placed: 402 (spread edge ≥ 1.0, providers ≥ 1)
+ATS record (market-adjusted): 247-112-3
+ATS ROI (market-adjusted, per bet, -110 assumed): 31.08%
+Market-adjusted bets placed: 362 (spread edge ≥ 1.0, providers ≥ 1)
+Totals record (pure): 266-118-0
+Totals ROI (pure, per bet, -110 assumed): 32.24%
+Pure total bets: 384 (total edge ≥ 1.0, providers ≥ 1)
+Totals record (market-adjusted): 233-94-0
+Totals ROI (market-adjusted, per bet, -110 assumed): 36.02%
+Market-adjusted total bets: 327 (total edge ≥ 1.0, providers ≥ 1)

@@ -1,0 +1,1644 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FCS Matchups</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f4f6fb;
+        --card: #ffffff;
+        --card-border: #dce1eb;
+        --text: #1f2630;
+        --muted: #6b7484;
+        --accent: #026a49;
+        --edge-home: #026a49;
+        --edge-away: #1262d3;
+        --edge-total: #b1440e;
+        --edge-strong: #d83b01;
+        --edge-medium: #e38700;
+        --edge-light: #7b8899;
+        font-family: "Inter", "Segoe UI", Roboto, sans-serif;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+      }
+      header {
+        background: var(--card);
+        border-bottom: 1px solid var(--card-border);
+        padding: 28px 36px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+      .brand img {
+        width: 68px;
+        height: 68px;
+        border-radius: 50%;
+        border: 2px solid rgba(0, 0, 0, 0.05);
+        object-fit: cover;
+        display: none;
+      }
+      .brand-copy h1 {
+        margin: 0;
+        font-size: 28px;
+        line-height: 1.1;
+      }
+      .meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .meta-row span::before {
+        content: "•";
+        margin: 0 6px;
+      }
+      .meta-row span:first-child::before {
+        content: "";
+        margin: 0;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        background: rgba(2, 106, 73, 0.06);
+        border: 1px solid rgba(2, 106, 73, 0.12);
+        border-radius: 14px;
+        padding: 12px 16px;
+      }
+      .controls input[type="search"] {
+        flex: 1;
+        min-width: 220px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--card-border);
+        font-size: 14px;
+      }
+      .controls label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .controls select {
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid var(--card-border);
+        font-size: 14px;
+        background: var(--card);
+      }
+      main {
+        padding: 24px 36px 48px;
+      }
+      .table-card {
+        background: var(--card);
+        border-radius: 18px;
+        border: 1px solid var(--card-border);
+        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+        overflow-x: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+      thead th {
+        text-align: left;
+        padding: 14px 16px;
+        font-size: 12px;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--muted);
+        background: linear-gradient(180deg, rgba(244, 246, 251, 0.9), #fff);
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        border-bottom: 1px solid var(--card-border);
+        white-space: nowrap;
+      }
+      tbody td {
+        padding: 14px 16px;
+        border-bottom: 1px solid rgba(220, 225, 235, 0.75);
+        vertical-align: middle;
+      }
+      tbody tr:hover {
+        background: rgba(2, 106, 73, 0.04);
+      }
+      .matchup {
+        font-weight: 600;
+      }
+      .scoreline {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .edge-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: 12px;
+        border: 1px solid transparent;
+      }
+      .edge-badge.home {
+        color: var(--edge-home);
+        border-color: rgba(2, 106, 73, 0.25);
+        background: rgba(2, 106, 73, 0.08);
+      }
+      .edge-badge.away {
+        color: var(--edge-away);
+        border-color: rgba(18, 98, 211, 0.2);
+        background: rgba(18, 98, 211, 0.08);
+      }
+      .edge-badge.total {
+        color: var(--edge-total);
+        border-color: rgba(177, 68, 14, 0.22);
+        background: rgba(177, 68, 14, 0.08);
+      }
+      .edge-badge.strong {
+        box-shadow: 0 0 0 1px rgba(216, 59, 1, 0.15);
+      }
+      .edge-badge.medium {
+        box-shadow: 0 0 0 1px rgba(227, 135, 0, 0.18);
+      }
+      .edge-badge.light {
+        box-shadow: 0 0 0 1px rgba(123, 136, 153, 0.18);
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        background: rgba(2, 106, 73, 0.1);
+        color: var(--accent);
+        margin-right: 4px;
+        margin-bottom: 4px;
+      }
+      .chip.muted {
+        background: rgba(107, 116, 132, 0.12);
+        color: var(--muted);
+      }
+      .notes {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .note {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 8px;
+        border-radius: 8px;
+        font-size: 11px;
+        font-weight: 600;
+        background: rgba(216, 59, 1, 0.12);
+        color: var(--edge-strong);
+      }
+      .note.muted {
+        background: rgba(107, 116, 132, 0.12);
+        color: var(--muted);
+      }
+      .kelly {
+        font-weight: 600;
+        color: var(--accent);
+      }
+      .win-prob {
+        font-weight: 600;
+      }
+      .win-prob span {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        font-weight: 400;
+      }
+      @media (max-width: 900px) {
+        header {
+          padding: 20px;
+        }
+        main {
+          padding: 16px 20px 32px;
+        }
+        thead th,
+        tbody td {
+          padding: 10px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <img id="logo" alt="" />
+        <div class="brand-copy">
+          <h1 id="title">FCS Matchups</h1>
+          <div class="meta-row">
+            <span id="summary-count"></span>
+            <span id="summary-providers"></span>
+            <span id="generated"></span>
+          </div>
+        </div>
+      </div>
+      <div class="controls">
+        <input type="search" id="search" placeholder="Filter teams, notes, providers…" aria-label="Filter matchups" />
+        <label>
+          Edge filter
+          <select id="edge-filter">
+            <option value="0">All edges</option>
+            <option value="1">≥ 1 pt</option>
+            <option value="2">≥ 2 pts</option>
+            <option value="3">≥ 3 pts</option>
+          </select>
+        </label>
+      </div>
+    </header>
+    <main>
+      <div class="table-card">
+        <table id="matchups">
+          <thead>
+            <tr>
+              <th>Kickoff</th>
+              <th>Matchup</th>
+              <th>Model Spread</th>
+              <th>Market Spread</th>
+              <th>Spread Edge</th>
+              <th>Model Total</th>
+              <th>Market Total</th>
+              <th>Total Edge</th>
+              <th>Home Win</th>
+              <th>Home ML</th>
+              <th>Providers</th>
+              <th>Notes</th>
+              <th>Kelly</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Fri 11/07 07:00 PM ET</td>
+              <td>
+                <div class="matchup">DELWARE ST @ MORGAN ST</div>
+                <div class="scoreline">MORGAN ST 28.0 • DELWARE ST 25.5</div>
+              </td>
+              <td>+2.5</td>
+              <td>-6.5</td>
+              <td><span class='edge-badge home strong'><span>Home</span><span>+9.0</span></span></td>
+              <td>53.5</td>
+              <td>54.5</td>
+              <td><span class='edge-badge total light'><span>Total</span><span>-1.0</span></span></td>
+              <td class="win-prob">54.5%<span>Home win</span></td>
+              <td>-120</td>
+              <td><span class='chip'>Fanduel</span></td>
+              <td><div class="notes"><span class='note'>Single book</span></div></td>
+              <td>10.0%</td>
+            </tr>
+            
+
+            <tr>
+              <td>Fri 11/07 07:00 PM ET</td>
+              <td>
+                <div class="matchup">HARVARD @ COLUMBIA</div>
+                <div class="scoreline">COLUMBIA 24.7 • HARVARD 28.0</div>
+              </td>
+              <td>-3.3</td>
+              <td>-28.5</td>
+              <td><span class='edge-badge home strong'><span>Home</span><span>+25.2</span></span></td>
+              <td>52.6</td>
+              <td>47.5</td>
+              <td><span class='edge-badge total strong'><span>Total</span><span>+5.1</span></span></td>
+              <td class="win-prob">44.2%<span>Home win</span></td>
+              <td>+126</td>
+              <td><span class='chip'>Fanduel</span></td>
+              <td><div class="notes"><span class='note'>Single book</span></div></td>
+              <td>22.0%</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 12:00 PM ET</td>
+              <td>
+                <div class="matchup">MERCYHURST @ ST FRANCIS</div>
+                <div class="scoreline">ST FRANCIS 27.5 • MERCYHURST 23.3</div>
+              </td>
+              <td>+4.2</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>50.8</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">57.4%<span>Home win</span></td>
+              <td>-135</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 12:00 PM ET</td>
+              <td>
+                <div class="matchup">DUQUESNE @ LIUSHAR</div>
+                <div class="scoreline">LIUSHAR 26.3 • DUQUESNE 25.7</div>
+              </td>
+              <td>+0.6</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>52.0</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">51.0%<span>Home win</span></td>
+              <td>-104</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 12:00 PM ET</td>
+              <td>
+                <div class="matchup">Stonehill @ CENT CT ST</div>
+                <div class="scoreline">CENT CT ST 31.0 • Stonehill 20.4</div>
+              </td>
+              <td>+10.6</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>51.4</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">67.9%<span>Home win</span></td>
+              <td>-212</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 12:00 PM ET</td>
+              <td>
+                <div class="matchup">HOLY CROSS @ LEHIGH</div>
+                <div class="scoreline">LEHIGH 32.7 • HOLY CROSS 19.7</div>
+              </td>
+              <td>+13.0</td>
+              <td>-23.5</td>
+              <td><span class='edge-badge home strong'><span>Home</span><span>+36.5</span></span></td>
+              <td>52.4</td>
+              <td>45.5</td>
+              <td><span class='edge-badge total strong'><span>Total</span><span>+6.9</span></span></td>
+              <td class="win-prob">71.7%<span>Home win</span></td>
+              <td>-253</td>
+              <td><span class='chip'>Fanduel</span></td>
+              <td><div class="notes"><span class='note'>Single book</span></div></td>
+              <td>24.4%</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 12:00 PM ET</td>
+              <td>
+                <div class="matchup">WAGNER @ ROB MORRIS</div>
+                <div class="scoreline">ROB MORRIS 27.6 • WAGNER 22.9</div>
+              </td>
+              <td>+4.8</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>50.5</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">58.3%<span>Home win</span></td>
+              <td>-140</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 12:00 PM ET</td>
+              <td>
+                <div class="matchup">FURMAN @ CHATTNOOGA</div>
+                <div class="scoreline">CHATTNOOGA 30.9 • FURMAN 22.2</div>
+              </td>
+              <td>+8.6</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>53.1</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">64.9%<span>Home win</span></td>
+              <td>-185</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 12:00 PM ET</td>
+              <td>
+                <div class="matchup">NC A&T @ STNY BROOK</div>
+                <div class="scoreline">STNY BROOK 31.1 • NC A&T 22.1</div>
+              </td>
+              <td>+9.0</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>53.2</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">65.4%<span>Home win</span></td>
+              <td>-189</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 12:00 PM ET</td>
+              <td>
+                <div class="matchup">NEW HAMP @ MONMOUTH</div>
+                <div class="scoreline">MONMOUTH 34.2 • NEW HAMP 19.8</div>
+              </td>
+              <td>+14.4</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>54.0</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">73.8%<span>Home win</span></td>
+              <td>-281</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 12:00 PM ET</td>
+              <td>
+                <div class="matchup">YALE @ BROWN</div>
+                <div class="scoreline">BROWN 28.0 • YALE 24.7</div>
+              </td>
+              <td>+3.3</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>52.7</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">55.8%<span>Home win</span></td>
+              <td>-126</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 12:30 PM ET</td>
+              <td>
+                <div class="matchup">COLGATE @ LAFAYETTE</div>
+                <div class="scoreline">LAFAYETTE 31.1 • COLGATE 23.0</div>
+              </td>
+              <td>+8.0</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>54.1</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">63.8%<span>Home win</span></td>
+              <td>-177</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 01:00 PM ET</td>
+              <td>
+                <div class="matchup">STETSON @ MARIST</div>
+                <div class="scoreline">MARIST 32.1 • STETSON 19.2</div>
+              </td>
+              <td>+12.9</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>51.2</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">71.5%<span>Home win</span></td>
+              <td>-251</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 01:00 PM ET</td>
+              <td>
+                <div class="matchup">RICHMOND @ GEORGETOWN</div>
+                <div class="scoreline">GEORGETOWN 28.7 • RICHMOND 23.2</div>
+              </td>
+              <td>+5.5</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>52.0</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">59.6%<span>Home win</span></td>
+              <td>-148</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 01:00 PM ET</td>
+              <td>
+                <div class="matchup">PRINCETON @ DARTMOUTH</div>
+                <div class="scoreline">DARTMOUTH 30.6 • PRINCETON 22.4</div>
+              </td>
+              <td>+8.3</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>53.0</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">64.2%<span>Home win</span></td>
+              <td>-179</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 01:00 PM ET</td>
+              <td>
+                <div class="matchup">CORNELL @ PENN</div>
+                <div class="scoreline">PENN 30.6 • CORNELL 21.9</div>
+              </td>
+              <td>+8.7</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>52.5</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">64.9%<span>Home win</span></td>
+              <td>-185</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 01:00 PM ET</td>
+              <td>
+                <div class="matchup">BUCKNELL @ FORDHAM</div>
+                <div class="scoreline">FORDHAM 27.4 • BUCKNELL 25.1</div>
+              </td>
+              <td>+2.3</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>52.5</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">54.0%<span>Home win</span></td>
+              <td>-117</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 01:00 PM ET</td>
+              <td>
+                <div class="matchup">SAN DIEGO @ VALPO</div>
+                <div class="scoreline">VALPO 26.5 • SAN DIEGO 25.4</div>
+              </td>
+              <td>+1.0</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>51.9</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">51.8%<span>Home win</span></td>
+              <td>-108</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 01:00 PM ET</td>
+              <td>
+                <div class="matchup">STTHOM @ DRAKE</div>
+                <div class="scoreline">DRAKE 28.2 • STTHOM 25.4</div>
+              </td>
+              <td>+2.8</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>53.7</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">54.9%<span>Home win</span></td>
+              <td>-122</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 01:00 PM ET</td>
+              <td>
+                <div class="matchup">VILLANOVA @ TOWSON</div>
+                <div class="scoreline">TOWSON 27.2 • VILLANOVA 25.7</div>
+              </td>
+              <td>+1.5</td>
+              <td>-6.5</td>
+              <td><span class='edge-badge home strong'><span>Home</span><span>+8.0</span></span></td>
+              <td>52.9</td>
+              <td>52.5</td>
+              <td><span class='edge-badge total'><span>Total</span><span>+0.4</span></span></td>
+              <td class="win-prob">52.6%<span>Home win</span></td>
+              <td>-111</td>
+              <td><span class='chip'>Fanduel</span></td>
+              <td><div class="notes"><span class='note'>Single book</span><span class='note'>Total edge < 1</span></div></td>
+              <td>8.7%</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 01:00 PM ET</td>
+              <td>
+                <div class="matchup">BUTLER @ MOREHEAD</div>
+                <div class="scoreline">MOREHEAD 26.4 • BUTLER 25.1</div>
+              </td>
+              <td>+1.3</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>51.5</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">52.3%<span>Home win</span></td>
+              <td>-110</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 01:00 PM ET</td>
+              <td>
+                <div class="matchup">ILL STATE @ INDIANA ST</div>
+                <div class="scoreline">INDIANA ST 27.0 • ILL STATE 26.4</div>
+              </td>
+              <td>+0.6</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>53.4</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">51.0%<span>Home win</span></td>
+              <td>-104</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 01:00 PM ET</td>
+              <td>
+                <div class="matchup">TENN TECH @ E ILLINOIS</div>
+                <div class="scoreline">E ILLINOIS 25.5 • TENN TECH 28.4</div>
+              </td>
+              <td>-2.9</td>
+              <td>-24.5</td>
+              <td><span class='edge-badge home strong'><span>Home</span><span>+21.6</span></span></td>
+              <td>53.8</td>
+              <td>52.5</td>
+              <td><span class='edge-badge total light'><span>Total</span><span>+1.3</span></span></td>
+              <td class="win-prob">44.9%<span>Home win</span></td>
+              <td>+123</td>
+              <td><span class='chip'>Fanduel</span></td>
+              <td><div class="notes"><span class='note'>Single book</span></div></td>
+              <td>20.4%</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 01:00 PM ET</td>
+              <td>
+                <div class="matchup">MAINE @ HAMPTON</div>
+                <div class="scoreline">HAMPTON 26.7 • MAINE 25.5</div>
+              </td>
+              <td>+1.2</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>52.2</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">52.1%<span>Home win</span></td>
+              <td>-109</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 01:00 PM ET</td>
+              <td>
+                <div class="matchup">BRYANT @ ALBANY</div>
+                <div class="scoreline">ALBANY 27.2 • BRYANT 24.8</div>
+              </td>
+              <td>+2.4</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>52.0</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">54.2%<span>Home win</span></td>
+              <td>-118</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 01:00 PM ET</td>
+              <td>
+                <div class="matchup">PRESBYTERN @ DAVIDSON</div>
+                <div class="scoreline">DAVIDSON 26.0 • PRESBYTERN 26.6</div>
+              </td>
+              <td>-0.6</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>52.7</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">49.0%<span>Home win</span></td>
+              <td>+104</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 01:30 PM ET</td>
+              <td>
+                <div class="matchup">SE MO ST @ GARD-WEBB</div>
+                <div class="scoreline">GARD-WEBB 30.4 • SE MO ST 22.7</div>
+              </td>
+              <td>+7.7</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>53.1</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">63.3%<span>Home win</span></td>
+              <td>-173</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 01:30 PM ET</td>
+              <td>
+                <div class="matchup">HOWARD @ SCAR STATE</div>
+                <div class="scoreline">SCAR STATE 31.3 • HOWARD 20.9</div>
+              </td>
+              <td>+10.3</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>52.2</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">67.6%<span>Home win</span></td>
+              <td>-208</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 01:30 PM ET</td>
+              <td>
+                <div class="matchup">WOFFORD @ VA MILT IN</div>
+                <div class="scoreline">VA MILT IN 26.8 • WOFFORD 24.2</div>
+              </td>
+              <td>+2.7</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>51.0</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">54.7%<span>Home win</span></td>
+              <td>-121</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 02:00 PM ET</td>
+              <td>
+                <div class="matchup">N DAK ST @ N DAKOTA</div>
+                <div class="scoreline">N DAKOTA 28.6 • N DAK ST 26.3</div>
+              </td>
+              <td>+2.3</td>
+              <td>-13.5</td>
+              <td><span class='edge-badge home strong'><span>Home</span><span>+15.8</span></span></td>
+              <td>55.0</td>
+              <td>54.5</td>
+              <td><span class='edge-badge total'><span>Total</span><span>+0.5</span></span></td>
+              <td class="win-prob">54.0%<span>Home win</span></td>
+              <td>-117</td>
+              <td><span class='chip'>Fanduel</span></td>
+              <td><div class="notes"><span class='note'>Single book</span><span class='note'>Total edge < 1</span></div></td>
+              <td>16.5%</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 02:00 PM ET</td>
+              <td>
+                <div class="matchup">S ILLINOIS @ YNGTOWN ST</div>
+                <div class="scoreline">YNGTOWN ST 30.0 • S ILLINOIS 24.6</div>
+              </td>
+              <td>+5.3</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>54.6</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">59.3%<span>Home win</span></td>
+              <td>-146</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 02:00 PM ET</td>
+              <td>
+                <div class="matchup">MURRAY ST @ N IOWA</div>
+                <div class="scoreline">N IOWA 29.3 • MURRAY ST 22.3</div>
+              </td>
+              <td>+7.0</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>51.6</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">62.1%<span>Home win</span></td>
+              <td>-164</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 02:00 PM ET</td>
+              <td>
+                <div class="matchup">RHODE ISLD @ ELON</div>
+                <div class="scoreline">ELON 28.1 • RHODE ISLD 24.9</div>
+              </td>
+              <td>+3.2</td>
+              <td>-6.5</td>
+              <td><span class='edge-badge home strong'><span>Home</span><span>+9.7</span></span></td>
+              <td>53.0</td>
+              <td>48.5</td>
+              <td><span class='edge-badge total strong'><span>Total</span><span>+4.5</span></span></td>
+              <td class="win-prob">55.5%<span>Home win</span></td>
+              <td>-125</td>
+              <td><span class='chip'>Fanduel</span></td>
+              <td><div class="notes"><span class='note'>Single book</span></div></td>
+              <td>10.7%</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 02:00 PM ET</td>
+              <td>
+                <div class="matchup">NORFOLK @ NC CENT</div>
+                <div class="scoreline">NC CENT 33.5 • NORFOLK 19.7</div>
+              </td>
+              <td>+13.8</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>53.2</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">72.9%<span>Home win</span></td>
+              <td>-269</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 02:00 PM ET</td>
+              <td>
+                <div class="matchup">LNDNWD @ W ILLINOIS</div>
+                <div class="scoreline">W ILLINOIS 29.5 • LNDNWD 23.9</div>
+              </td>
+              <td>+5.6</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>53.4</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">59.7%<span>Home win</span></td>
+              <td>-148</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 02:00 PM ET</td>
+              <td>
+                <div class="matchup">INCAR WORD @ NWSTATE</div>
+                <div class="scoreline">NWSTATE 26.9 • INCAR WORD 25.1</div>
+              </td>
+              <td>+1.9</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>52.0</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">53.3%<span>Home win</span></td>
+              <td>-114</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 02:30 PM ET</td>
+              <td>
+                <div class="matchup">MERCER @ W CAROLINA</div>
+                <div class="scoreline">W CAROLINA 30.5 • MERCER 24.5</div>
+              </td>
+              <td>+5.9</td>
+              <td>-7.5</td>
+              <td><span class='edge-badge home strong'><span>Home</span><span>+13.4</span></span></td>
+              <td>55.0</td>
+              <td>61.5</td>
+              <td><span class='edge-badge total strong'><span>Total</span><span>-6.5</span></span></td>
+              <td class="win-prob">60.4%<span>Home win</span></td>
+              <td>-152</td>
+              <td><span class='chip'>Fanduel</span></td>
+              <td><div class="notes"><span class='note'>Single book</span></div></td>
+              <td>14.5%</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 03:00 PM ET</td>
+              <td>
+                <div class="matchup">STF AUSTIN @ HOUCHR</div>
+                <div class="scoreline">HOUCHR 25.5 • STF AUSTIN 26.1</div>
+              </td>
+              <td>-0.6</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>51.6</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">49.0%<span>Home win</span></td>
+              <td>+104</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 03:00 PM ET</td>
+              <td>
+                <div class="matchup">BETH COOK @ GRAMBLING</div>
+                <div class="scoreline">GRAMBLING 28.1 • BETH COOK 25.3</div>
+              </td>
+              <td>+2.8</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>53.3</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">55.0%<span>Home win</span></td>
+              <td>-122</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 03:00 PM ET</td>
+              <td>
+                <div class="matchup">FL A&M @ ARKAPB</div>
+                <div class="scoreline">ARKAPB 28.1 • FL A&M 23.7</div>
+              </td>
+              <td>+4.5</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>51.8</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">57.8%<span>Home win</span></td>
+              <td>-137</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 03:00 PM ET</td>
+              <td>
+                <div class="matchup">TEXAS STHN @ ALABAMA ST</div>
+                <div class="scoreline">ALABAMA ST 32.6 • TEXAS STHN 21.0</div>
+              </td>
+              <td>+11.6</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>53.5</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">69.5%<span>Home win</span></td>
+              <td>-228</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 03:00 PM ET</td>
+              <td>
+                <div class="matchup">JACKSON ST @ MS VLY ST</div>
+                <div class="scoreline">MS VLY ST 25.7 • JACKSON ST 27.1</div>
+              </td>
+              <td>-1.4</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>52.8</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">47.6%<span>Home win</span></td>
+              <td>+110</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 03:00 PM ET</td>
+              <td>
+                <div class="matchup">SO UTAH @ E KENTUCKY</div>
+                <div class="scoreline">E KENTUCKY 27.3 • SO UTAH 25.4</div>
+              </td>
+              <td>+1.9</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>52.8</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">53.4%<span>Home win</span></td>
+              <td>-114</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 03:00 PM ET</td>
+              <td>
+                <div class="matchup">UTAHTC @ ABILENE CH</div>
+                <div class="scoreline">ABILENE CH 31.9 • UTAHTC 20.2</div>
+              </td>
+              <td>+11.6</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>52.1</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">69.6%<span>Home win</span></td>
+              <td>-229</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 03:00 PM ET</td>
+              <td>
+                <div class="matchup">WEBER ST @ MONTANA ST</div>
+                <div class="scoreline">MONTANA ST 33.1 • WEBER ST 20.6</div>
+              </td>
+              <td>+12.5</td>
+              <td>-28.5</td>
+              <td><span class='edge-badge home strong'><span>Home</span><span>+41.0</span></span></td>
+              <td>53.7</td>
+              <td>57.5</td>
+              <td><span class='edge-badge total strong'><span>Total</span><span>-3.8</span></span></td>
+              <td class="win-prob">71.0%<span>Home win</span></td>
+              <td>-245</td>
+              <td><span class='chip'>Fanduel</span></td>
+              <td><div class="notes"><span class='note'>Single book</span></div></td>
+              <td>24.7%</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 03:00 PM ET</td>
+              <td>
+                <div class="matchup">E WASHGTON @ MONTANA</div>
+                <div class="scoreline">MONTANA 33.4 • E WASHGTON 20.4</div>
+              </td>
+              <td>+13.0</td>
+              <td>-30.5</td>
+              <td><span class='edge-badge home strong'><span>Home</span><span>+43.5</span></span></td>
+              <td>53.9</td>
+              <td>63.5</td>
+              <td><span class='edge-badge total strong'><span>Total</span><span>-9.6</span></span></td>
+              <td class="win-prob">71.7%<span>Home win</span></td>
+              <td>-253</td>
+              <td><span class='chip'>Fanduel</span></td>
+              <td><div class="notes"><span class='note'>Single book</span></div></td>
+              <td>24.8%</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 03:00 PM ET</td>
+              <td>
+                <div class="matchup">PRVIEW A&M @ ALAB A&M</div>
+                <div class="scoreline">ALAB A&M 29.5 • PRVIEW A&M 23.2</div>
+              </td>
+              <td>+6.2</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>52.7</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">60.9%<span>Home win</span></td>
+              <td>-155</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 03:30 PM ET</td>
+              <td>
+                <div class="matchup">MERRIMACK @ NEWHVN</div>
+                <div class="scoreline">NEWHVN 28.5 • MERRIMACK 22.9</div>
+              </td>
+              <td>+5.6</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>51.4</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">59.8%<span>Home win</span></td>
+              <td>-149</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 04:00 PM ET</td>
+              <td>
+                <div class="matchup">S DAK ST @ S DAKOTA</div>
+                <div class="scoreline">S DAKOTA 27.4 • S DAK ST 25.2</div>
+              </td>
+              <td>+2.2</td>
+              <td>-6.5</td>
+              <td><span class='edge-badge home strong'><span>Home</span><span>+8.7</span></span></td>
+              <td>52.7</td>
+              <td>47.5</td>
+              <td><span class='edge-badge total strong'><span>Total</span><span>+5.2</span></span></td>
+              <td class="win-prob">53.9%<span>Home win</span></td>
+              <td>-117</td>
+              <td><span class='chip'>Fanduel</span></td>
+              <td><div class="notes"><span class='note'>Single book</span></div></td>
+              <td>9.6%</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 04:00 PM ET</td>
+              <td>
+                <div class="matchup">SE LA @ LAMAR</div>
+                <div class="scoreline">LAMAR 27.5 • SE LA 26.7</div>
+              </td>
+              <td>+0.8</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>54.1</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">51.4%<span>Home win</span></td>
+              <td>-106</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 04:00 PM ET</td>
+              <td>
+                <div class="matchup">SOUTHERN U @ ALCORN ST</div>
+                <div class="scoreline">ALCORN ST 30.4 • SOUTHERN U 21.0</div>
+              </td>
+              <td>+9.3</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>51.4</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">66.0%<span>Home win</span></td>
+              <td>-194</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 04:00 PM ET</td>
+              <td>
+                <div class="matchup">CENT ARK @ AUSTINPEAY</div>
+                <div class="scoreline">AUSTINPEAY 32.4 • CENT ARK 21.8</div>
+              </td>
+              <td>+10.6</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>54.2</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">68.0%<span>Home win</span></td>
+              <td>-212</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 04:00 PM ET</td>
+              <td>
+                <div class="matchup">W GEORGIA @ N ALABAMA</div>
+                <div class="scoreline">N ALABAMA 28.8 • W GEORGIA 24.3</div>
+              </td>
+              <td>+4.5</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>53.0</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">57.8%<span>Home win</span></td>
+              <td>-137</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 05:00 PM ET</td>
+              <td>
+                <div class="matchup">SACRAMENTO @ PORTLAND</div>
+                <div class="scoreline">PORTLAND 26.1 • SACRAMENTO 27.1</div>
+              </td>
+              <td>-1.0</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>53.2</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">48.2%<span>Home win</span></td>
+              <td>+108</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 05:00 PM ET</td>
+              <td>
+                <div class="matchup">MCNEESE @ East Texas A&M</div>
+                <div class="scoreline">East Texas A&M 31.8 • MCNEESE 21.3</div>
+              </td>
+              <td>+10.5</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>53.1</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">67.8%<span>Home win</span></td>
+              <td>-210</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 06:00 PM ET</td>
+              <td>
+                <div class="matchup">NICHOLLS @ TXGV</div>
+                <div class="scoreline">TXGV 31.9 • NICHOLLS 20.3</div>
+              </td>
+              <td>+11.6</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>52.2</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">69.5%<span>Home win</span></td>
+              <td>-228</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 06:00 PM ET</td>
+              <td>
+                <div class="matchup">CAL POLY @ IDAHO ST</div>
+                <div class="scoreline">IDAHO ST 28.6 • CAL POLY 24.1</div>
+              </td>
+              <td>+4.4</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>52.7</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">57.7%<span>Home win</span></td>
+              <td>-137</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 06:00 PM ET</td>
+              <td>
+                <div class="matchup">N COLORADO @ N ARIZONA</div>
+                <div class="scoreline">N ARIZONA 29.1 • N COLORADO 23.9</div>
+              </td>
+              <td>+5.3</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>53.0</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">59.2%<span>Home win</span></td>
+              <td>-145</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            
+
+            <tr>
+              <td>Sat 11/08 07:00 PM ET</td>
+              <td>
+                <div class="matchup">UC DAVIS @ IDAHO</div>
+                <div class="scoreline">IDAHO 28.1 • UC DAVIS 25.6</div>
+              </td>
+              <td>+2.6</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td>53.7</td>
+              <td>—</td>
+              <td><span class="chip muted">—</span></td>
+              <td class="win-prob">54.5%<span>Home win</span></td>
+              <td>-120</td>
+              <td><span class="chip muted">—</span></td>
+              <td><div class="notes"><span class='note'>No market lines</span></div></td>
+              <td>—</td>
+            </tr>
+            </tbody>
+        </table>
+      </div>
+    </main>
+    <script id="fcs-data" type="application/json">[{"kickoff":"Fri 11/07 07:00 PM ET","kickoffSort":1762560000000000000,"game":"DELWARE ST @ MORGAN ST","homeTeam":"MORGAN ST","awayTeam":"DELWARE ST","modelSpread":2.5393622210909896,"marketSpread":-6.5,"spreadEdge":9.03936222109099,"spreadBucket":"strong","spreadDirection":"home","modelTotal":53.485284701349165,"marketTotal":54.5,"totalEdge":-1.0147152986508345,"totalBucket":"light","homeWinProb":0.5446004621840366,"modelHomePoints":28.012323461220078,"modelAwayPoints":25.472961240129088,"modelHomeML":-119.58739896748008,"modelAwayML":119.58739896748008,"marketPrimary":"Fanduel","providers":["Fanduel"],"providerCount":1,"notes":["Single book"],"kelly":0.09982351976123058,"winProbEdge":null,"homeWinML":-119.58739896748008},{"kickoff":"Fri 11/07 07:00 PM ET","kickoffSort":1762560000000000000,"game":"HARVARD @ COLUMBIA","homeTeam":"COLUMBIA","awayTeam":"HARVARD","modelSpread":-3.3164007531587543,"marketSpread":-28.5,"spreadEdge":25.183599246841247,"spreadBucket":"strong","spreadDirection":"home","modelTotal":52.645117079058316,"marketTotal":47.5,"totalEdge":5.145117079058316,"totalBucket":"strong","homeWinProb":0.4418376263403516,"modelHomePoints":24.66435816294978,"modelAwayPoints":27.980758916108535,"modelHomeML":126.32748783366193,"modelAwayML":-126.32748783366193,"marketPrimary":"Fanduel","providers":["Fanduel"],"providerCount":1,"notes":["Single book"],"kelly":0.21968302447255006,"winProbEdge":null,"homeWinML":126.32748783366193},{"kickoff":"Sat 11/08 12:00 PM ET","kickoffSort":1762621200000000000,"game":"MERCYHURST @ ST FRANCIS","homeTeam":"ST FRANCIS","awayTeam":"MERCYHURST","modelSpread":4.249761726662758,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":50.8150718213723,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.574361567520388,"modelHomePoints":27.532416774017527,"modelAwayPoints":23.282655047354773,"modelHomeML":-134.94119038414132,"modelAwayML":134.94119038414132,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-134.94119038414132},{"kickoff":"Sat 11/08 12:00 PM ET","kickoffSort":1762621200000000000,"game":"DUQUESNE @ LIUSHAR","homeTeam":"LIUSHAR","awayTeam":"DUQUESNE","modelSpread":0.5875649878843212,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":52.02467299605855,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.5103402176825653,"modelHomePoints":26.306118991971434,"modelAwayPoints":25.718554004087114,"modelHomeML":-104.22342943242253,"modelAwayML":104.22342943242253,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-104.22342943242253},{"kickoff":"Sat 11/08 12:00 PM ET","kickoffSort":1762621200000000000,"game":"Stonehill @ CENT CT ST","homeTeam":"CENT CT ST","awayTeam":"Stonehill","modelSpread":10.551657954600312,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":51.405348936220406,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.6792184083175457,"modelHomePoints":30.97850344541036,"modelAwayPoints":20.426845490810045,"modelHomeML":-211.7385866050295,"modelAwayML":211.7385866050295,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-211.7385866050295},{"kickoff":"Sat 11/08 12:00 PM ET","kickoffSort":1762621200000000000,"game":"HOLY CROSS @ LEHIGH","homeTeam":"LEHIGH","awayTeam":"HOLY CROSS","modelSpread":13.014066063033605,"marketSpread":-23.5,"spreadEdge":36.5140660630336,"spreadBucket":"strong","spreadDirection":"home","modelTotal":52.4292583567248,"marketTotal":45.5,"totalEdge":6.929258356724802,"totalBucket":"strong","homeWinProb":0.7170668405608704,"modelHomePoints":32.721662209879206,"modelAwayPoints":19.707596146845596,"modelHomeML":-253.44036802979988,"modelAwayML":253.44036802979988,"marketPrimary":"Fanduel","providers":["Fanduel"],"providerCount":1,"notes":["Single book"],"kelly":0.24409854910182668,"winProbEdge":null,"homeWinML":-253.44036802979988},{"kickoff":"Sat 11/08 12:00 PM ET","kickoffSort":1762621200000000000,"game":"WAGNER @ ROB MORRIS","homeTeam":"ROB MORRIS","awayTeam":"WAGNER","modelSpread":4.766928959080217,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":50.490405233400956,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.5832854524458446,"modelHomePoints":27.628667096240587,"modelAwayPoints":22.86173813716037,"modelHomeML":-139.97242377770408,"modelAwayML":139.97242377770408,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-139.97242377770408},{"kickoff":"Sat 11/08 12:00 PM ET","kickoffSort":1762621200000000000,"game":"FURMAN @ CHATTNOOGA","homeTeam":"CHATTNOOGA","awayTeam":"FURMAN","modelSpread":8.647679115687454,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":53.05760390081746,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.6485895231381055,"modelHomePoints":30.852641508252457,"modelAwayPoints":22.204962392565005,"modelHomeML":-184.56749751174985,"modelAwayML":184.56749751174985,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-184.56749751174985},{"kickoff":"Sat 11/08 12:00 PM ET","kickoffSort":1762621200000000000,"game":"NC A&T @ STNY BROOK","homeTeam":"STNY BROOK","awayTeam":"NC A&T","modelSpread":9.002976124811482,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":53.21386129534961,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.6543863674861169,"modelHomePoints":31.108418710080546,"modelAwayPoints":22.105442585269063,"modelHomeML":-189.3404385487689,"modelAwayML":189.3404385487689,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-189.3404385487689},{"kickoff":"Sat 11/08 12:00 PM ET","kickoffSort":1762621200000000000,"game":"NEW HAMP @ MONMOUTH","homeTeam":"MONMOUTH","awayTeam":"NEW HAMP","modelSpread":14.43320714090382,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":54.00059825786334,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.7378591271038681,"modelHomePoints":34.21690269938358,"modelAwayPoints":19.783695558479756,"modelHomeML":-281.4742771518237,"modelAwayML":281.4742771518237,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-281.4742771518237},{"kickoff":"Sat 11/08 12:00 PM ET","kickoffSort":1762621200000000000,"game":"YALE @ BROWN","homeTeam":"BROWN","awayTeam":"YALE","modelSpread":3.2825392942120946,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":52.7426247980873,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.5575726794355664,"modelHomePoints":28.012582046149696,"modelAwayPoints":24.730042751937603,"modelHomeML":-126.02582469912444,"modelAwayML":126.02582469912444,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-126.02582469912444},{"kickoff":"Sat 11/08 12:30 PM ET","kickoffSort":1762623000000000000,"game":"COLGATE @ LAFAYETTE","homeTeam":"LAFAYETTE","awayTeam":"COLGATE","modelSpread":8.029456426087721,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":54.08368226895671,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.6384207570559327,"modelHomePoints":31.056569347522213,"modelAwayPoints":23.027112921434494,"modelHomeML":-176.5645483014328,"modelAwayML":176.5645483014328,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-176.5645483014328},{"kickoff":"Sat 11/08 01:00 PM ET","kickoffSort":1762624800000000000,"game":"STETSON @ MARIST","homeTeam":"MARIST","awayTeam":"STETSON","modelSpread":12.907851283361934,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":51.21232954247219,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.7154793617898163,"modelHomePoints":32.06009041291706,"modelAwayPoints":19.152239129555127,"modelHomeML":-251.46835262659252,"modelAwayML":251.46835262659252,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-251.46835262659252},{"kickoff":"Sat 11/08 01:00 PM ET","kickoffSort":1762624800000000000,"game":"RICHMOND @ GEORGETOWN","homeTeam":"GEORGETOWN","awayTeam":"RICHMOND","modelSpread":5.509674230333559,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":51.96622930623584,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.5960259108481841,"modelHomePoints":28.7379517682847,"modelAwayPoints":23.22827753795114,"modelHomeML":-147.54062868229997,"modelAwayML":147.54062868229997,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-147.54062868229997},{"kickoff":"Sat 11/08 01:00 PM ET","kickoffSort":1762624800000000000,"game":"PRINCETON @ DARTMOUTH","homeTeam":"DARTMOUTH","awayTeam":"PRINCETON","modelSpread":8.250509087068064,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":52.986998105657584,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.642068399625665,"modelHomePoints":30.618753596362822,"modelAwayPoints":22.36824450929476,"modelHomeML":-179.3829879659051,"modelAwayML":179.3829879659051,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-179.3829879659051},{"kickoff":"Sat 11/08 01:00 PM ET","kickoffSort":1762624800000000000,"game":"CORNELL @ PENN","homeTeam":"PENN","awayTeam":"CORNELL","modelSpread":8.680220159792363,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":52.5390127780498,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.6491219110510302,"modelHomePoints":30.609616468921082,"modelAwayPoints":21.92939630912872,"modelHomeML":-184.9992722530576,"modelAwayML":184.9992722530576,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-184.9992722530576},{"kickoff":"Sat 11/08 01:00 PM ET","kickoffSort":1762624800000000000,"game":"BUCKNELL @ FORDHAM","homeTeam":"FORDHAM","awayTeam":"BUCKNELL","modelSpread":2.281978893835416,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":52.45022285746816,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.5400959852985173,"modelHomePoints":27.36610087565179,"modelAwayPoints":25.084121981816374,"modelHomeML":-117.43667548740277,"modelAwayML":117.43667548740277,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-117.43667548740277},{"kickoff":"Sat 11/08 01:00 PM ET","kickoffSort":1762624800000000000,"game":"SAN DIEGO @ VALPO","homeTeam":"VALPO","awayTeam":"SAN DIEGO","modelSpread":1.0418236260362168,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":51.937447559047484,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.5183300528740994,"modelHomePoints":26.489635592541852,"modelAwayPoints":25.447811966505633,"modelHomeML":-107.6110427829155,"modelAwayML":107.6110427829155,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-107.6110427829155},{"kickoff":"Sat 11/08 01:00 PM ET","kickoffSort":1762624800000000000,"game":"STTHOM @ DRAKE","homeTeam":"DRAKE","awayTeam":"STTHOM","modelSpread":2.7914682887662305,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":53.65481574120916,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.5490070336778278,"modelHomePoints":28.223142014987697,"modelAwayPoints":25.431673726221465,"modelHomeML":-121.73294811113263,"modelAwayML":121.73294811113263,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-121.73294811113263},{"kickoff":"Sat 11/08 01:00 PM ET","kickoffSort":1762624800000000000,"game":"VILLANOVA @ TOWSON","homeTeam":"TOWSON","awayTeam":"VILLANOVA","modelSpread":1.4510620338253422,"marketSpread":-6.5,"spreadEdge":7.951062033825342,"spreadBucket":"strong","spreadDirection":"home","modelTotal":52.856361156855165,"marketTotal":52.5,"totalEdge":0.356361156855165,"totalBucket":null,"homeWinProb":0.5255218309728154,"modelHomePoints":27.153711595340255,"modelAwayPoints":25.70264956151491,"modelHomeML":-110.75785257945266,"modelAwayML":110.75785257945266,"marketPrimary":"Fanduel","providers":["Fanduel"],"providerCount":1,"notes":["Single book","Total edge < 1"],"kelly":0.08745202213210457,"winProbEdge":null,"homeWinML":-110.75785257945266},{"kickoff":"Sat 11/08 01:00 PM ET","kickoffSort":1762624800000000000,"game":"BUTLER @ MOREHEAD","homeTeam":"MOREHEAD","awayTeam":"BUTLER","modelSpread":1.3260451836523184,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":51.53614174482282,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.5233256126423083,"modelHomePoints":26.43109346423757,"modelAwayPoints":25.10504828058525,"modelHomeML":-109.78681181995412,"modelAwayML":109.78681181995412,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-109.78681181995412},{"kickoff":"Sat 11/08 01:00 PM ET","kickoffSort":1762624800000000000,"game":"ILL STATE @ INDIANA ST","homeTeam":"INDIANA ST","awayTeam":"ILL STATE","modelSpread":0.550941412272288,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":53.39562622188136,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.5096958316108658,"modelHomePoints":26.973283817076823,"modelAwayPoints":26.422342404804535,"modelHomeML":-103.95502719983838,"modelAwayML":103.95502719983838,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-103.95502719983838},{"kickoff":"Sat 11/08 01:00 PM ET","kickoffSort":1762624800000000000,"game":"TENN TECH @ E ILLINOIS","homeTeam":"E ILLINOIS","awayTeam":"TENN TECH","modelSpread":-2.891366125001246,"marketSpread":-24.5,"spreadEdge":21.608633874998755,"spreadBucket":"strong","spreadDirection":"home","modelTotal":53.83431326291254,"marketTotal":52.5,"totalEdge":1.3343132629125378,"totalBucket":"light","homeWinProb":0.4492484869867685,"modelHomePoints":25.471473568955645,"modelAwayPoints":28.362839693956893,"modelHomeML":122.59396057341702,"modelAwayML":-122.59396057341701,"marketPrimary":"Fanduel","providers":["Fanduel"],"providerCount":1,"notes":["Single book"],"kelly":0.2035787243873415,"winProbEdge":null,"homeWinML":122.59396057341702},{"kickoff":"Sat 11/08 01:00 PM ET","kickoffSort":1762624800000000000,"game":"MAINE @ HAMPTON","homeTeam":"HAMPTON","awayTeam":"MAINE","modelSpread":1.1929776269651202,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":52.18942460381099,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.520987187386913,"modelHomePoints":26.691201115388054,"modelAwayPoints":25.498223488422937,"modelHomeML":-108.76268309919507,"modelAwayML":108.76268309919507,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-108.76268309919507},{"kickoff":"Sat 11/08 01:00 PM ET","kickoffSort":1762624800000000000,"game":"BRYANT @ ALBANY","homeTeam":"ALBANY","awayTeam":"BRYANT","modelSpread":2.383512036321532,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":51.97625587282681,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.541873568556999,"modelHomePoints":27.179883954574173,"modelAwayPoints":24.79637191825264,"modelHomeML":-118.28035480297703,"modelAwayML":118.28035480297703,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-118.28035480297703},{"kickoff":"Sat 11/08 01:00 PM ET","kickoffSort":1762624800000000000,"game":"PRESBYTERN @ DAVIDSON","homeTeam":"DAVIDSON","awayTeam":"PRESBYTERN","modelSpread":-0.5504880077111463,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":52.6502407371314,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.4903121461333724,"modelHomePoints":26.049876364710126,"modelAwayPoints":26.60036437242127,"modelHomeML":103.95170869945872,"modelAwayML":-103.95170869945872,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":103.95170869945872},{"kickoff":"Sat 11/08 01:30 PM ET","kickoffSort":1762626600000000000,"game":"SE MO ST @ GARD-WEBB","homeTeam":"GARD-WEBB","awayTeam":"SE MO ST","modelSpread":7.7300274588496,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":53.077727084977234,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.6334597359123071,"modelHomePoints":30.403877271913416,"modelAwayPoints":22.673849813063818,"modelHomeML":-172.82132359700464,"modelAwayML":172.82132359700464,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-172.82132359700464},{"kickoff":"Sat 11/08 01:30 PM ET","kickoffSort":1762626600000000000,"game":"HOWARD @ SCAR STATE","homeTeam":"SCAR STATE","awayTeam":"HOWARD","modelSpread":10.326467696770829,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":52.20585885523225,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.6756537909186808,"modelHomePoints":31.26616327600154,"modelAwayPoints":20.939695579230712,"modelHomeML":-208.31252902027376,"modelAwayML":208.31252902027376,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-208.31252902027376},{"kickoff":"Sat 11/08 01:30 PM ET","kickoffSort":1762626600000000000,"game":"WOFFORD @ VA MILT IN","homeTeam":"VA MILT IN","awayTeam":"WOFFORD","modelSpread":2.659209949219994,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":50.993746360516795,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.5466960032765605,"modelHomePoints":26.826478154868393,"modelAwayPoints":24.1672682056484,"modelHomeML":-120.60251116870242,"modelAwayML":120.60251116870242,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-120.60251116870242},{"kickoff":"Sat 11/08 02:00 PM ET","kickoffSort":1762628400000000000,"game":"N DAK ST @ N DAKOTA","homeTeam":"N DAKOTA","awayTeam":"N DAK ST","modelSpread":2.286600746491696,"marketSpread":-13.5,"spreadEdge":15.786600746491697,"spreadBucket":"strong","spreadDirection":"home","modelTotal":54.98537032658229,"marketTotal":54.5,"totalEdge":0.4853703265822915,"totalBucket":null,"homeWinProb":0.5401769196951718,"modelHomePoints":28.635985536536992,"modelAwayPoints":26.3493847900453,"modelHomeML":-117.47494695939905,"modelAwayML":117.47494695939905,"marketPrimary":"Fanduel","providers":["Fanduel"],"providerCount":1,"notes":["Single book","Total edge < 1"],"kelly":0.16500037461948625,"winProbEdge":null,"homeWinML":-117.47494695939905},{"kickoff":"Sat 11/08 02:00 PM ET","kickoffSort":1762628400000000000,"game":"S ILLINOIS @ YNGTOWN ST","homeTeam":"YNGTOWN ST","awayTeam":"S ILLINOIS","modelSpread":5.347042859500369,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":54.62881828622047,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.593244458357361,"modelHomePoints":29.98793057286042,"modelAwayPoints":24.64088771336005,"modelHomeML":-145.8479105070348,"modelAwayML":145.8479105070348,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-145.8479105070348},{"kickoff":"Sat 11/08 02:00 PM ET","kickoffSort":1762628400000000000,"game":"MURRAY ST @ N IOWA","homeTeam":"N IOWA","awayTeam":"MURRAY ST","modelSpread":6.961381110075797,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":51.59841057813011,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.6206238891654969,"modelHomePoints":29.279895844102953,"modelAwayPoints":22.318514734027154,"modelHomeML":-163.59066146793688,"modelAwayML":163.59066146793688,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-163.59066146793688},{"kickoff":"Sat 11/08 02:00 PM ET","kickoffSort":1762628400000000000,"game":"RHODE ISLD @ ELON","homeTeam":"ELON","awayTeam":"RHODE ISLD","modelSpread":3.161413434320409,"marketSpread":-6.5,"spreadEdge":9.661413434320409,"spreadBucket":"strong","spreadDirection":"home","modelTotal":52.961025953199005,"marketTotal":48.5,"totalEdge":4.461025953199005,"totalBucket":"strong","homeWinProb":0.5554622481888282,"modelHomePoints":28.061219693759707,"modelAwayPoints":24.8998062594393,"modelHomeML":-124.95277306049233,"modelAwayML":124.95277306049233,"marketPrimary":"Fanduel","providers":["Fanduel"],"providerCount":1,"notes":["Single book"],"kelly":0.10668782923816818,"winProbEdge":null,"homeWinML":-124.95277306049233},{"kickoff":"Sat 11/08 02:00 PM ET","kickoffSort":1762628400000000000,"game":"NORFOLK @ NC CENT","homeTeam":"NC CENT","awayTeam":"NORFOLK","modelSpread":13.79836128848454,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":53.21020939218496,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.7286553288933301,"modelHomePoints":33.50428534033475,"modelAwayPoints":19.70592405185021,"modelHomeML":-268.5349691672714,"modelAwayML":268.5349691672714,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-268.5349691672714},{"kickoff":"Sat 11/08 02:00 PM ET","kickoffSort":1762628400000000000,"game":"LNDNWD @ W ILLINOIS","homeTeam":"W ILLINOIS","awayTeam":"LNDNWD","modelSpread":5.551884005707984,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":53.40460987098433,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.5967470295949375,"modelHomePoints":29.478246938346157,"modelAwayPoints":23.926362932638174,"modelHomeML":-147.98329420748288,"modelAwayML":147.98329420748288,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-147.98329420748288},{"kickoff":"Sat 11/08 02:00 PM ET","kickoffSort":1762628400000000000,"game":"INCAR WORD @ NWSTATE","homeTeam":"NWSTATE","awayTeam":"INCAR WORD","modelSpread":1.8898286551952999,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":52.00200373535733,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.5332232347502248,"modelHomePoints":26.945916195276315,"modelAwayPoints":25.056087540081013,"modelHomeML":-114.23517073839218,"modelAwayML":114.23517073839218,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-114.23517073839218},{"kickoff":"Sat 11/08 02:30 PM ET","kickoffSort":1762630200000000000,"game":"MERCER @ W CAROLINA","homeTeam":"W CAROLINA","awayTeam":"MERCER","modelSpread":5.949785364180466,"marketSpread":-7.5,"spreadEdge":13.449785364180466,"spreadBucket":"strong","spreadDirection":"home","modelTotal":54.99646932028582,"marketTotal":61.5,"totalEdge":-6.503530679714181,"totalBucket":"strong","homeWinProb":0.6035283575774717,"modelHomePoints":30.47312734223314,"modelAwayPoints":24.523341978052677,"modelHomeML":-152.22484863981234,"modelAwayML":152.22484863981234,"marketPrimary":"Fanduel","providers":["Fanduel"],"providerCount":1,"notes":["Single book"],"kelly":0.14485153884021243,"winProbEdge":null,"homeWinML":-152.22484863981234},{"kickoff":"Sat 11/08 03:00 PM ET","kickoffSort":1762632000000000000,"game":"STF AUSTIN @ HOUCHR","homeTeam":"HOUCHR","awayTeam":"STF AUSTIN","modelSpread":-0.5703569831368582,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":51.6005715805922,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.48996255120468357,"modelHomePoints":25.51510729872767,"modelAwayPoints":26.08546428186453,"modelHomeML":104.09723101107916,"modelAwayML":-104.09723101107916,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":104.09723101107916},{"kickoff":"Sat 11/08 03:00 PM ET","kickoffSort":1762632000000000000,"game":"BETH COOK @ GRAMBLING","homeTeam":"GRAMBLING","awayTeam":"BETH COOK","modelSpread":2.82530464487773,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":53.34341296830633,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.5495980133113928,"modelHomePoints":28.084358806592032,"modelAwayPoints":25.2590541617143,"modelHomeML":-122.0238874504269,"modelAwayML":122.0238874504269,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-122.0238874504269},{"kickoff":"Sat 11/08 03:00 PM ET","kickoffSort":1762632000000000000,"game":"FL A&M @ ARKAPB","homeTeam":"ARKAPB","awayTeam":"FL A&M","modelSpread":4.457514967957709,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":51.796288338746066,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.5779512646510816,"modelHomePoints":28.126901653351887,"modelAwayPoints":23.66938668539418,"modelHomeML":-136.93946130966953,"modelAwayML":136.93946130966953,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-136.93946130966953},{"kickoff":"Sat 11/08 03:00 PM ET","kickoffSort":1762632000000000000,"game":"TEXAS STHN @ ALABAMA ST","homeTeam":"ALABAMA ST","awayTeam":"TEXAS STHN","modelSpread":11.566102021510918,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":53.53422913428198,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.6950685635947771,"modelHomePoints":32.55016557789645,"modelAwayPoints":20.98406355638553,"modelHomeML":-227.94257351383789,"modelAwayML":227.94257351383789,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-227.94257351383789},{"kickoff":"Sat 11/08 03:00 PM ET","kickoffSort":1762632000000000000,"game":"JACKSON ST @ MS VLY ST","homeTeam":"MS VLY ST","awayTeam":"JACKSON ST","modelSpread":-1.374044796707753,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":52.83553247611547,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.4758310725314318,"modelHomePoints":25.73074383970386,"modelAwayPoints":27.10478863641161,"modelHomeML":110.15861672924761,"modelAwayML":-110.1586167292476,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":110.15861672924761},{"kickoff":"Sat 11/08 03:00 PM ET","kickoffSort":1762632000000000000,"game":"SO UTAH @ E KENTUCKY","homeTeam":"E KENTUCKY","awayTeam":"SO UTAH","modelSpread":1.9146240444971077,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":52.762623460886985,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.5336581092878669,"modelHomePoints":27.338623752692047,"modelAwayPoints":25.423999708194938,"modelHomeML":-114.43494996191266,"modelAwayML":114.43494996191266,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-114.43494996191266},{"kickoff":"Sat 11/08 03:00 PM ET","kickoffSort":1762632000000000000,"game":"UTAHTC @ ABILENE CH","homeTeam":"ABILENE CH","awayTeam":"UTAHTC","modelSpread":11.642700830909105,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":52.118116948194015,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.6962511409808165,"modelHomePoints":31.88040888955156,"modelAwayPoints":20.237708058642454,"modelHomeML":-229.21934364759022,"modelAwayML":229.21934364759022,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-229.21934364759022},{"kickoff":"Sat 11/08 03:00 PM ET","kickoffSort":1762632000000000000,"game":"WEBER ST @ MONTANA ST","homeTeam":"MONTANA ST","awayTeam":"WEBER ST","modelSpread":12.545473886442805,"marketSpread":-28.5,"spreadEdge":41.04547388644281,"spreadBucket":"strong","spreadDirection":"home","modelTotal":53.71946592022274,"marketTotal":57.5,"totalEdge":-3.7805340797772615,"totalBucket":"strong","homeWinProb":0.7100315149790789,"modelHomePoints":33.13246990333277,"modelAwayPoints":20.58699601688997,"modelHomeML":-244.86506350090096,"modelAwayML":244.86506350090096,"marketPrimary":"Fanduel","providers":["Fanduel"],"providerCount":1,"notes":["Single book"],"kelly":0.2472943043979142,"winProbEdge":null,"homeWinML":-244.86506350090096},{"kickoff":"Sat 11/08 03:00 PM ET","kickoffSort":1762632000000000000,"game":"E WASHGTON @ MONTANA","homeTeam":"MONTANA","awayTeam":"E WASHGTON","modelSpread":13.00878188161246,"marketSpread":-30.5,"spreadEdge":43.508781881612464,"spreadBucket":"strong","spreadDirection":"home","modelTotal":53.888414985494826,"marketTotal":63.5,"totalEdge":-9.611585014505174,"totalBucket":"strong","homeWinProb":0.7169879641766963,"modelHomePoints":33.44859843355364,"modelAwayPoints":20.439816551941185,"modelHomeML":-253.3418630380589,"modelAwayML":253.3418630380589,"marketPrimary":"Fanduel","providers":["Fanduel"],"providerCount":1,"notes":["Single book"],"kelly":0.2482827127125319,"winProbEdge":null,"homeWinML":-253.3418630380589},{"kickoff":"Sat 11/08 03:00 PM ET","kickoffSort":1762632000000000000,"game":"PRVIEW A&M @ ALAB A&M","homeTeam":"ALAB A&M","awayTeam":"PRVIEW A&M","modelSpread":6.247194889461098,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":52.70051941465633,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.6085767771002395,"modelHomePoints":29.473857152058713,"modelAwayPoints":23.226662262597614,"modelHomeML":-155.4779434372216,"modelAwayML":155.4779434372216,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-155.4779434372216},{"kickoff":"Sat 11/08 03:30 PM ET","kickoffSort":1762633800000000000,"game":"MERRIMACK @ NEWHVN","homeTeam":"NEWHVN","awayTeam":"MERRIMACK","modelSpread":5.61739196845775,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":51.37770836370325,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.5978655263571293,"modelHomePoints":28.4975501660805,"modelAwayPoints":22.880158197622748,"modelHomeML":-148.67303490326577,"modelAwayML":148.67303490326577,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-148.67303490326577},{"kickoff":"Sat 11/08 04:00 PM ET","kickoffSort":1762635600000000000,"game":"S DAK ST @ S DAKOTA","homeTeam":"S DAKOTA","awayTeam":"S DAK ST","modelSpread":2.193870924045383,"marketSpread":-6.5,"spreadEdge":8.693870924045383,"spreadBucket":"strong","spreadDirection":"home","modelTotal":52.65503523736036,"marketTotal":47.5,"totalEdge":5.155035237360359,"totalBucket":"strong","homeWinProb":0.538552791110152,"modelHomePoints":27.42445308070287,"modelAwayPoints":25.230582156657487,"modelHomeML":-116.70951318695913,"modelAwayML":116.70951318695913,"marketPrimary":"Fanduel","providers":["Fanduel"],"providerCount":1,"notes":["Single book"],"kelly":0.0959447380673578,"winProbEdge":null,"homeWinML":-116.70951318695913},{"kickoff":"Sat 11/08 04:00 PM ET","kickoffSort":1762635600000000000,"game":"SE LA @ LAMAR","homeTeam":"LAMAR","awayTeam":"SE LA","modelSpread":0.7808889224998011,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":54.13776638360525,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.5137412350405716,"modelHomePoints":27.459327653052526,"modelAwayPoints":26.678438730552728,"modelHomeML":-105.65181999000804,"modelAwayML":105.65181999000804,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-105.65181999000804},{"kickoff":"Sat 11/08 04:00 PM ET","kickoffSort":1762635600000000000,"game":"SOUTHERN U @ ALCORN ST","homeTeam":"ALCORN ST","awayTeam":"SOUTHERN U","modelSpread":9.329375442629344,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":51.41523039994631,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.6596800528875797,"modelHomePoints":30.372302921287826,"modelAwayPoints":21.042927478658484,"modelHomeML":-193.84113640264022,"modelAwayML":193.84113640264022,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-193.84113640264022},{"kickoff":"Sat 11/08 04:00 PM ET","kickoffSort":1762635600000000000,"game":"CENT ARK @ AUSTINPEAY","homeTeam":"AUSTINPEAY","awayTeam":"CENT ARK","modelSpread":10.587792772189484,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":54.16635413624348,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.6797888751078796,"modelHomePoints":32.37707345421648,"modelAwayPoints":21.789280682026998,"modelHomeML":-212.29395928604958,"modelAwayML":212.29395928604958,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-212.29395928604958},{"kickoff":"Sat 11/08 04:00 PM ET","kickoffSort":1762635600000000000,"game":"W GEORGIA @ N ALABAMA","homeTeam":"N ALABAMA","awayTeam":"W GEORGIA","modelSpread":4.48098977619289,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":53.035112992451644,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.5783564767238318,"modelHomePoints":28.75805138432227,"modelAwayPoints":24.277061608129376,"modelHomeML":-137.16716723880987,"modelAwayML":137.16716723880987,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-137.16716723880987},{"kickoff":"Sat 11/08 05:00 PM ET","kickoffSort":1762639200000000000,"game":"SACRAMENTO @ PORTLAND","homeTeam":"PORTLAND","awayTeam":"SACRAMENTO","modelSpread":-1.047477976668431,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":53.20716309629622,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.481570533959021,"modelHomePoints":26.079842559813894,"modelAwayPoints":27.127320536482326,"modelHomeML":107.65390103479514,"modelAwayML":-107.65390103479513,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":107.65390103479514},{"kickoff":"Sat 11/08 05:00 PM ET","kickoffSort":1762639200000000000,"game":"MCNEESE @ East Texas A&M","homeTeam":"East Texas A&M","awayTeam":"MCNEESE","modelSpread":10.469311255097148,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":53.13277986517759,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.6779168058829516,"modelHomePoints":31.801045560137368,"modelAwayPoints":21.33173430504022,"modelHomeML":-210.4787887928699,"modelAwayML":210.4787887928699,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-210.4787887928699},{"kickoff":"Sat 11/08 06:00 PM ET","kickoffSort":1762642800000000000,"game":"NICHOLLS @ TXGV","homeTeam":"TXGV","awayTeam":"NICHOLLS","modelSpread":11.55337007316902,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":52.163043731069,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.6948718022177376,"modelHomePoints":31.85820690211901,"modelAwayPoints":20.30483682894999,"modelHomeML":-227.7311003270808,"modelAwayML":227.7311003270808,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-227.7311003270808},{"kickoff":"Sat 11/08 06:00 PM ET","kickoffSort":1762642800000000000,"game":"CAL POLY @ IDAHO ST","homeTeam":"IDAHO ST","awayTeam":"CAL POLY","modelSpread":4.427485951911847,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":52.69492648670821,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.5774327963905,"modelHomePoints":28.56120621931003,"modelAwayPoints":24.133720267398182,"modelHomeML":-136.64874875715944,"modelAwayML":136.64874875715944,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-136.64874875715944},{"kickoff":"Sat 11/08 06:00 PM ET","kickoffSort":1762642800000000000,"game":"N COLORADO @ N ARIZONA","homeTeam":"N ARIZONA","awayTeam":"N COLORADO","modelSpread":5.255303889433947,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":52.9667903054208,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.5916733774782476,"modelHomePoints":29.111047097427374,"modelAwayPoints":23.855743207993427,"modelHomeML":-144.90198405976525,"modelAwayML":144.90198405976525,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-144.90198405976525},{"kickoff":"Sat 11/08 07:00 PM ET","kickoffSort":1762646400000000000,"game":"UC DAVIS @ IDAHO","homeTeam":"IDAHO","awayTeam":"UC DAVIS","modelSpread":2.582091082775692,"marketSpread":null,"spreadEdge":null,"spreadBucket":null,"spreadDirection":null,"modelTotal":53.708689688347356,"marketTotal":null,"totalEdge":null,"totalBucket":null,"homeWinProb":0.5453477230309239,"modelHomePoints":28.145390385561523,"modelAwayPoints":25.563299302785833,"modelHomeML":-119.94831009457734,"modelAwayML":119.94831009457734,"marketPrimary":"\u2014","providers":[],"providerCount":0,"notes":["No market lines"],"kelly":null,"winProbEdge":null,"homeWinML":-119.94831009457734}]</script>
+    <script id="fcs-meta" type="application/json">{"title":"FCS Slate 2025-11-05 to 2025-11-09","generated":"2025-11-05T23:21:54.881973+00:00","gameCount":59,"providerCount":1,"providers":["Fanduel"],"logo":"data:image/png;base64,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"}</script>
+    <script>
+      (function () {
+        const data = JSON.parse(document.getElementById("fcs-data").textContent || "[]");
+        const meta = JSON.parse(document.getElementById("fcs-meta").textContent || "{}");
+
+        const titleEl = document.getElementById("title");
+        if (meta.title) {
+          titleEl.textContent = meta.title;
+          document.title = `FCS Matchups – ${meta.title}`;
+        } else {
+          document.title = "FCS Matchups";
+        }
+
+        const logoEl = document.getElementById("logo");
+        if (meta.logo) {
+          logoEl.src = meta.logo;
+          logoEl.style.display = "block";
+        }
+
+        document.getElementById("summary-count").textContent = `${meta.gameCount || data.length} games`;
+        document.getElementById("summary-providers").textContent =
+          meta.providers && meta.providers.length
+            ? `${meta.providers.length} books · ${meta.providers.join(", ")}`
+            : "No sportsbook data";
+        document.getElementById("generated").textContent = meta.generated
+          ? `Updated ${new Date(meta.generated).toLocaleString()}`
+          : "";
+
+        const tbody = document.querySelector("#matchups tbody");
+        const searchInput = document.getElementById("search");
+        const edgeSelect = document.getElementById("edge-filter");
+
+        const formatNumber = (value, { signed = false, precision = 1 } = {}) => {
+          if (value === null || value === undefined || Number.isNaN(value)) {
+            return "—";
+          }
+          const fmt = new Intl.NumberFormat("en-US", {
+            minimumFractionDigits: precision,
+            maximumFractionDigits: precision,
+            signDisplay: signed ? "always" : "auto",
+          });
+          return fmt.format(value);
+        };
+
+        const formatPercent = (value) => {
+          if (value === null || value === undefined || Number.isNaN(value)) {
+            return "—";
+          }
+          return `${(value * 100).toFixed(1)}%`;
+        };
+
+        const formatMoneyline = (value) => {
+          if (value === null || value === undefined || Number.isNaN(value)) {
+            return "—";
+          }
+          return `${value >= 0 ? '+' : ''}${Math.round(value)}`;
+        };
+
+        const formatProviders = (row) => {
+          if (!row.providers || !row.providers.length) {
+            return '<span class="chip muted">—</span>';
+          }
+          return row.providers
+            .map((name) => `<span class="chip">${name}</span>`)
+            .join("");
+        };
+
+        const formatNotes = (row) => {
+          if (!row.notes || !row.notes.length) {
+            return '<span class="note muted">—</span>';
+          }
+          return row.notes.map((note) => `<span class="note">${note}</span>`).join("");
+        };
+
+        const formatEdgeBadge = (value, direction, bucket, label) => {
+          if (value === null || value === undefined) {
+            return '<span class="chip muted">—</span>';
+          }
+          const classes = ["edge-badge"];
+          classes.push(direction || "total");
+          if (bucket) classes.push(bucket);
+          const prefix = direction === "home" ? "Home" : direction === "away" ? "Away" : label || "Total";
+          return `<span class="${classes.join(" ")}"><span>${prefix}</span><span>${formatNumber(value, {
+            signed: true,
+          })}</span></span>`;
+        };
+
+        const formatScoreline = (row) => {
+          const home = formatNumber(row.modelHomePoints, { signed: false });
+          const away = formatNumber(row.modelAwayPoints, { signed: false });
+          return `${row.homeTeam} ${home} • ${row.awayTeam} ${away}`;
+        };
+
+        const formatKelly = (value) => {
+          if (value === null || value === undefined || Number.isNaN(value) || value <= 0) {
+            return "—";
+          }
+          return `<span class="kelly">${(value * 0.5 * 100).toFixed(1)}%</span>`;
+        };
+
+        const toHaystack = (row) =>
+          [
+            row.game,
+            row.homeTeam,
+            row.awayTeam,
+            row.marketPrimary,
+            ...(row.providers || []),
+            ...(row.notes || []),
+          ]
+            .join(" ")
+            .toLowerCase();
+
+        const passesEdgeFilter = (row, minEdge) => {
+          if (!minEdge) return true;
+          const spreadMag = row.spreadEdge == null ? 0 : Math.abs(row.spreadEdge);
+          const totalMag = row.totalEdge == null ? 0 : Math.abs(row.totalEdge);
+          return spreadMag >= minEdge || totalMag >= minEdge;
+        };
+
+        const render = (rows) => {
+          const html = rows
+            .map((row) => {
+              const spreadBadge = formatEdgeBadge(row.spreadEdge, row.spreadDirection, row.spreadBucket, "Spread");
+              const totalBadge = formatEdgeBadge(row.totalEdge, "total", row.totalBucket, "Total");
+              return `<tr>
+                <td>${row.kickoff || "TBD"}</td>
+                <td>
+                  <div class="matchup">${row.game}</div>
+                  <div class="scoreline">${formatScoreline(row)}</div>
+                </td>
+                <td>${formatNumber(row.modelSpread, { signed: true })}</td>
+                <td>${formatNumber(row.marketSpread, { signed: true })}</td>
+                <td>${spreadBadge}</td>
+                <td>${formatNumber(row.modelTotal, { signed: false })}</td>
+                <td>${formatNumber(row.marketTotal, { signed: false })}</td>
+                <td>${totalBadge}</td>
+                <td class="win-prob">${formatPercent(row.homeWinProb)}<span>Home win</span></td>
+                <td>${formatMoneyline(row.homeWinML)}</td>
+                <td>${formatProviders(row)}</td>
+                <td><div class="notes">${formatNotes(row)}</div></td>
+                <td>${formatKelly(row.kelly)}</td>
+              </tr>`;
+            })
+            .join("");
+          tbody.innerHTML = html;
+        };
+
+        const applyFilters = () => {
+          const query = searchInput.value.trim().toLowerCase();
+          const minEdge = parseFloat(edgeSelect.value) || 0;
+
+          const filtered = data
+            .filter((row) => passesEdgeFilter(row, minEdge))
+            .filter((row) => (query ? toHaystack(row).includes(query) : true))
+            .sort((a, b) => {
+              const aKey = a.kickoffSort ?? Number.MAX_SAFE_INTEGER;
+              const bKey = b.kickoffSort ?? Number.MAX_SAFE_INTEGER;
+              return aKey - bKey;
+            });
+
+          render(filtered);
+        };
+
+        searchInput.addEventListener("input", applyFilters);
+        edgeSelect.addEventListener("change", applyFilters);
+
+        applyFilters();
+      })();
+    </script>
+  </body>
+</html>

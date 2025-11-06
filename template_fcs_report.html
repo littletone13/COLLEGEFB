@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FCS Matchups</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f4f6fb;
+        --card: #ffffff;
+        --card-border: #dce1eb;
+        --text: #1f2630;
+        --muted: #6b7484;
+        --accent: #026a49;
+        --edge-home: #026a49;
+        --edge-away: #1262d3;
+        --edge-total: #b1440e;
+        --edge-strong: #d83b01;
+        --edge-medium: #e38700;
+        --edge-light: #7b8899;
+        font-family: "Inter", "Segoe UI", Roboto, sans-serif;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+      }
+      header {
+        background: var(--card);
+        border-bottom: 1px solid var(--card-border);
+        padding: 28px 36px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+      .brand img {
+        width: 68px;
+        height: 68px;
+        border-radius: 50%;
+        border: 2px solid rgba(0, 0, 0, 0.05);
+        object-fit: cover;
+        display: none;
+      }
+      .brand-copy h1 {
+        margin: 0;
+        font-size: 28px;
+        line-height: 1.1;
+      }
+      .meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .meta-row span::before {
+        content: "•";
+        margin: 0 6px;
+      }
+      .meta-row span:first-child::before {
+        content: "";
+        margin: 0;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        background: rgba(2, 106, 73, 0.06);
+        border: 1px solid rgba(2, 106, 73, 0.12);
+        border-radius: 14px;
+        padding: 12px 16px;
+      }
+      .controls input[type="search"] {
+        flex: 1;
+        min-width: 220px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--card-border);
+        font-size: 14px;
+      }
+      .controls label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .controls select {
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid var(--card-border);
+        font-size: 14px;
+        background: var(--card);
+      }
+      main {
+        padding: 24px 36px 48px;
+      }
+      .table-card {
+        background: var(--card);
+        border-radius: 18px;
+        border: 1px solid var(--card-border);
+        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+        overflow-x: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+      thead th {
+        text-align: left;
+        padding: 14px 16px;
+        font-size: 12px;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--muted);
+        background: linear-gradient(180deg, rgba(244, 246, 251, 0.9), #fff);
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        border-bottom: 1px solid var(--card-border);
+        white-space: nowrap;
+      }
+      tbody td {
+        padding: 14px 16px;
+        border-bottom: 1px solid rgba(220, 225, 235, 0.75);
+        vertical-align: middle;
+      }
+      tbody tr:hover {
+        background: rgba(2, 106, 73, 0.04);
+      }
+      .matchup {
+        font-weight: 600;
+      }
+      .scoreline {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .edge-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: 12px;
+        border: 1px solid transparent;
+      }
+      .edge-badge.home {
+        color: var(--edge-home);
+        border-color: rgba(2, 106, 73, 0.25);
+        background: rgba(2, 106, 73, 0.08);
+      }
+      .edge-badge.away {
+        color: var(--edge-away);
+        border-color: rgba(18, 98, 211, 0.2);
+        background: rgba(18, 98, 211, 0.08);
+      }
+      .edge-badge.total {
+        color: var(--edge-total);
+        border-color: rgba(177, 68, 14, 0.22);
+        background: rgba(177, 68, 14, 0.08);
+      }
+      .edge-badge.strong {
+        box-shadow: 0 0 0 1px rgba(216, 59, 1, 0.15);
+      }
+      .edge-badge.medium {
+        box-shadow: 0 0 0 1px rgba(227, 135, 0, 0.18);
+      }
+      .edge-badge.light {
+        box-shadow: 0 0 0 1px rgba(123, 136, 153, 0.18);
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        background: rgba(2, 106, 73, 0.1);
+        color: var(--accent);
+        margin-right: 4px;
+        margin-bottom: 4px;
+      }
+      .chip.muted {
+        background: rgba(107, 116, 132, 0.12);
+        color: var(--muted);
+      }
+      .notes {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .note {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 8px;
+        border-radius: 8px;
+        font-size: 11px;
+        font-weight: 600;
+        background: rgba(216, 59, 1, 0.12);
+        color: var(--edge-strong);
+      }
+      .note.muted {
+        background: rgba(107, 116, 132, 0.12);
+        color: var(--muted);
+      }
+      .kelly {
+        font-weight: 600;
+        color: var(--accent);
+      }
+      .win-prob {
+        font-weight: 600;
+      }
+      .win-prob span {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        font-weight: 400;
+      }
+      @media (max-width: 900px) {
+        header {
+          padding: 20px;
+        }
+        main {
+          padding: 16px 20px 32px;
+        }
+        thead th,
+        tbody td {
+          padding: 10px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <img id="logo" alt="" />
+        <div class="brand-copy">
+          <h1 id="title">FCS Matchups</h1>
+          <div class="meta-row">
+            <span id="summary-count"></span>
+            <span id="summary-providers"></span>
+            <span id="generated"></span>
+          </div>
+        </div>
+      </div>
+      <div class="controls">
+        <input type="search" id="search" placeholder="Filter teams, notes, providers…" aria-label="Filter matchups" />
+        <label>
+          Edge filter
+          <select id="edge-filter">
+            <option value="0">All edges</option>
+            <option value="1">≥ 1 pt</option>
+            <option value="2">≥ 2 pts</option>
+            <option value="3">≥ 3 pts</option>
+          </select>
+        </label>
+      </div>
+    </header>
+    <main>
+      <div class="table-card">
+        <table id="matchups">
+          <thead>
+            <tr>
+              <th>Kickoff</th>
+              <th>Matchup</th>
+              <th>Model Spread</th>
+              <th>Market Spread</th>
+              <th>Spread Edge</th>
+              <th>Model Total</th>
+              <th>Market Total</th>
+              <th>Total Edge</th>
+              <th>Home Win</th>
+              <th>Home ML</th>
+              <th>Providers</th>
+              <th>Notes</th>
+              <th>Kelly</th>
+            </tr>
+          </thead>
+          <tbody>__FCS_ROWS__</tbody>
+        </table>
+      </div>
+    </main>
+    <script id="fcs-data" type="application/json">__FCS_DATA__</script>
+    <script id="fcs-meta" type="application/json">__FCS_META__</script>
+    <script>
+      (function () {
+        const data = JSON.parse(document.getElementById("fcs-data").textContent || "[]");
+        const meta = JSON.parse(document.getElementById("fcs-meta").textContent || "{}");
+
+        const titleEl = document.getElementById("title");
+        if (meta.title) {
+          titleEl.textContent = meta.title;
+          document.title = `FCS Matchups – ${meta.title}`;
+        } else {
+          document.title = "FCS Matchups";
+        }
+
+        const logoEl = document.getElementById("logo");
+        if (meta.logo) {
+          logoEl.src = meta.logo;
+          logoEl.style.display = "block";
+        }
+
+        document.getElementById("summary-count").textContent = `${meta.gameCount || data.length} games`;
+        document.getElementById("summary-providers").textContent =
+          meta.providers && meta.providers.length
+            ? `${meta.providers.length} books · ${meta.providers.join(", ")}`
+            : "No sportsbook data";
+        document.getElementById("generated").textContent = meta.generated
+          ? `Updated ${new Date(meta.generated).toLocaleString()}`
+          : "";
+
+        const tbody = document.querySelector("#matchups tbody");
+        const searchInput = document.getElementById("search");
+        const edgeSelect = document.getElementById("edge-filter");
+
+        const formatNumber = (value, { signed = false, precision = 1 } = {}) => {
+          if (value === null || value === undefined || Number.isNaN(value)) {
+            return "—";
+          }
+          const fmt = new Intl.NumberFormat("en-US", {
+            minimumFractionDigits: precision,
+            maximumFractionDigits: precision,
+            signDisplay: signed ? "always" : "auto",
+          });
+          return fmt.format(value);
+        };
+
+        const formatPercent = (value) => {
+          if (value === null || value === undefined || Number.isNaN(value)) {
+            return "—";
+          }
+          return `${(value * 100).toFixed(1)}%`;
+        };
+
+        const formatMoneyline = (value) => {
+          if (value === null || value === undefined || Number.isNaN(value)) {
+            return "—";
+          }
+          return `${value >= 0 ? '+' : ''}${Math.round(value)}`;
+        };
+
+        const formatProviders = (row) => {
+          if (!row.providers || !row.providers.length) {
+            return '<span class="chip muted">—</span>';
+          }
+          return row.providers
+            .map((name) => `<span class="chip">${name}</span>`)
+            .join("");
+        };
+
+        const formatNotes = (row) => {
+          if (!row.notes || !row.notes.length) {
+            return '<span class="note muted">—</span>';
+          }
+          return row.notes.map((note) => `<span class="note">${note}</span>`).join("");
+        };
+
+        const formatEdgeBadge = (value, direction, bucket, label) => {
+          if (value === null || value === undefined) {
+            return '<span class="chip muted">—</span>';
+          }
+          const classes = ["edge-badge"];
+          classes.push(direction || "total");
+          if (bucket) classes.push(bucket);
+          const prefix = direction === "home" ? "Home" : direction === "away" ? "Away" : label || "Total";
+          return `<span class="${classes.join(" ")}"><span>${prefix}</span><span>${formatNumber(value, {
+            signed: true,
+          })}</span></span>`;
+        };
+
+        const formatScoreline = (row) => {
+          const home = formatNumber(row.modelHomePoints, { signed: false });
+          const away = formatNumber(row.modelAwayPoints, { signed: false });
+          return `${row.homeTeam} ${home} • ${row.awayTeam} ${away}`;
+        };
+
+        const formatKelly = (value) => {
+          if (value === null || value === undefined || Number.isNaN(value) || value <= 0) {
+            return "—";
+          }
+          return `<span class="kelly">${(value * 0.5 * 100).toFixed(1)}%</span>`;
+        };
+
+        const toHaystack = (row) =>
+          [
+            row.game,
+            row.homeTeam,
+            row.awayTeam,
+            row.marketPrimary,
+            ...(row.providers || []),
+            ...(row.notes || []),
+          ]
+            .join(" ")
+            .toLowerCase();
+
+        const passesEdgeFilter = (row, minEdge) => {
+          if (!minEdge) return true;
+          const spreadMag = row.spreadEdge == null ? 0 : Math.abs(row.spreadEdge);
+          const totalMag = row.totalEdge == null ? 0 : Math.abs(row.totalEdge);
+          return spreadMag >= minEdge || totalMag >= minEdge;
+        };
+
+        const render = (rows) => {
+          const html = rows
+            .map((row) => {
+              const spreadBadge = formatEdgeBadge(row.spreadEdge, row.spreadDirection, row.spreadBucket, "Spread");
+              const totalBadge = formatEdgeBadge(row.totalEdge, "total", row.totalBucket, "Total");
+              return `<tr>
+                <td>${row.kickoff || "TBD"}</td>
+                <td>
+                  <div class="matchup">${row.game}</div>
+                  <div class="scoreline">${formatScoreline(row)}</div>
+                </td>
+                <td>${formatNumber(row.modelSpread, { signed: true })}</td>
+                <td>${formatNumber(row.marketSpread, { signed: true })}</td>
+                <td>${spreadBadge}</td>
+                <td>${formatNumber(row.modelTotal, { signed: false })}</td>
+                <td>${formatNumber(row.marketTotal, { signed: false })}</td>
+                <td>${totalBadge}</td>
+                <td class="win-prob">${formatPercent(row.homeWinProb)}<span>Home win</span></td>
+                <td>${formatMoneyline(row.homeWinML)}</td>
+                <td>${formatProviders(row)}</td>
+                <td><div class="notes">${formatNotes(row)}</div></td>
+                <td>${formatKelly(row.kelly)}</td>
+              </tr>`;
+            })
+            .join("");
+          tbody.innerHTML = html;
+        };
+
+        const applyFilters = () => {
+          const query = searchInput.value.trim().toLowerCase();
+          const minEdge = parseFloat(edgeSelect.value) || 0;
+
+          const filtered = data
+            .filter((row) => passesEdgeFilter(row, minEdge))
+            .filter((row) => (query ? toHaystack(row).includes(query) : true))
+            .sort((a, b) => {
+              const aKey = a.kickoffSort ?? Number.MAX_SAFE_INTEGER;
+              const bKey = b.kickoffSort ?? Number.MAX_SAFE_INTEGER;
+              return aKey - bKey;
+            });
+
+          render(filtered);
+        };
+
+        searchInput.addEventListener("input", applyFilters);
+        edgeSelect.addEventListener("change", applyFilters);
+
+        applyFilters();
+      })();
+    </script>
+  </body>
+</html>
