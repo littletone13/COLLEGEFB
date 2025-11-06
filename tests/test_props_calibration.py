@@ -2,6 +2,8 @@ import math
 
 import pytest
 
+pytest.importorskip("numpy")
+
 from cfb.player_prop_sim import (
     RoleParams,
     YardageModel,

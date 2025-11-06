@@ -1,5 +1,6 @@
-import pandas as pd
 import pytest
+
+pd = pytest.importorskip("pandas")
 
 from cfb.market import EdgeFilterConfig, annotate_edges, allow_spread_bet, edge_filter_mask
 

@@ -1,8 +1,10 @@
 import datetime as dt
 from pathlib import Path
 
-import pandas as pd
 import pytest
+
+pd = pytest.importorskip("pandas")
+pytest.importorskip("yaml")
 
 import market_anchor
 import oddslogic_loader
