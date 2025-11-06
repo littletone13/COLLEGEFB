@@ -9,7 +9,7 @@ import re
 import warnings
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Dict, Optional, Sequence, Tuple
+from typing import Dict, Optional, Sequence, Tuple, List
 
 import pandas as pd
 import requests
@@ -18,6 +18,13 @@ import fcs
 import ncaa_stats
 from cfb.fcs_aliases import DISPLAY_NAME_OVERRIDES, TEAM_NAME_ALIASES, normalize_label as _normalize_label
 from cfb.market import edges as edge_utils
+from cfb.model import fit_linear_calibrations, fit_probability_sigma
+
+
+CALIBRATION_CURRENT_WEIGHT = float(os.environ.get("FCS_CAL_WEIGHT_CURRENT", "1.0"))
+CALIBRATION_PRIOR_WEIGHT = float(os.environ.get("FCS_CAL_WEIGHT_PRIOR", "0.35"))
+CALIBRATION_PRIOR_YEARS = int(os.environ.get("FCS_CAL_PRIOR_YEARS", "1"))
+CFBD_GAMES_ENDPOINT = "https://api.collegefootballdata.com/games"
 
 
 def _map_team(name: Optional[str], pff_set: set[str], pff_names: Sequence[str]) -> Optional[str]:
@@ -111,6 +118,18 @@ def _fetch_ncaa_schedule(start: date, end: date, season_year: int) -> pd.DataFra
     return window.dropna(subset=["home_team", "away_team"])[["start_date", "home_team", "away_team"]]
 
 
+def _fetch_cfbd_games(year: int, api_key: str) -> list[dict]:
+    params = {
+        "year": year,
+        "division": "fcs",
+        "seasonType": "regular",
+    }
+    headers = {"Authorization": f"Bearer {api_key}"}
+    resp = requests.get(CFBD_GAMES_ENDPOINT, params=params, headers=headers, timeout=60)
+    resp.raise_for_status()
+    return resp.json()
+
+
 def simulate_window(
     start_date: date,
     *,
@@ -129,6 +148,67 @@ def simulate_window(
 
     pff_names = list(ncaa_stats.SLUG_TO_PFF.values())
     pff_set = set(pff_names)
+
+    calibration_games: list[dict] = []
+    if api_key:
+        for offset in range(CALIBRATION_PRIOR_YEARS + 1):
+            target_year = season_year - offset
+            if target_year < 2014:
+                break
+            weight = CALIBRATION_CURRENT_WEIGHT if offset == 0 else CALIBRATION_PRIOR_WEIGHT / float(max(offset, 1))
+            if weight <= 0.0:
+                continue
+            try:
+                cfbd_games = _fetch_cfbd_games(target_year, api_key)
+            except Exception as exc:  # pragma: no cover - network issues shouldn't halt sims
+                warnings.warn(f"Unable to fetch CFBD FCS games for calibration: {exc}")
+                continue
+            for game in cfbd_games:
+                if not game.get("completed"):
+                    continue
+                home_raw = game.get("homeTeam")
+                away_raw = game.get("awayTeam")
+                home = _map_team(home_raw, pff_set, pff_names)
+                away = _map_team(away_raw, pff_set, pff_names)
+                if not home or not away:
+                    continue
+                home_pts = game.get("homePoints")
+                away_pts = game.get("awayPoints")
+                if home_pts is None or away_pts is None:
+                    continue
+                kickoff_raw = game.get("startDate") or game.get("startTime")
+                if kickoff_raw:
+                    try:
+                        kickoff_dt = pd.to_datetime(kickoff_raw, errors="coerce")
+                    except Exception:
+                        kickoff_dt = None
+                else:
+                    kickoff_dt = None
+                if kickoff_dt is not None:
+                    kickoff_date = kickoff_dt.date()
+                    if kickoff_date >= start_date:
+                        continue
+                entry = {
+                    "completed": True,
+                    "homeTeam": home,
+                    "awayTeam": away,
+                    "homePoints": home_pts,
+                    "awayPoints": away_pts,
+                    "neutralSite": bool(game.get("neutralSite", False)),
+                    "__cal_weight": float(weight),
+                }
+                calibration_games.append(entry)
+
+    if calibration_games:
+        try:
+            spread_cal, total_cal = fit_linear_calibrations(book, calibration_games)
+            book.spread_calibration = spread_cal
+            book.total_calibration = total_cal
+            sigma = fit_probability_sigma(book, calibration_games)
+            if sigma:
+                book.prob_sigma = sigma
+        except Exception as exc:
+            warnings.warn(f"FCS calibration fit failed: {exc}")
 
     provider_filter = [p.strip() for p in providers if p.strip()] if providers else None
     market_lookup: Dict[Tuple[str, str], dict] = {}
@@ -187,24 +267,39 @@ def simulate_window(
         "home_win_prob",
         "home_ml",
         "away_ml",
+        "model_spread",
+        "model_total",
+        "model_home_points",
+        "model_away_points",
+        "model_home_win_prob",
+        "model_home_ml",
+        "model_away_ml",
         "market_spread",
         "market_total",
         "market_provider_count",
         "market_providers",
         "market_provider_lines",
+        "market_primary_provider",
         "spread_vs_market",
         "total_vs_market",
+        "prob_sigma",
     ]}
 
     for _, row in slate.iterrows():
         home_team = row["home_team"]
         away_team = row["away_team"]
         try:
-            result = book.predict(home_team, away_team, neutral_site=False)
+            base_result = book.predict(home_team, away_team, neutral_site=False)
         except KeyError:
             continue
         market_entry = market_lookup.get((home_team, away_team))
-        result = fcs.apply_market_prior(result, market_entry)
+        weather = {}  # placeholder if weather adjustments added later
+        result_weather = base_result  # no weather adjustment currently
+        pure_result = result_weather.copy()
+        if market_entry:
+            result = fcs.apply_market_prior(result_weather.copy(), market_entry)
+        else:
+            result = result_weather
         display_home = DISPLAY_NAME_OVERRIDES.get(result.get("team_one") or result.get("home_team"), result.get("team_one") or result.get("home_team"))
         display_away = DISPLAY_NAME_OVERRIDES.get(result.get("team_two") or result.get("away_team"), result.get("team_two") or result.get("away_team"))
         projections["start_date"].append(row.get("start_date"))
@@ -217,6 +312,13 @@ def simulate_window(
         projections["home_win_prob"].append(result.get("home_win_prob") or result.get("team_one_win_prob"))
         projections["home_ml"].append(result.get("home_moneyline") or result.get("team_one_moneyline"))
         projections["away_ml"].append(result.get("away_moneyline") or result.get("team_two_moneyline"))
+        projections["model_spread"].append(pure_result.get("spread_home_minus_away") or pure_result.get("spread_team_one_minus_team_two"))
+        projections["model_total"].append(pure_result["total_points"])
+        projections["model_home_points"].append(pure_result.get("home_points") or pure_result.get("team_one_points"))
+        projections["model_away_points"].append(pure_result.get("away_points") or pure_result.get("team_two_points"))
+        projections["model_home_win_prob"].append(pure_result.get("home_win_prob") or pure_result.get("team_one_win_prob"))
+        projections["model_home_ml"].append(pure_result.get("home_moneyline") or pure_result.get("team_one_moneyline"))
+        projections["model_away_ml"].append(pure_result.get("away_moneyline") or pure_result.get("team_two_moneyline"))
         projections["market_spread"].append(result.get("market_spread"))
         projections["market_total"].append(result.get("market_total"))
         providers_list = result.get("market_providers") or []
@@ -226,17 +328,24 @@ def simulate_window(
         projections["market_provider_lines"].append(
             json.dumps(provider_lines, sort_keys=True) if provider_lines else None
         )
+        primary_provider = None
+        if market_entry and market_entry.get("primary_provider"):
+            primary_provider = market_entry.get("primary_provider")
+        elif providers_list:
+            primary_provider = providers_list[0]
+        projections["market_primary_provider"].append(primary_provider)
         projections["spread_vs_market"].append(result.get("spread_vs_market"))
         projections["total_vs_market"].append(result.get("total_vs_market"))
+        projections["prob_sigma"].append(book.prob_sigma)
 
     df = pd.DataFrame(projections)
     df = edge_utils.annotate_edges(
         df,
-        model_spread_col="spread",
+        model_spread_col="model_spread",
         market_spread_col="market_spread",
-        model_total_col="total",
+        model_total_col="model_total",
         market_total_col="market_total",
-        win_prob_col="home_win_prob",
+        win_prob_col="model_home_win_prob",
         provider_count_col="market_provider_count",
     )
     return df.sort_values("start_date")

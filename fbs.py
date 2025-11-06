@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import logging
 import math
 import re
 import warnings
@@ -49,10 +50,13 @@ from cfb.injuries import penalties_for_player
 from cfb.io import oddslogic as oddslogic_io
 from cfb.io.cfbd import CFBDClient, BASE_URL as CFBD_BASE_URL
 from cfb.io import cached_cfbd
+from cfb.io import the_odds_api
 from cfb.model import BayesianConfig, RatingBook, RatingConstants, fit_linear_calibrations, fit_probability_sigma
 from cfb.names import normalize_team
 
 BASE_URL = CFBD_BASE_URL
+
+logger = logging.getLogger(__name__)
 
 CONFIG = load_config()
 FBS_CONFIG = CONFIG.get("fbs", {})
@@ -87,6 +91,25 @@ if isinstance(_MARKET_PROVIDERS, (list, tuple)):
     FBS_MARKET_PROVIDERS = [str(name).strip() for name in _MARKET_PROVIDERS if str(name).strip()]
 else:
     FBS_MARKET_PROVIDERS = []
+
+_THE_ODDS_API_CONFIG = _MARKET_CONFIG.get("the_odds_api", {}) if isinstance(_MARKET_CONFIG.get("the_odds_api"), dict) else {}
+_THE_ODDS_API_ENABLED = bool(_THE_ODDS_API_CONFIG.get("enabled", True))
+THE_ODDS_API_SPORT_KEY = str(_THE_ODDS_API_CONFIG.get("sport_key", "americanfootball_ncaaf")).strip() or ""
+if not THE_ODDS_API_SPORT_KEY:
+    _THE_ODDS_API_ENABLED = False
+def _coerce_sequence(value: object, fallback: Sequence[str]) -> tuple[str, ...]:
+    if isinstance(value, (list, tuple, set)):
+        items = [str(item).strip() for item in value if str(item).strip()]
+        return tuple(items) if items else tuple(fallback)
+    if isinstance(value, str) and value.strip():
+        return (value.strip(),)
+    return tuple(fallback)
+
+THE_ODDS_API_REGIONS = _coerce_sequence(_THE_ODDS_API_CONFIG.get("regions"), ("us", "us2"))
+THE_ODDS_API_MARKETS = _coerce_sequence(_THE_ODDS_API_CONFIG.get("markets"), ("spreads", "totals", "h2h"))
+_BOOKMAKERS_RAW = _coerce_sequence(_THE_ODDS_API_CONFIG.get("bookmakers"), ())
+THE_ODDS_API_BOOKMAKERS = _BOOKMAKERS_RAW if _BOOKMAKERS_RAW else None
+THE_ODDS_API_FORMAT = str(_THE_ODDS_API_CONFIG.get("odds_format", "american")).strip() or "american"
 
 _DEFAULT_WEATHER_COEFFS = {
     "wind_high": -0.3462,
@@ -189,6 +212,249 @@ def _select_primary_provider(provider_names: Iterable[str]) -> Optional[str]:
         if candidate in normalized:
             return candidate
     return normalized[0] if normalized else None
+
+
+_BOOKMAKER_ALIASES = {
+    "betmgm": "BetMGM",
+    "betrivers": "BetRivers",
+    "betus": "BetUS",
+    "bovada": "Bovada",
+    "caesars": "Caesars",
+    "circa": "Circa",
+    "draftkings": "DraftKings",
+    "fanduel": "FanDuel",
+    "pointsbetus": "PointsBet US",
+    "superbook": "SuperBook",
+    "williamhill_us": "William Hill US",
+    "wynnbet": "WynnBET",
+}
+
+
+def _format_bookmaker_name(key: Optional[str]) -> str:
+    if not key:
+        return "Unknown"
+    normalized = str(key).strip()
+    if not normalized:
+        return "Unknown"
+    alias = _BOOKMAKER_ALIASES.get(normalized.lower())
+    if alias:
+        return alias
+    parts = normalized.replace("_", " ").replace("-", " ").split()
+    return " ".join(part.capitalize() for part in parts)
+
+
+def _datetime_to_iso(value: Optional[dt.datetime]) -> Optional[str]:
+    if value is None:
+        return None
+    if isinstance(value, pd.Timestamp):
+        value = value.to_pydatetime()
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=dt.timezone.utc)
+    else:
+        value = value.astimezone(dt.timezone.utc)
+    return value.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _clean_match_label(label: Optional[str]) -> str:
+    if not label:
+        return ""
+    text = normalize_team(label)
+    text = re.sub(r"\(.*?\)", " ", text)
+    text = text.replace("-", " ")
+    text = text.replace("/", " ")
+    text = text.replace("'", "")
+    text = text.replace(".", "")
+    text = text.replace("&", " AND ")
+    text = " ".join(text.split())
+    return text
+
+
+def _tokenize_match_label(label: Optional[str]) -> tuple[str, ...]:
+    cleaned = _clean_match_label(label)
+    if not cleaned:
+        return ()
+    tokens = tuple(token for token in cleaned.split(" ") if token)
+    if not tokens and label:
+        return (_clean_match_label(label).strip(),)
+    return tokens
+
+
+def _tokens_match(candidate: tuple[str, ...], target: tuple[str, ...]) -> bool:
+    if not candidate or not target:
+        return False
+    candidate_set = set(candidate)
+    target_set = set(target)
+    if candidate_set <= target_set or target_set <= candidate_set:
+        return True
+    candidate_str = " ".join(candidate)
+    target_str = " ".join(target)
+    if candidate_str and target_str:
+        if candidate_str in target_str or target_str in candidate_str:
+            return True
+        if target_str.startswith(candidate_str + " ") or candidate_str.startswith(target_str + " "):
+            return True
+    return False
+
+
+def _resolve_odds_api_match(
+    cfbd_index: Dict[int, dict],
+    home_tokens: tuple[str, ...],
+    away_tokens: tuple[str, ...],
+    commence_time: Optional[dt.datetime],
+) -> Optional[tuple[int, bool]]:
+    if not cfbd_index:
+        return None
+    candidates: list[tuple[float, int, bool]] = []
+    for game_id, meta in cfbd_index.items():
+        cfbd_home = meta.get("home_tokens") or ()
+        cfbd_away = meta.get("away_tokens") or ()
+        kickoff = meta.get("kickoff")
+        if _tokens_match(cfbd_home, home_tokens) and _tokens_match(cfbd_away, away_tokens):
+            delta = float("inf")
+            if kickoff and commence_time:
+                delta = abs((kickoff - commence_time).total_seconds())
+            candidates.append((delta, game_id, False))
+        elif _tokens_match(cfbd_home, away_tokens) and _tokens_match(cfbd_away, home_tokens):
+            delta = float("inf")
+            if kickoff and commence_time:
+                delta = abs((kickoff - commence_time).total_seconds())
+            candidates.append((delta, game_id, True))
+    if not candidates:
+        return None
+    candidates.sort()
+    _, game_id, invert = candidates[0]
+    return game_id, invert
+
+
+def _summarize_provider_lines(data: dict) -> None:
+    provider_lines = data.get("provider_lines") or {}
+    if not provider_lines:
+        data["providers"] = []
+        data["primary_provider"] = None
+        return
+    provider_names = sorted(provider_lines.keys())
+    data["providers"] = provider_names
+    primary_key = _select_primary_provider(provider_names)
+    primary_name = None
+    if primary_key:
+        for name in provider_names:
+            if _normalize_provider_name(name) == primary_key:
+                primary_name = name
+                break
+        if primary_name is None:
+            primary_name = primary_key
+    data["primary_provider"] = primary_name
+    spread_choice: Optional[float] = None
+    total_choice: Optional[float] = None
+    if primary_name and primary_name in provider_lines:
+        primary_info = provider_lines.get(primary_name, {})
+        primary_spread = primary_info.get("spread_home")
+        if primary_spread is not None:
+            spread_choice = -float(primary_spread)
+        primary_total = primary_info.get("total")
+        if primary_total is not None:
+            total_choice = float(primary_total)
+    if spread_choice is None:
+        spreads = [
+            -float(info.get("spread_home"))
+            for info in provider_lines.values()
+            if info.get("spread_home") is not None
+        ]
+        if spreads:
+            spread_choice = float(np.mean(spreads))
+    if total_choice is None:
+        totals = [
+            float(info.get("total"))
+            for info in provider_lines.values()
+            if info.get("total") is not None
+        ]
+        if totals:
+            total_choice = float(np.mean(totals))
+    if spread_choice is not None:
+        data["spread"] = spread_choice
+    if total_choice is not None:
+        data["total"] = total_choice
+
+
+def _merge_the_odds_api_events(
+    lookup: Dict[int, dict],
+    cfbd_index: Dict[int, dict],
+    events: Iterable[dict],
+    *,
+    provider_filter: Optional[set[str]] = None,
+) -> None:
+    if not lookup or not events:
+        return
+
+    for event in events:
+        rows = the_odds_api.normalise_prices(event)
+        if not rows:
+            continue
+        home_tokens = _tokenize_match_label(event.get("home_team"))
+        away_tokens = _tokenize_match_label(event.get("away_team"))
+        commence = rows[0].get("commence_time")
+        match = _resolve_odds_api_match(cfbd_index, home_tokens, away_tokens, commence)
+        if not match:
+            continue
+        game_id, invert = match
+        data = lookup.get(game_id)
+        if not data:
+            continue
+        provider_lines = data.setdefault("provider_lines", {})
+        provider_weights = data.setdefault("provider_weights", {})
+        for row in rows:
+            provider_key = _format_bookmaker_name(row.get("bookmaker"))
+            normalized_provider = _normalize_provider_name(provider_key)
+            if provider_filter and normalized_provider not in provider_filter:
+                continue
+            existing = provider_lines.get(provider_key, {}).copy()
+            existing["source"] = "TheOddsAPI"
+            last_update = _datetime_to_iso(row.get("last_update"))
+            if last_update:
+                current = existing.get("last_updated")
+                if not current or last_update > current:
+                    existing["last_updated"] = last_update
+            market = row.get("market")
+            if market == "spread":
+                point = row.get("point")
+                if point is not None:
+                    if invert:
+                        point = -point
+                    existing["spread_home"] = point
+                    existing["spread_away"] = -point
+                price_home = row.get("price_home")
+                price_away = row.get("price_away")
+                if invert:
+                    price_home, price_away = price_away, price_home
+                if price_home is not None:
+                    existing["spread_price_home"] = price_home
+                if price_away is not None:
+                    existing["spread_price_away"] = price_away
+            elif market == "total":
+                point = row.get("point")
+                if point is not None:
+                    existing["total"] = point
+                price_over = row.get("price_over")
+                price_under = row.get("price_under")
+                if price_over is not None:
+                    existing["total_price_over"] = price_over
+                if price_under is not None:
+                    existing["total_price_under"] = price_under
+            elif market == "moneyline":
+                price_home = row.get("price_home")
+                price_away = row.get("price_away")
+                price_draw = row.get("price_draw")
+                if invert:
+                    price_home, price_away = price_away, price_home
+                if price_home is not None:
+                    existing["home_moneyline"] = price_home
+                if price_away is not None:
+                    existing["away_moneyline"] = price_away
+                if price_draw is not None:
+                    existing["draw_moneyline"] = price_draw
+            provider_lines[provider_key] = existing
+            if provider_key not in provider_weights:
+                provider_weights[provider_key] = 1.0
 
 
 def apply_bias_recenter(
@@ -949,17 +1215,30 @@ def fetch_market_lines(
         seen_providers.add(lower)
         normalized_inputs.append(cleaned)
     provider_names_input = normalized_inputs
-    provider_filter = {name.lower() for name in provider_names_input} if provider_names_input else None
+    provider_filter = {_normalize_provider_name(name) for name in provider_names_input} if provider_names_input else None
 
     entries = list(client.get("/lines", **params))
 
     lookup: Dict[int, dict] = {}
     date_keys: set[dt.date] = set()
     cfbd_games: Dict[int, dict] = {}
+    cfbd_index: Dict[int, dict] = {}
     for entry in entries:
         game_id = entry.get("id")
         if not game_id:
             continue
+        start_date_raw = entry.get("startDate")
+        kickoff_dt = None
+        kickoff_py = None
+        if start_date_raw:
+            try:
+                kickoff_dt = pd.to_datetime(start_date_raw, utc=True)
+            except (TypeError, ValueError):
+                kickoff_dt = pd.NaT
+            if isinstance(kickoff_dt, pd.Timestamp) and not pd.isna(kickoff_dt):
+                kickoff_py = kickoff_dt.to_pydatetime()
+                date_keys.add(kickoff_py.date())
+
         cfbd_games[game_id] = entry
         lines = entry.get("lines") or []
         provider_names: set[str] = set()
@@ -969,7 +1248,8 @@ def fetch_market_lines(
             provider_normalized = str(provider or "").strip()
             if not provider_normalized:
                 continue
-            if provider_filter and provider_normalized.lower() not in provider_filter:
+            normalized_name = _normalize_provider_name(provider_normalized)
+            if provider_filter and normalized_name not in provider_filter:
                 continue
             provider_names.add(provider_normalized)
 
@@ -1042,14 +1322,34 @@ def fetch_market_lines(
             "provider_weights": {name: 1.0 for name in provider_names},
         }
 
-        start_date_raw = entry.get("startDate")
-        if start_date_raw:
-            try:
-                kickoff_dt = pd.to_datetime(start_date_raw)
-            except (TypeError, ValueError):
-                kickoff_dt = pd.NaT
-            if not pd.isna(kickoff_dt):
-                date_keys.add(kickoff_dt.date())
+        cfbd_index[game_id] = {
+            "home_tokens": _tokenize_match_label(entry.get("homeTeam")),
+            "away_tokens": _tokenize_match_label(entry.get("awayTeam")),
+            "kickoff": kickoff_py,
+        }
+
+    if _THE_ODDS_API_ENABLED and THE_ODDS_API_SPORT_KEY:
+        try:
+            odds_events = the_odds_api.fetch_current_odds(
+                THE_ODDS_API_SPORT_KEY,
+                regions=THE_ODDS_API_REGIONS,
+                markets=THE_ODDS_API_MARKETS,
+                bookmakers=THE_ODDS_API_BOOKMAKERS,
+                odds_format=THE_ODDS_API_FORMAT,
+            )
+        except the_odds_api.TheOddsAPIError as exc:
+            logger.warning("The Odds API fetch failed: %s", exc)
+            odds_events = []
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("Unexpected error fetching The Odds API odds: %s", exc)
+            odds_events = []
+        else:
+            _merge_the_odds_api_events(
+                lookup,
+                cfbd_index,
+                odds_events,
+                provider_filter=provider_filter,
+            )
 
     live_lookup: Dict[Tuple[dt.date, str, str], Dict[str, object]] = {}
     if date_keys:
@@ -1107,44 +1407,9 @@ def fetch_market_lines(
                     ),
                     "open_total": payload.get("open_total_value"),
                 }
-            provider_names = sorted(provider_lines.keys())
-            data["providers"] = provider_names
-            primary_key = _select_primary_provider(provider_names)
-            spread_choice: Optional[float] = None
-            total_choice: Optional[float] = None
-            if primary_key:
-                for name in provider_names:
-                    if _normalize_provider_name(name) == primary_key:
-                        primary_key = name
-                        break
-                primary_info = provider_lines.get(primary_key or "")
-                if primary_info:
-                    spread_home = primary_info.get("spread_home")
-                    if spread_home is not None:
-                        spread_choice = -float(spread_home)
-                    total_val = primary_info.get("total")
-                    if total_val is not None:
-                        total_choice = float(total_val)
-            if spread_choice is None:
-                spreads = [
-                    -float(info.get("spread_home"))
-                    for info in provider_lines.values()
-                    if info.get("spread_home") is not None
-                ]
-                if spreads:
-                    spread_choice = float(np.mean(spreads))
-            if total_choice is None:
-                totals = [
-                    float(info.get("total"))
-                    for info in provider_lines.values()
-                    if info.get("total") is not None
-                ]
-                if totals:
-                    total_choice = float(np.mean(totals))
-            if spread_choice is not None:
-                data["spread"] = spread_choice
-            if total_choice is not None:
-                data["total"] = total_choice
+            _summarize_provider_lines(data)
+    for data in lookup.values():
+        _summarize_provider_lines(data)
     return lookup
 
 
