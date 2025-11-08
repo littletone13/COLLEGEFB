@@ -13,8 +13,6 @@ from typing import Sequence
 import numpy as np
 import pandas as pd
 
-import oddslogic_loader
-from cfb.io import oddslogic as oddslogic_io
 from cfb.io import the_odds_api
 from cfb.sim import fbs as sim_fbs
 
@@ -31,225 +29,6 @@ PROVIDER_WEIGHTS: dict[str, float] = {
     "wph": 0.6,
 }
 DEFAULT_PROVIDER_WEIGHT = 0.4
-
-
-def _ensure_oddslogic_lines(
-    df: pd.DataFrame,
-    *,
-    providers: Sequence[str] | None = None,
-) -> pd.DataFrame:
-    """Refresh market lines using live OddsLogic data for stale providers."""
-
-    target_providers = [p.strip() for p in providers or [] if p and p.strip()]
-    if not target_providers:
-        target_providers = ["Fanduel", "Sports411"]
-
-    def _parse_timestamp(value: object) -> datetime | None:
-        if value is None or (isinstance(value, float) and np.isnan(value)):
-            return None
-        if isinstance(value, (int, float)):
-            try:
-                return datetime.fromtimestamp(float(value), tz=timezone.utc)
-            except (ValueError, OSError, OverflowError):
-                return None
-        if isinstance(value, str):
-            text = value.strip()
-            if not text:
-                return None
-            if text.endswith("Z"):
-                text = text[:-1] + "+00:00"
-            try:
-                parsed = datetime.fromisoformat(text)
-            except ValueError:
-                return None
-            if parsed.tzinfo is None:
-                parsed = parsed.replace(tzinfo=timezone.utc)
-            return parsed.astimezone(timezone.utc)
-        return None
-
-    now_utc = datetime.now(timezone.utc)
-    freshness_threshold = FRESHNESS_THRESHOLD
-
-    def _row_is_stale(row: pd.Series) -> bool:
-        raw = row.get("market_provider_lines")
-        if not isinstance(raw, str) or not raw.strip():
-            return True
-        try:
-            payload = json.loads(raw)
-        except (json.JSONDecodeError, TypeError):
-            return True
-        targets = {p.lower().replace(" ", "") for p in target_providers}
-        freshest: datetime | None = None
-        found_target = False
-        for name, info in payload.items():
-            normalized = name.lower().replace(" ", "")
-            if targets and normalized not in targets:
-                continue
-            found_target = True
-            ts = _parse_timestamp(info.get("last_updated") or info.get("spread_updated") or info.get("total_updated"))
-            if ts is None:
-                return True
-            if freshest is None or ts > freshest:
-                freshest = ts
-        if not targets:
-            found_target = True if payload else False
-            if payload:
-                for info in payload.values():
-                    ts = _parse_timestamp(info.get("last_updated") or info.get("spread_updated") or info.get("total_updated"))
-                    if ts is None:
-                        return True
-                    if freshest is None or ts > freshest:
-                        freshest = ts
-        if not found_target:
-            return True
-        if freshest is None:
-            return True
-        return (now_utc - freshest) > freshness_threshold
-
-    needs_refresh = df.apply(_row_is_stale, axis=1)
-    if not needs_refresh.any():
-        return df
-
-    kickoff_dates = {
-        start_dt.date()
-        for start_dt in pd.to_datetime(df.loc[needs_refresh, "start_date"], errors="coerce", utc=True)
-        if not pd.isna(start_dt)
-    }
-    if not kickoff_dates:
-        return df
-
-    live_lookup = oddslogic_io.fetch_live_market_lookup(
-        kickoff_dates,
-        classification="fbs",
-        providers=None,
-    )
-    if not live_lookup:
-        return df
-
-    enriched = df.copy()
-    for idx, row in enriched.loc[needs_refresh].iterrows():
-        existing_spread = row.get("market_spread")
-        existing_count = row.get("market_provider_count") or 0
-        if pd.notna(existing_spread) and existing_count and existing_count >= len(target_providers):
-            continue
-        start_dt = pd.to_datetime(row.get("start_date"), errors="coerce", utc=True)
-        if pd.isna(start_dt):
-            continue
-        kickoff_date = start_dt.date()
-        home_key = oddslogic_loader.normalize_label(str(row.get("home_team") or ""))
-        away_key = oddslogic_loader.normalize_label(str(row.get("away_team") or ""))
-
-        entry = live_lookup.get((kickoff_date, home_key, away_key))
-        invert = False
-        if entry is None:
-            entry = live_lookup.get((kickoff_date, away_key, home_key))
-            if entry:
-                invert = True
-        if entry is None:
-            continue
-
-        existing_raw = row.get("market_provider_lines")
-        if isinstance(existing_raw, str) and existing_raw.strip():
-            try:
-                provider_lines = json.loads(existing_raw)
-            except json.JSONDecodeError:
-                provider_lines = {}
-        else:
-            provider_lines = {}
-
-        for name, payload in entry.get("providers", {}).items():
-            spread_val = payload.get("spread_value")
-            open_spread = payload.get("open_spread_value")
-            if spread_val is not None:
-                spread_val = float(spread_val)
-                if invert:
-                    spread_val = -spread_val
-            if open_spread is not None:
-                open_spread = float(open_spread)
-                if invert:
-                    open_spread = -open_spread
-            total_val = payload.get("total_value")
-            if total_val is not None:
-                total_val = float(total_val)
-            open_total = payload.get("open_total_value")
-            if open_total is not None:
-                open_total = float(open_total)
-            provider_lines[name] = {
-                "spread_home": spread_val,
-                "spread_away": -spread_val if spread_val is not None else None,
-                "total": total_val,
-                "home_moneyline": payload.get("home_moneyline"),
-                "away_moneyline": payload.get("away_moneyline"),
-                "last_updated": payload.get("spread_updated") or payload.get("total_updated"),
-                "source": "OddsLogic",
-                "open_spread_home": open_spread,
-                "open_total": open_total,
-                "spread_updated": payload.get("spread_updated"),
-                "total_updated": payload.get("total_updated"),
-                "staleness_hours": None,
-            }
-            ts = _parse_timestamp(provider_lines[name]["last_updated"])
-            if ts is not None:
-                provider_lines[name]["staleness_hours"] = max(0.0, (now_utc - ts).total_seconds() / 3600.0)
-
-        if not provider_lines:
-            continue
-
-        providers_sorted = sorted(provider_lines.keys())
-
-        def _staleness(info: dict[str, object]) -> timedelta:
-            ts = _parse_timestamp(info.get("last_updated"))
-            if ts is None:
-                return timedelta.max
-            return now_utc - ts
-
-        primary_name = None
-        lookup_map = {p.lower().replace(" ", ""): p for p in providers_sorted}
-        for target in target_providers:
-            normalized = target.lower().replace(" ", "")
-            provider_name = lookup_map.get(normalized)
-            if not provider_name:
-                continue
-            info = provider_lines.get(provider_name) or {}
-            if _staleness(info) <= freshness_threshold:
-                primary_name = provider_name
-                break
-        if primary_name is None:
-            best_name = None
-            best_ts = None
-            for name, info in provider_lines.items():
-                ts = _parse_timestamp(info.get("last_updated"))
-                if ts is None:
-                    continue
-                if best_ts is None or ts > best_ts:
-                    best_ts = ts
-                    best_name = name
-            primary_name = best_name or (providers_sorted[0] if providers_sorted else None)
-
-        enriched.at[idx, "market_provider_lines"] = json.dumps(provider_lines, sort_keys=True)
-        enriched.at[idx, "market_providers"] = ", ".join(providers_sorted)
-        enriched.at[idx, "market_provider_count"] = len(providers_sorted)
-        enriched.at[idx, "market_primary_provider"] = primary_name
-
-        primary_info = provider_lines.get(primary_name or "")
-        if primary_info:
-            spread_home = primary_info.get("spread_home")
-            if spread_home is not None:
-                if _staleness(primary_info) <= freshness_threshold:
-                    market_spread = -float(spread_home)
-                    enriched.at[idx, "market_spread"] = market_spread
-                    model_spread = enriched.at[idx, "model_spread"]
-                    if pd.notna(model_spread):
-                        enriched.at[idx, "spread_vs_market"] = float(model_spread) - market_spread
-            total_val = primary_info.get("total")
-            if total_val is not None:
-                if _staleness(primary_info) <= freshness_threshold:
-                    enriched.at[idx, "market_total"] = float(total_val)
-                    model_total = enriched.at[idx, "model_total"]
-                    if pd.notna(model_total):
-                        enriched.at[idx, "total_vs_market"] = float(model_total) - float(total_val)
-
-    return enriched
 
 
 def parse_args() -> argparse.Namespace:
@@ -293,7 +72,6 @@ def _logo_data_uri() -> str | None:
 
 def _render_html(df: pd.DataFrame, *, title: str, providers: Sequence[str] | None = None) -> str:
     df = df.copy()
-    df = _ensure_oddslogic_lines(df, providers=providers)
     df["start_dt"] = pd.to_datetime(df["start_date"], errors="coerce", utc=True)
     df["kickoff_display"] = df["start_dt"].dt.tz_convert("US/Eastern").dt.strftime("%a %m/%d %I:%M %p ET")
 
@@ -405,9 +183,138 @@ def _render_html(df: pd.DataFrame, *, title: str, providers: Sequence[str] | Non
             return alt
         return market_val
 
+    book_line_columns = [
+        {"label": "FanDuel Open", "book": "FanDuel", "mode": "open"},
+        {"label": "FanDuel", "book": "FanDuel", "mode": "current"},
+        {"label": "BetOnline", "book": "BetOnline", "mode": "current"},
+        {"label": "Pinnacle", "book": "Pinnacle", "mode": "current"},
+    ]
+    book_snapshot_names = sorted({spec["book"] for spec in book_line_columns})
+    price_priority = ["FanDuel", "BetOnline", "Pinnacle"]
+
+    def _normalize_provider(name: str | None) -> str:
+        return "".join(ch.lower() for ch in str(name or "") if ch.isalnum())
+
+    def _extract_book(lines: dict[str, dict], book_key: str) -> dict[str, float | None]:
+        result: dict[str, float | None] = {
+            "spread_current": None,
+            "spread_open": None,
+            "spread_price_home": None,
+            "spread_price_away": None,
+            "total_current": None,
+            "total_open": None,
+            "total_price_over": None,
+            "total_price_under": None,
+            "moneyline_home": None,
+            "moneyline_away": None,
+            "last_updated": None,
+        }
+        if not lines:
+            return result
+        target = _normalize_provider(book_key)
+        for name, info in lines.items():
+            normalized = _normalize_provider(name)
+            if target and normalized != target:
+                continue
+            spread_home = info.get("spread_home")
+            if spread_home is not None and not pd.isna(spread_home):
+                result["spread_current"] = -float(spread_home)
+            spread_open_home = info.get("open_spread_home")
+            if spread_open_home is not None and not pd.isna(spread_open_home):
+                result["spread_open"] = -float(spread_open_home)
+            price_home = info.get("spread_price_home")
+            if price_home is not None and not pd.isna(price_home):
+                result["spread_price_home"] = float(price_home)
+            price_away = info.get("spread_price_away")
+            if price_away is not None and not pd.isna(price_away):
+                result["spread_price_away"] = float(price_away)
+            total_val = info.get("total")
+            if total_val is not None and not pd.isna(total_val):
+                result["total_current"] = float(total_val)
+            open_total = info.get("open_total")
+            if open_total is not None and not pd.isna(open_total):
+                result["total_open"] = float(open_total)
+            price_over = info.get("total_price_over")
+            if price_over is not None and not pd.isna(price_over):
+                result["total_price_over"] = float(price_over)
+            price_under = info.get("total_price_under")
+            if price_under is not None and not pd.isna(price_under):
+                result["total_price_under"] = float(price_under)
+            ml_home = info.get("home_moneyline")
+            if ml_home is not None and not pd.isna(ml_home):
+                result["moneyline_home"] = float(ml_home)
+            ml_away = info.get("away_moneyline")
+            if ml_away is not None and not pd.isna(ml_away):
+                result["moneyline_away"] = float(ml_away)
+            last_updated = info.get("last_updated")
+            if last_updated:
+                existing = result.get("last_updated")
+                if not existing or str(last_updated) > str(existing):
+                    result["last_updated"] = str(last_updated)
+        return result
+
+    def _price_from_lines(
+        lines: dict[str, dict],
+        price_key: str,
+        provider_hint: str | None = None,
+    ) -> tuple[float | None, str | None]:
+        normalized_hint = _normalize_provider(provider_hint) if provider_hint else None
+
+        def _search(target: str | None) -> tuple[float | None, str | None]:
+            for name, info in lines.items():
+                normalized = _normalize_provider(name)
+                if target and normalized != target:
+                    continue
+                val = info.get(price_key)
+                if val is None or pd.isna(val):
+                    continue
+                return float(val), name or provider_hint
+            return None, None
+
+        price, source = _search(normalized_hint)
+        if price is not None:
+            return price, source
+        return _search(None)
+
+    def _weighted_market_lines(lines: dict[str, dict]) -> tuple[float | None, float | None]:
+        if not lines:
+            return None, None
+        spread_sum = spread_weight = 0.0
+        total_sum = total_weight = 0.0
+        freshness_hours = FRESHNESS_THRESHOLD.total_seconds() / 3600.0
+        for name, info in lines.items():
+            normalized = _normalize_provider(name)
+            weight = PROVIDER_WEIGHTS.get(normalized, DEFAULT_PROVIDER_WEIGHT)
+            staleness = info.get("staleness_hours")
+            if staleness is not None and staleness > freshness_hours:
+                continue
+            spread_home = info.get("spread_home")
+            if spread_home is not None and not pd.isna(spread_home):
+                home_margin = -float(spread_home)
+                spread_sum += weight * home_margin
+                spread_weight += weight
+            total_val = info.get("total")
+            if total_val is not None and not pd.isna(total_val):
+                total_sum += weight * float(total_val)
+                total_weight += weight
+        spread_value = (spread_sum / spread_weight) if spread_weight else None
+        total_value = (total_sum / total_weight) if total_weight else None
+        return spread_value, total_value
+
+    def _book_line_values(snapshots: dict[str, dict], row_type: str) -> list[float | None]:
+        values: list[float | None] = []
+        for spec in book_line_columns:
+            snap = snapshots.get(spec["book"]) or {}
+            if row_type == "spread":
+                value = snap.get("spread_open") if spec["mode"] == "open" else snap.get("spread_current")
+            else:
+                value = snap.get("total_open") if spec["mode"] == "open" else snap.get("total_current")
+            values.append(value)
+        return values
+
     records_by_game: dict[str, dict[str, object]] = {}
     for _, row in df.iterrows():
-        providers_html = _format_providers(row.get("market_providers") or "")
+        _format_providers(row.get("market_providers") or "")
         weather_html = _format_weather(row)
         kickoff = row.get("kickoff_display") or row.get("start_date") or ""
         kickoff_dt = row.get("start_dt")
@@ -451,55 +358,13 @@ def _render_html(df: pd.DataFrame, *, title: str, providers: Sequence[str] | Non
             and not pd.isna(kickoff_dt)
             and now_utc >= kickoff_dt
         )
-        provider_lines_for_use = provider_lines if not game_started else {}
-
-        def _extract_book(book_key: str) -> tuple[float | None, float | None, float | None, float | None]:
-            key_target = "".join(ch.lower() for ch in book_key if ch.isalnum())
-            spread_current = spread_open = total_current = total_open = None
-            for name, info in provider_lines_for_use.items():
-                normalized = "".join(ch.lower() for ch in (name or "") if ch.isalnum())
-                if normalized != key_target:
-                    continue
-                spread_home = info.get("spread_home")
-                if spread_home is not None and not pd.isna(spread_home):
-                    spread_current = -float(spread_home)
-                spread_open_home = info.get("open_spread_home")
-                if spread_open_home is not None and not pd.isna(spread_open_home):
-                    spread_open = -float(spread_open_home)
-                total_val = info.get("total")
-                if total_val is not None and not pd.isna(total_val):
-                    total_current = float(total_val)
-                open_total = info.get("open_total")
-                if open_total is not None and not pd.isna(open_total):
-                    total_open = float(open_total)
-            return spread_current, spread_open, total_current, total_open
-
-        fd_spread, fd_open_spread, fd_total, fd_open_total = _extract_book("fanduel")
-        s411_spread, s411_open_spread, s411_total, s411_open_total = _extract_book("sports411")
-
-        def _weighted_market_lines(data: dict[str, dict]) -> tuple[float | None, float | None]:
-            if not data:
-                return None, None
-            spread_sum = spread_weight = 0.0
-            total_sum = total_weight = 0.0
-            for name, info in data.items():
-                normalized = "".join(ch.lower() for ch in (name or "") if ch.isalnum())
-                weight = PROVIDER_WEIGHTS.get(normalized, DEFAULT_PROVIDER_WEIGHT)
-                staleness = info.get("staleness_hours")
-                if staleness is not None and staleness > FRESHNESS_THRESHOLD.total_seconds() / 3600.0:
-                    continue
-                spread_home = info.get("spread_home")
-                if spread_home is not None and not pd.isna(spread_home):
-                    home_margin = -float(spread_home)
-                    spread_sum += weight * home_margin
-                    spread_weight += weight
-                total_val = info.get("total")
-                if total_val is not None and not pd.isna(total_val):
-                    total_sum += weight * float(total_val)
-                    total_weight += weight
-            spread_value = (spread_sum / spread_weight) if spread_weight else None
-            total_value = (total_sum / total_weight) if total_weight else None
-            return spread_value, total_value
+        provider_lines_for_use = provider_lines if provider_lines else {}
+        book_snapshots = {
+            name: _extract_book(provider_lines_for_use, name)
+            for name in book_snapshot_names
+        }
+        record["book_lines_spread"] = _book_line_values(book_snapshots, "spread")
+        record["book_lines_total"] = _book_line_values(book_snapshots, "total")
 
         weighted_spread_margin, weighted_total_value = _weighted_market_lines(provider_lines_for_use)
         record["weighted_spread_margin"] = weighted_spread_margin
@@ -526,6 +391,29 @@ def _render_html(df: pd.DataFrame, *, title: str, providers: Sequence[str] | Non
             if weighted_spread_margin is not None:
                 weighted_spread_line = -weighted_spread_margin if bet_home else weighted_spread_margin
 
+            spread_price = None
+            price_source = None
+            for book_name in price_priority:
+                snap = book_snapshots.get(book_name) or {}
+                candidate = snap.get("spread_price_home") if bet_home else snap.get("spread_price_away")
+                if candidate is not None:
+                    spread_price = float(candidate)
+                    price_source = book_name
+                    break
+            if spread_price is None:
+                price_key = "spread_price_home" if bet_home else "spread_price_away"
+                fallback_price, fallback_source = _price_from_lines(
+                    provider_lines_for_use,
+                    price_key,
+                    provider_hint=row.get("market_primary_provider"),
+                )
+                if fallback_price is not None:
+                    spread_price = float(fallback_price)
+                    price_source = fallback_source or "Market"
+                else:
+                    spread_price = -110.0
+                    price_source = "Default -110"
+
             cover_prob_shift = None
             kelly = None
             if np.isfinite(sigma) and sigma > 0:
@@ -533,13 +421,14 @@ def _render_html(df: pd.DataFrame, *, title: str, providers: Sequence[str] | Non
                 home_cover_prob = 0.5 * (1.0 + math.erf(z / math.sqrt(2)))
                 target_prob = home_cover_prob if bet_home else 1.0 - home_cover_prob
                 cover_prob_shift = (target_prob - 0.5) * 100
-                b = 100.0 / 110.0
+                decimal_price = the_odds_api.american_to_decimal(spread_price)
+                if decimal_price is None or not np.isfinite(decimal_price) or decimal_price <= 1.0:
+                    decimal_price = the_odds_api.american_to_decimal(-110.0)
+                b = decimal_price - 1.0
+                if b <= 0:
+                    b = 100.0 / 110.0
                 kelly_val = (b * target_prob - (1 - target_prob)) / b
                 kelly = max(0.0, kelly_val)
-
-            weighted_spread_line = None
-            if weighted_spread_margin is not None:
-                weighted_spread_line = -weighted_spread_margin if bet_home else weighted_spread_margin
 
             bet_label = f"{bet_side} {bet_line:+.1f}" if bet_line is not None else bet_side or "--"
             record["spread_row"] = {
@@ -555,44 +444,38 @@ def _render_html(df: pd.DataFrame, *, title: str, providers: Sequence[str] | Non
                 "edge": edge_value,
                 "edge_pct": cover_prob_shift,
                 "kelly": kelly,
-                "providers_html": providers_html,
                 "weather_html": weather_html,
                 "kickoff": kickoff,
                 "kickoff_sort": record.get("kickoff_sort", float("inf")),
                 "flags_html": _flag_badges(row, raw_edge),
                 "edge_class": _edge_class(edge_value),
-                "primary": row.get("market_primary_provider") or "—",
-                "fanduel_open": fd_open_spread,
-                "fanduel_current": fd_spread,
-                "sports411_open": s411_open_spread,
-                "sports411_current": s411_spread,
+                "book_lines": record.get("book_lines_spread", [])[:],
+                "price_display": spread_price,
+                "price_display_source": price_source,
             }
         else:
             model_spread = model_spread_val
             spread_row = {
-                    "row_type": "spread",
-                    "market": "Spread (model)",
-                    "bet_label": f"{row.get('home_team')} {model_spread:+.1f}" if pd.notna(model_spread) else f"{row.get('home_team')} model",
-                    "game": game_label,
-                    "model_value": model_spread,
-                    "market_value": None,
-                    "weighted_spread": weighted_spread_margin,
-                    "weighted_total": None,
-                    "model_home_ml": model_home_ml,
-                    "edge": None,
-                    "edge_pct": None,
-                    "kelly": None,
-                "providers_html": "<span class='chip muted'>—</span>",
+                "row_type": "spread",
+                "market": "Spread (model)",
+                "bet_label": f"{row.get('home_team')} {model_spread:+.1f}" if pd.notna(model_spread) else f"{row.get('home_team')} model",
+                "game": game_label,
+                "model_value": model_spread,
+                "market_value": None,
+                "weighted_spread": weighted_spread_margin,
+                "weighted_total": None,
+                "model_home_ml": model_home_ml,
+                "edge": None,
+                "edge_pct": None,
+                "kelly": None,
                 "weather_html": weather_html,
                 "kickoff": kickoff,
                 "kickoff_sort": record.get("kickoff_sort", float("inf")),
                 "flags_html": _flag_badges(row, None),
                 "edge_class": _edge_class(None),
-                "primary": "—",
-                "fanduel_open": fd_open_spread,
-                "fanduel_current": fd_spread,
-                    "sports411_open": s411_open_spread,
-                    "sports411_current": s411_spread,
+                "book_lines": record.get("book_lines_spread", [])[:],
+                "price_display": None,
+                "price_display_source": None,
                 }
             record["spread_row"] = spread_row
 
@@ -605,12 +488,39 @@ def _render_html(df: pd.DataFrame, *, title: str, providers: Sequence[str] | Non
             total_sigma = 12.5
             cover_prob_shift = None
             kelly_total = None
+            total_price = None
+            total_price_source = None
+            for book_name in price_priority:
+                snap = book_snapshots.get(book_name) or {}
+                candidate = snap.get("total_price_over") if bet_over else snap.get("total_price_under")
+                if candidate is not None:
+                    total_price = float(candidate)
+                    total_price_source = book_name
+                    break
+            if total_price is None:
+                price_key = "total_price_over" if bet_over else "total_price_under"
+                fallback_price, fallback_source = _price_from_lines(
+                    provider_lines_for_use,
+                    price_key,
+                    provider_hint=row.get("market_primary_provider"),
+                )
+                if fallback_price is not None:
+                    total_price = float(fallback_price)
+                    total_price_source = fallback_source or "Market"
+                else:
+                    total_price = -110.0
+                    total_price_source = "Default -110"
             if total_sigma > 0:
                 z = raw_edge_total / total_sigma
                 over_prob = 0.5 * (1.0 + math.erf(z / math.sqrt(2)))
                 target_prob = over_prob if bet_over else 1.0 - over_prob
                 cover_prob_shift = (target_prob - 0.5) * 100
-                b = 100.0 / 110.0
+                decimal_price = the_odds_api.american_to_decimal(total_price)
+                if decimal_price is None or not np.isfinite(decimal_price) or decimal_price <= 1.0:
+                    decimal_price = the_odds_api.american_to_decimal(-110.0)
+                b = decimal_price - 1.0
+                if b <= 0:
+                    b = 100.0 / 110.0
                 kelly_val = (b * target_prob - (1 - target_prob)) / b
                 kelly_total = max(0.0, kelly_val)
             bet_label = f"{'Over' if bet_over else 'Under'} {market_total_book:.1f}"
@@ -627,45 +537,39 @@ def _render_html(df: pd.DataFrame, *, title: str, providers: Sequence[str] | Non
                 "edge": raw_edge_total,
                 "edge_pct": cover_prob_shift,
                 "kelly": kelly_total,
-                "providers_html": providers_html,
                 "weather_html": weather_html,
                 "kickoff": kickoff,
                 "kickoff_sort": record.get("kickoff_sort", float("inf")),
                 "flags_html": _flag_badges(row, raw_edge_total),
                 "edge_class": _edge_class(raw_edge_total),
-                "primary": row.get("market_primary_provider") or "—",
-                "fanduel_open": fd_open_total,
-                "fanduel_current": fd_total,
-                "sports411_open": s411_open_total,
-                "sports411_current": s411_total,
+                "book_lines": record.get("book_lines_total", [])[:],
+                "price_display": total_price,
+                "price_display_source": total_price_source,
             }
         else:
             model_total = row.get("model_total")
             total_row = {
-                    "row_type": "total",
-                    "market": "Total (model)",
-                    "bet_label": f"Total {model_total:.1f}" if pd.notna(model_total) else "Total",
-                    "game": game_label,
-                    "model_value": model_total,
-                    "market_value": None,
-                    "weighted_spread": None,
-                    "weighted_total": weighted_total_value,
-                    "model_home_ml": model_home_ml,
-                    "edge": None,
-                    "edge_pct": None,
-                    "kelly": None,
-                    "providers_html": "<span class='chip muted'>—</span>",
-                    "weather_html": weather_html,
-                    "kickoff": kickoff,
-                    "kickoff_sort": record.get("kickoff_sort", float("inf")),
-                    "flags_html": _flag_badges(row, None),
-                    "edge_class": _edge_class(None),
-                    "primary": "—",
-                    "fanduel_open": fd_open_total,
-                    "fanduel_current": fd_total,
-                    "sports411_open": s411_open_total,
-                    "sports411_current": s411_total,
-                }
+                "row_type": "total",
+                "market": "Total (model)",
+                "bet_label": f"Total {model_total:.1f}" if pd.notna(model_total) else "Total",
+                "game": game_label,
+                "model_value": model_total,
+                "market_value": None,
+                "weighted_spread": None,
+                "weighted_total": weighted_total_value,
+                "model_home_ml": model_home_ml,
+                "edge": None,
+                "edge_pct": None,
+                "kelly": None,
+                "weather_html": weather_html,
+                "kickoff": kickoff,
+                "kickoff_sort": record.get("kickoff_sort", float("inf")),
+                "flags_html": _flag_badges(row, None),
+                "edge_class": _edge_class(None),
+                "book_lines": record.get("book_lines_total", [])[:],
+                "price_display": None,
+                "price_display_source": None,
+            }
             record["total_row"] = total_row
 
     records: list[dict] = []
@@ -690,12 +594,13 @@ def _render_html(df: pd.DataFrame, *, title: str, providers: Sequence[str] | Non
                 "edge": None,
                 "edge_pct": None,
                 "kelly": None,
-                "providers_html": "<span class='chip muted'>—</span>",
                 "weather_html": "—",
                 "kickoff": record["kickoff"],
                 "flags_html": "<span class='flag muted'>—</span>",
                 "edge_class": _edge_class(None),
-                "primary": "—",
+                "book_lines": record.get("book_lines_spread", _book_line_values({}, "spread"))[:],
+                "price_display": None,
+                "price_display_source": None,
             }
         if total_row is None:
             total_row = {
@@ -711,12 +616,13 @@ def _render_html(df: pd.DataFrame, *, title: str, providers: Sequence[str] | Non
                 "edge": None,
                 "edge_pct": None,
                 "kelly": None,
-                "providers_html": "<span class='chip muted'>—</span>",
                 "weather_html": "—",
                 "kickoff": record["kickoff"],
                 "flags_html": "<span class='flag muted'>—</span>",
                 "edge_class": _edge_class(None),
-                "primary": "—",
+                "book_lines": record.get("book_lines_total", _book_line_values({}, "total"))[:],
+                "price_display": None,
+                "price_display_source": None,
             }
         records.append(spread_row)
         records.append(total_row)
@@ -727,6 +633,30 @@ def _render_html(df: pd.DataFrame, *, title: str, providers: Sequence[str] | Non
             return "—"
         fmt = f"{{:{'+' if signed else ''}.{precision}f}}"
         return fmt.format(value)
+
+    def _format_price(price: float | None) -> str:
+        if price is None or not np.isfinite(price):
+            return "—"
+        return f"{price:+.0f}"
+
+    def _abbrev_source(source: str | None) -> str:
+        if not source:
+            return ""
+        if source.strip().lower().startswith("default"):
+            return "DEF"
+        parts = "".join(ch if ch.isalnum() else " " for ch in source.strip()).split()
+        if not parts:
+            return ""
+        return "".join(part[0] for part in parts).upper()[:3]
+
+    def _format_price_cell(price: float | None, source: str | None) -> str:
+        price_text = _format_price(price)
+        if price_text == "—":
+            return price_text
+        badge = _abbrev_source(source)
+        if badge:
+            return f"{price_text}<span class='price-source'>{badge}</span>"
+        return price_text
 
     spread_edges = [
         rec["edge"]
@@ -742,6 +672,7 @@ def _render_html(df: pd.DataFrame, *, title: str, providers: Sequence[str] | Non
     actionable_totals = [abs(val) for val in total_edges if val is not None and abs(val) >= 1.5]
     avg_edge = float(np.mean(actionable_spreads)) if actionable_spreads else np.nan
 
+    book_header_html = "".join(f"<th>{spec['label']}</th>" for spec in book_line_columns)
     table_rows = []
     for spread_row, total_row in paired_rows:
         for rec in (spread_row, total_row):
@@ -752,6 +683,11 @@ def _render_html(df: pd.DataFrame, *, title: str, providers: Sequence[str] | Non
             if row_type == "total":
                 bet_display = f"<span class='total-label'>{bet_display}</span>"
             model_signed = row_type not in {"spread", "total"}
+            book_lines = rec.get("book_lines") or []
+            if len(book_lines) < len(book_line_columns):
+                deficit = len(book_line_columns) - len(book_lines)
+                book_lines = list(book_lines) + [None] * deficit
+            book_cells = "".join(f"<td>{_format_value(value)}</td>" for value in book_lines[: len(book_line_columns)])
             table_rows.append(
                 f"<tr class='{row_class}'>"
                 f"<td class='cell-bet'>{bet_display}</td>"
@@ -759,18 +695,12 @@ def _render_html(df: pd.DataFrame, *, title: str, providers: Sequence[str] | Non
                 f"<td class='cell-market'>{rec['market']}</td>"
                 f"<td>{_format_value(rec['model_value'], signed=model_signed)}</td>"
                 f"<td>{_format_value(rec['market_value'])}</td>"
-                f"<td>{_format_value(rec.get('weighted_spread'))}</td>"
-                f"<td>{_format_value(rec.get('weighted_total'))}</td>"
                 f"<td>{_format_moneyline(rec.get('model_home_ml'))}</td>"
-                f"<td>{_format_value(rec.get('fanduel_open'))}</td>"
-                f"<td>{_format_value(rec.get('fanduel_current'))}</td>"
-                f"<td>{_format_value(rec.get('sports411_open'))}</td>"
-                f"<td>{_format_value(rec.get('sports411_current'))}</td>"
+                f"{book_cells}"
+                f"<td class='cell-price'>{_format_price_cell(rec.get('price_display'), rec.get('price_display_source'))}</td>"
                 f"<td><span class='{rec['edge_class']}'>{_format_value(rec['edge'])}</span></td>"
                 f"<td>{_format_edge_pct(rec['edge_pct'])}</td>"
                 f"<td>{_format_kelly(rec['kelly'])}</td>"
-                f"<td>{rec['providers_html']}</td>"
-                f"<td class='cell-primary'>{rec['primary']}</td>"
                 f"<td>{rec['weather_html']}</td>"
                 f"<td>{rec['kickoff']}</td>"
                 f"<td>{rec['flags_html']}</td>"
@@ -794,6 +724,7 @@ def _render_html(df: pd.DataFrame, *, title: str, providers: Sequence[str] | Non
         return "".join(
             f"<li><span class='edge-badge {_edge_class(item['edge'])}'>{_format_value(item['edge'])}</span>"
             f"<span class='top-game'>{item['bet_label']}</span>"
+            f"<span class='top-price'>{_format_price_cell(item.get('price_display'), item.get('price_display_source'))}</span>"
             f"<span class='top-note'>{item['game']}</span></li>"
             for item in items
         )
@@ -814,6 +745,7 @@ def _render_html(df: pd.DataFrame, *, title: str, providers: Sequence[str] | Non
         f"<div class='edge-callout'>"
         f"<span class='edge-badge {_edge_class(item['edge'])}'>{_format_value(item['edge'])}</span>"
         f"<span class='edge-bet'>{item['bet_label']}</span>"
+        f"<span class='edge-price'>{_format_price_cell(item.get('price_display'), item.get('price_display_source'))}</span>"
         f"<span class='edge-ev'>{_format_edge_pct(item['edge_pct'])}</span>"
         f"<span class='edge-game'>{item['game']}</span>"
         "</div>"
@@ -885,7 +817,7 @@ def _render_html(df: pd.DataFrame, *, title: str, providers: Sequence[str] | Non
           }}
           .edge-callout {{
             display: grid;
-            grid-template-columns: auto auto auto 1fr;
+            grid-template-columns: auto auto auto auto 1fr;
             gap: 12px;
             align-items: center;
             background: rgba(3, 131, 90, 0.05);
@@ -903,6 +835,13 @@ def _render_html(df: pd.DataFrame, *, title: str, providers: Sequence[str] | Non
           .edge-callout .edge-ev {{
             font-weight: 600;
             color: var(--muted);
+          }}
+          .edge-callout .edge-price {{
+            font-weight: 600;
+            color: var(--muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
           }}
           .edge-callout .edge-game {{
             color: var(--muted);
@@ -963,17 +902,26 @@ def _render_html(df: pd.DataFrame, *, title: str, providers: Sequence[str] | Non
             gap: 10px;
           }}
           .top-list li {{
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
+            display: grid;
+            grid-template-columns: auto auto 1fr;
+            gap: 10px;
+            align-items: center;
           }}
           .top-game {{
             font-weight: 600;
             font-size: 13px;
           }}
+          .top-price {{
+            color: var(--muted);
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+          }}
           .top-note {{
             color: var(--muted);
             font-size: 12px;
+            text-align: right;
           }}
           main {{
             background: var(--card);
@@ -1004,6 +952,20 @@ def _render_html(df: pd.DataFrame, *, title: str, providers: Sequence[str] | Non
             padding: 10px 8px;
             border-bottom: 1px solid rgba(223, 227, 235, 0.6);
             vertical-align: middle;
+          }}
+          td.cell-price {{
+            white-space: nowrap;
+          }}
+          .price-source {{
+            display: inline-block;
+            margin-left: 6px;
+            padding: 2px 6px;
+            border-radius: 999px;
+            background: rgba(31, 38, 48, 0.1);
+            color: var(--muted);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
           }}
           tbody tr.row-total {{
             background: rgba(3, 131, 90, 0.04);
@@ -1063,10 +1025,6 @@ def _render_html(df: pd.DataFrame, *, title: str, providers: Sequence[str] | Non
           .cell-market {{
             font-weight: 500;
             color: var(--muted);
-          }}
-          .cell-primary {{
-            color: #026a49;
-            font-weight: 600;
           }}
           .edge {{
             font-weight: 600;
@@ -1164,18 +1122,12 @@ def _render_html(df: pd.DataFrame, *, title: str, providers: Sequence[str] | Non
                   <th>Market</th>
                   <th>Model</th>
                   <th>Market</th>
-                  <th>Weighted Spread</th>
-                  <th>Weighted Total</th>
                   <th>Home ML (model)</th>
-                  <th>FanDuel OP</th>
-                  <th>FanDuel</th>
-                  <th>Sports411 OP</th>
-                  <th>Sports411</th>
+                  {book_header_html}
+                  <th>Stake Price</th>
                   <th>Edge (pts)</th>
                   <th>Edge (%)</th>
                   <th>Kelly (0.5)</th>
-                  <th>Providers</th>
-                  <th>Primary</th>
                   <th>Weather</th>
                   <th>Kickoff</th>
                   <th>Flags</th>
@@ -1187,7 +1139,7 @@ def _render_html(df: pd.DataFrame, *, title: str, providers: Sequence[str] | Non
             </table>
           </main>
         </div>
-        <footer>Edge ≥ 1.0 pts (spread) or 1.5 pts (total) highlighted in the KPI strip. Kelly assumes -110 pricing and halves the optimal fraction.</footer>
+        <footer>Edges ≥ 1.0 pts (spread) or 1.5 pts (total) highlighted above. Kelly stakes use the Stake Price column (preferring the configured books and falling back to market/default pricing) and display the half-Kelly fraction.</footer>
       </body>
     </html>
     """
@@ -1214,7 +1166,6 @@ def main() -> None:
         print("No upcoming games found for the specified week.")
         return
     provider_filter = [p.strip() for p in args.providers.split(",") if p.strip()] if args.providers else None
-    df = _ensure_oddslogic_lines(df, providers=provider_filter)
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(args.output, index=False)

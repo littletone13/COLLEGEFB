@@ -4,10 +4,22 @@ fbs:
     total_weight: 0.4
     providers:
       - BetOnline
+      - Pinnacle
       - Sports411
       - Circa
       - Fanduel
       - DraftKings
+    the_odds_api:
+      days_from: 7
+      regions:
+        - us
+        - us2
+        - eu
+        - us_ex
+      bookmakers:
+        - fanduel
+        - betonlineag
+        - pinnacle
   weather:
     coeffs:
       wind_high: -0.3462
@@ -51,6 +63,13 @@ fcs:
     total_weight: 0.7
     providers:
       - FanDuel
+    the_odds_api:
+      days_from: 7
+      regions:
+        - us
+        - us2
+        - eu
+        - us_ex
   data:
     pff_dir: "data/pff/fcs"
     pff_combined_dir: null
