@@ -45,9 +45,9 @@ fbs:
     spread_calibration: [2.377258, 0.971093]
     total_calibration: [4.658323, 0.901872]
   backtest:
-    spread_edge_min: 1.0
+    spread_edge_min: 2.0
     total_edge_min: 1.0
-    min_provider_count: 1
+    min_provider_count: 2
   bayesian:
     enabled: true
     spread_prior_strength: 6.0

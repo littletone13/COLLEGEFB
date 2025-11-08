@@ -141,7 +141,7 @@ def _render_html(df: pd.DataFrame, *, title: str, providers: Sequence[str] | Non
     def _format_kelly(kelly: float | None) -> str:
         if kelly is None or not np.isfinite(kelly) or kelly <= 0:
             return "—"
-        return f"{kelly * 0.5:.1%}"
+        return f"{kelly * 0.25:.1%}"
 
     def _format_edge_pct(p: float | None) -> str:
         if p is None or not np.isfinite(p):
