@@ -1,0 +1,10 @@
+season,week,season_type,classification,game_id,home_team,away_team,commence_time,bookmaker,market,open_timestamp,close_timestamp,open_point,open_price_home,open_price_away,close_point,close_price_home,close_price_away,open_price_over,open_price_under,close_price_over,close_price_under,open_price_draw,close_price_draw
+2025,10,regular,fbs,401761639,Texas State,James Madison,2025-10-29T00:00:00+00:00,betonlineag,spread,2025-10-28T12:00:39+00:00,2025-10-29T00:15:39+00:00,6.5,-105.0,-115.0,7.0,-102.0,-118.0,,,,,,
+2025,10,regular,fbs,401761639,Texas State,James Madison,2025-10-29T00:00:00+00:00,betonlineag,total,2025-10-28T12:00:39+00:00,2025-10-29T00:15:39+00:00,55.5,,,55.5,,,-110.0,-110.0,-110.0,-110.0,,
+2025,10,regular,fbs,401761639,Texas State,James Madison,2025-10-29T00:00:00+00:00,betonlineag,moneyline,2025-10-28T12:00:39+00:00,2025-10-29T00:15:39+00:00,,207.0,-250.0,,230.0,-280.0,,,,,,
+2025,10,regular,fbs,401757289,Kennesaw State,UTEP,2025-10-29T00:00:00+00:00,betonlineag,spread,2025-10-28T12:00:39+00:00,2025-10-29T00:15:39+00:00,-10.0,-110.0,-110.0,-13.0,-107.0,-113.0,,,,,,
+2025,10,regular,fbs,401757289,Kennesaw State,UTEP,2025-10-29T00:00:00+00:00,betonlineag,total,2025-10-28T12:00:39+00:00,2025-10-29T00:15:39+00:00,51.0,,,53.0,,,-108.0,-112.0,-115.0,-105.0,,
+2025,10,regular,fbs,401757289,Kennesaw State,UTEP,2025-10-29T00:00:00+00:00,betonlineag,moneyline,2025-10-28T12:00:39+00:00,2025-10-29T00:15:39+00:00,,-370.0,296.0,,-500.0,383.0,,,,,,
+2025,10,regular,fbs,401757292,Middle Tennessee,Jacksonville State,2025-10-29T23:30:00+00:00,betonlineag,spread,2025-10-29T11:30:39+00:00,2025-10-29T11:50:39+00:00,5.0,-113.0,-107.0,4.0,-110.0,-110.0,,,,,,
+2025,10,regular,fbs,401757292,Middle Tennessee,Jacksonville State,2025-10-29T23:30:00+00:00,betonlineag,total,2025-10-29T11:30:39+00:00,2025-10-29T11:50:39+00:00,55.0,,,55.0,,,-110.0,-110.0,-110.0,-110.0,,
+2025,10,regular,fbs,401757292,Middle Tennessee,Jacksonville State,2025-10-29T23:30:00+00:00,betonlineag,moneyline,2025-10-29T11:30:39+00:00,2025-10-29T11:50:39+00:00,,170.0,-195.0,,160.0,-183.0,,,,,,

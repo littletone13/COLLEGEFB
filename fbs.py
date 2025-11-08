@@ -42,12 +42,10 @@ import pandas as pd
 import requests
 
 import market_anchor
-import oddslogic_loader
 from cfb import market as market_utils
 from cfb import weather as weather_utils
 from cfb.config import load_config
 from cfb.injuries import penalties_for_player
-from cfb.io import oddslogic as oddslogic_io
 from cfb.io.cfbd import CFBDClient, BASE_URL as CFBD_BASE_URL
 from cfb.io import cached_cfbd
 from cfb.io import the_odds_api
@@ -110,6 +108,15 @@ THE_ODDS_API_MARKETS = _coerce_sequence(_THE_ODDS_API_CONFIG.get("markets"), ("s
 _BOOKMAKERS_RAW = _coerce_sequence(_THE_ODDS_API_CONFIG.get("bookmakers"), ())
 THE_ODDS_API_BOOKMAKERS = _BOOKMAKERS_RAW if _BOOKMAKERS_RAW else None
 THE_ODDS_API_FORMAT = str(_THE_ODDS_API_CONFIG.get("odds_format", "american")).strip() or "american"
+THE_ODDS_API_DAYS_FROM_RAW = _THE_ODDS_API_CONFIG.get("days_from")
+THE_ODDS_API_DAYS_FROM = None
+if THE_ODDS_API_DAYS_FROM_RAW is not None:
+    try:
+        THE_ODDS_API_DAYS_FROM = max(0, int(THE_ODDS_API_DAYS_FROM_RAW))
+    except (TypeError, ValueError):
+        THE_ODDS_API_DAYS_FROM = None
+if THE_ODDS_API_DAYS_FROM is None:
+    THE_ODDS_API_DAYS_FROM = 7
 
 _DEFAULT_WEATHER_COEFFS = {
     "wind_high": -0.3462,
@@ -151,6 +158,19 @@ _RATING_WEIGHTS_PATH_RAW = _RATING_CONFIG.get("weights_path", "calibration/fbs_r
 RATING_WEIGHTS_PATH = Path(str(_RATING_WEIGHTS_PATH_RAW)).expanduser()
 
 
+def _calibration_pair(value: Optional[Sequence[object]]) -> tuple[float, float]:
+    if isinstance(value, (list, tuple)) and len(value) == 2:
+        try:
+            return float(value[0]), float(value[1])
+        except (TypeError, ValueError):
+            return (0.0, 1.0)
+    return (0.0, 1.0)
+
+
+_DEFAULT_SPREAD_CAL = _calibration_pair(_RATING_CONFIG.get("spread_calibration"))
+_DEFAULT_TOTAL_CAL = _calibration_pair(_RATING_CONFIG.get("total_calibration"))
+
+
 def _rating_constants_from_config() -> RatingConstants:
     constants = RatingConstants(
         avg_total=float(_RATING_CONFIG.get("avg_total", 53.5109)),
@@ -188,8 +208,6 @@ def _bayesian_config_from_config() -> Optional[BayesianConfig]:
         prob_sigma_scale=float(_BAYESIAN_CONFIG.get("prob_sigma_scale", 0.0)),
     )
 
-ODDSLOGIC_ARCHIVE_DIR = Path(os.environ.get("ODDSLOGIC_ARCHIVE_DIR", "oddslogic_ncaa_all"))
-
 _INJURY_WARNING_EMITTED = False
 
 
@@ -216,6 +234,8 @@ def _select_primary_provider(provider_names: Iterable[str]) -> Optional[str]:
 
 _BOOKMAKER_ALIASES = {
     "betmgm": "BetMGM",
+    "betonline": "BetOnline",
+    "betonlineag": "BetOnline",
     "betrivers": "BetRivers",
     "betus": "BetUS",
     "bovada": "Bovada",
@@ -223,6 +243,7 @@ _BOOKMAKER_ALIASES = {
     "circa": "Circa",
     "draftkings": "DraftKings",
     "fanduel": "FanDuel",
+    "pinnacle": "Pinnacle",
     "pointsbetus": "PointsBet US",
     "superbook": "SuperBook",
     "williamhill_us": "William Hill US",
@@ -382,9 +403,10 @@ def _merge_the_odds_api_events(
     events: Iterable[dict],
     *,
     provider_filter: Optional[set[str]] = None,
-) -> None:
+) -> set[int]:
+    matched: set[int] = set()
     if not lookup or not events:
-        return
+        return matched
 
     for event in events:
         rows = the_odds_api.normalise_prices(event)
@@ -400,13 +422,11 @@ def _merge_the_odds_api_events(
         data = lookup.get(game_id)
         if not data:
             continue
+        matched.add(game_id)
         provider_lines = data.setdefault("provider_lines", {})
         provider_weights = data.setdefault("provider_weights", {})
         for row in rows:
             provider_key = _format_bookmaker_name(row.get("bookmaker"))
-            normalized_provider = _normalize_provider_name(provider_key)
-            if provider_filter and normalized_provider not in provider_filter:
-                continue
             existing = provider_lines.get(provider_key, {}).copy()
             existing["source"] = "TheOddsAPI"
             last_update = _datetime_to_iso(row.get("last_update"))
@@ -455,6 +475,36 @@ def _merge_the_odds_api_events(
             provider_lines[provider_key] = existing
             if provider_key not in provider_weights:
                 provider_weights[provider_key] = 1.0
+    return matched
+
+
+def _log_missing_odds(
+    lookup: Dict[int, dict],
+    matched: Optional[set[int]],
+    *,
+    label: str = "FBS",
+) -> None:
+    if matched is None:
+        return
+    missing: list[dict] = []
+    for game_id, data in lookup.items():
+        if matched and game_id in matched:
+            continue
+        missing.append(data)
+    if not missing:
+        return
+    preview = []
+    for entry in missing[:3]:
+        home = entry.get("home_team") or "Unknown home"
+        away = entry.get("away_team") or "Unknown away"
+        preview.append(f"{home} vs {away}")
+    sample = "; ".join(preview)
+    logger.warning(
+        "The Odds API returned no %s odds for %d games (sample: %s); falling back to secondary feeds.",
+        label,
+        len(missing),
+        sample,
+    )
 
 
 def apply_bias_recenter(
@@ -1215,7 +1265,7 @@ def fetch_market_lines(
         seen_providers.add(lower)
         normalized_inputs.append(cleaned)
     provider_names_input = normalized_inputs
-    provider_filter = {_normalize_provider_name(name) for name in provider_names_input} if provider_names_input else None
+    provider_filter = None
 
     entries = list(client.get("/lines", **params))
 
@@ -1249,8 +1299,6 @@ def fetch_market_lines(
             if not provider_normalized:
                 continue
             normalized_name = _normalize_provider_name(provider_normalized)
-            if provider_filter and normalized_name not in provider_filter:
-                continue
             provider_names.add(provider_normalized)
 
             spread_raw = _coerce_float(line.get("spread"))
@@ -1271,8 +1319,6 @@ def fetch_market_lines(
                 "away_moneyline": away_ml,
                 "last_updated": last_updated,
             }
-        if provider_filter and not provider_names:
-            continue
 
         spreads = [
             -float(info.get("spread_home"))
@@ -1328,6 +1374,7 @@ def fetch_market_lines(
             "kickoff": kickoff_py,
         }
 
+    matched_odds_api: Optional[set[int]] = None
     if _THE_ODDS_API_ENABLED and THE_ODDS_API_SPORT_KEY:
         try:
             odds_events = the_odds_api.fetch_current_odds(
@@ -1336,6 +1383,7 @@ def fetch_market_lines(
                 markets=THE_ODDS_API_MARKETS,
                 bookmakers=THE_ODDS_API_BOOKMAKERS,
                 odds_format=THE_ODDS_API_FORMAT,
+                days_from=THE_ODDS_API_DAYS_FROM,
             )
         except the_odds_api.TheOddsAPIError as exc:
             logger.warning("The Odds API fetch failed: %s", exc)
@@ -1344,70 +1392,14 @@ def fetch_market_lines(
             logger.warning("Unexpected error fetching The Odds API odds: %s", exc)
             odds_events = []
         else:
-            _merge_the_odds_api_events(
+            matched_odds_api = _merge_the_odds_api_events(
                 lookup,
                 cfbd_index,
                 odds_events,
                 provider_filter=provider_filter,
             )
+    _log_missing_odds(lookup, matched_odds_api, label="FBS")
 
-    live_lookup: Dict[Tuple[dt.date, str, str], Dict[str, object]] = {}
-    if date_keys:
-        live_lookup = oddslogic_io.fetch_live_market_lookup(
-            date_keys,
-            classification=classification or "fbs",
-            providers=provider_names_input or None,
-        )
-
-    if live_lookup:
-        for game_id, data in lookup.items():
-            entry = cfbd_games.get(game_id, {})
-            start_raw = entry.get("startDate")
-            kickoff_date = None
-            if start_raw:
-                try:
-                    kickoff_dt = pd.to_datetime(start_raw)
-                except (TypeError, ValueError):
-                    kickoff_dt = pd.NaT
-                if not pd.isna(kickoff_dt):
-                    kickoff_date = kickoff_dt.date()
-            home_norm = oddslogic_loader.normalize_label(data.get("home_team") or "")
-            away_norm = oddslogic_loader.normalize_label(data.get("away_team") or "")
-            live_key = (kickoff_date, home_norm, away_norm)
-            invert = False
-            live_entry = live_lookup.get(live_key)
-            if not live_entry:
-                alt_key = (kickoff_date, away_norm, home_norm)
-                live_entry = live_lookup.get(alt_key)
-                if live_entry:
-                    invert = True
-            if not live_entry:
-                continue
-
-            provider_lines = data.setdefault("provider_lines", {})
-            for provider_name, payload in live_entry["providers"].items():
-                spread_value = payload.get("spread_value")
-                if spread_value is not None and invert:
-                    spread_value = -spread_value
-                total_value = payload.get("total_value")
-                last_updated = payload.get("spread_updated") or payload.get("total_updated")
-                if not last_updated:
-                    ts = payload.get("spread_updated") or payload.get("total_updated")
-                existing = provider_lines.get(provider_name, {})
-                provider_lines[provider_name] = {
-                    "spread_home": spread_value,
-                    "spread_away": -spread_value if spread_value is not None else None,
-                    "total": total_value,
-                    "home_moneyline": existing.get("home_moneyline"),
-                    "away_moneyline": existing.get("away_moneyline"),
-                    "last_updated": payload.get("spread_updated") or payload.get("total_updated"),
-                    "source": "OddsLogic",
-                    "open_spread_home": (
-                        -payload["open_spread_value"] if invert and payload.get("open_spread_value") is not None else payload.get("open_spread_value")
-                    ),
-                    "open_total": payload.get("open_total_value"),
-                }
-            _summarize_provider_lines(data)
     for data in lookup.values():
         _summarize_provider_lines(data)
     return lookup
@@ -1577,48 +1569,6 @@ def fetch_injury_impacts(
         if entries:
             cfbd_df = (
                 pd.DataFrame(entries)
-                .groupby("team")[["injury_offense_penalty", "injury_defense_penalty"]]
-                .sum()
-                .reset_index()
-            )
-
-    # OddsLogic feed (multi-book injury news)
-    try:
-        ol_payload = oddslogic_io.fetch_injuries(league="ncaaf_fbs")
-    except requests.RequestException:
-        ol_payload = {}
-
-    ol_entries: list[dict] = []
-    for info in ol_payload.values():
-        team = info.get("player_team")
-        status_raw = info.get("injury_status") or ""
-        custom_text = info.get("custom_text") or ""
-        if not team:
-            continue
-        position = (info.get("player_position") or "").upper()
-        offense_pen, defense_pen = penalties_for_player(status_raw, position, custom_text=custom_text)
-        if offense_pen == 0.0 and defense_pen == 0.0:
-            continue
-        ol_entries.append(
-            {
-                "team": team,
-                "injury_offense_penalty": offense_pen,
-                "injury_defense_penalty": defense_pen,
-            }
-        )
-
-    if ol_entries:
-        ol_df = (
-            pd.DataFrame(ol_entries)
-            .groupby("team")[["injury_offense_penalty", "injury_defense_penalty"]]
-            .sum()
-            .reset_index()
-        )
-        if cfbd_df.empty:
-            cfbd_df = ol_df
-        else:
-            cfbd_df = (
-                pd.concat([cfbd_df, ol_df])
                 .groupby("team")[["injury_offense_penalty", "injury_defense_penalty"]]
                 .sum()
                 .reset_index()
@@ -2209,13 +2159,6 @@ def build_rating_book(
             games_for_anchor = cfbd_games
 
     anchor_config = market_anchor_config
-    if anchor_config is None:
-        default_archive = ODDSLOGIC_ARCHIVE_DIR
-        if default_archive.exists():
-            anchor_config = market_anchor.MarketAnchorConfig(
-                archive_path=default_archive,
-                classification="fbs",
-            )
     anchor_adjustments: Dict[str, float] = {}
     bayesian_cfg = _bayesian_config_from_config()
     if bayesian_cfg and bayesian_cfg.total_prior_mean is None:
@@ -2258,6 +2201,9 @@ def build_rating_book(
         sigma = fit_probability_sigma(book, calibration_list)
         if sigma:
             book.prob_sigma = sigma
+    else:
+        book.spread_calibration = _DEFAULT_SPREAD_CAL
+        book.total_calibration = _DEFAULT_TOTAL_CAL
     return ratings, book
 
 

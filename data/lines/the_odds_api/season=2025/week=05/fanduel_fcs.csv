@@ -1,0 +1,5 @@
+season,week,season_type,classification,game_id,home_team,away_team,commence_time,bookmaker,market,open_timestamp,close_timestamp,open_point,open_price_home,open_price_away,close_point,close_price_home,close_price_away,open_price_over,open_price_under,close_price_over,close_price_under
+2025,5,regular,fbs,401762827,Miami (OH),Lindenwood,2025-09-27T19:30:00+00:00,fanduel,spread,2025-09-27T16:30:39+00:00,2025-09-27T19:55:39+00:00,-21.5,-110.0,-110.0,-31.5,-108.0,-120.0,,,,
+2025,5,regular,fbs,401762827,Miami (OH),Lindenwood,2025-09-27T19:30:00+00:00,fanduel,total,2025-09-27T16:30:39+00:00,2025-09-27T19:55:39+00:00,49.5,,,47.5,,,-110.0,-110.0,-108.0,-120.0
+2025,5,regular,fbs,401762828,Western Michigan,Rhode Island,2025-09-27T22:30:00+00:00,fanduel,spread,2025-09-27T19:30:39+00:00,2025-09-27T22:55:39+00:00,-7.5,-110.0,-110.0,-7.5,-113.0,-115.0,,,,
+2025,5,regular,fbs,401762828,Western Michigan,Rhode Island,2025-09-27T22:30:00+00:00,fanduel,total,2025-09-27T19:30:39+00:00,2025-09-27T22:55:39+00:00,44.5,,,47.5,,,-118.0,-104.0,-113.0,-115.0

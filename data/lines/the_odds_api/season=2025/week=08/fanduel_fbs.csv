@@ -1,0 +1,10 @@
+season,week,season_type,classification,game_id,home_team,away_team,commence_time,bookmaker,market,open_timestamp,close_timestamp,open_point,open_price_home,open_price_away,close_point,close_price_home,close_price_away,open_price_over,open_price_under,close_price_over,close_price_under,open_price_draw,close_price_draw
+2025,8,regular,fbs,401757282,Liberty,New Mexico State,2025-10-14T23:00:00+00:00,fanduel,spread,2025-10-14T11:00:40+00:00,2025-10-15T00:55:39+00:00,-9.5,-115.0,-105.0,-20.5,-108.0,-122.0,,,,,,
+2025,8,regular,fbs,401757282,Liberty,New Mexico State,2025-10-14T23:00:00+00:00,fanduel,total,2025-10-14T11:00:40+00:00,2025-10-15T00:55:39+00:00,46.5,,,49.5,,,-110.0,-110.0,-102.0,-130.0,,
+2025,8,regular,fbs,401757282,Liberty,New Mexico State,2025-10-14T23:00:00+00:00,fanduel,moneyline,2025-10-14T11:00:40+00:00,2025-10-15T00:55:39+00:00,,-375.0,300.0,,-7000.0,1500.0,,,,,,
+2025,8,regular,fbs,401761628,South Alabama,Arkansas State,2025-10-14T23:30:00+00:00,fanduel,spread,2025-10-14T11:30:39+00:00,2025-10-15T01:25:39+00:00,-7.5,-105.0,-115.0,-7.5,-128.0,-104.0,,,,,,
+2025,8,regular,fbs,401761628,South Alabama,Arkansas State,2025-10-14T23:30:00+00:00,fanduel,total,2025-10-14T11:30:39+00:00,2025-10-15T01:25:39+00:00,58.5,,,36.5,,,-115.0,-105.0,-104.0,-125.0,,
+2025,8,regular,fbs,401761628,South Alabama,Arkansas State,2025-10-14T23:30:00+00:00,fanduel,moneyline,2025-10-14T11:30:39+00:00,2025-10-15T01:25:39+00:00,,-260.0,215.0,,-530.0,360.0,,,,,,
+2025,8,regular,fbs,401757281,Western Kentucky,Florida International,2025-10-15T00:00:00+00:00,fanduel,spread,2025-10-14T12:00:39+00:00,2025-10-15T01:55:39+00:00,-9.5,-120.0,-102.0,5.5,-114.0,-114.0,,,,,,
+2025,8,regular,fbs,401757281,Western Kentucky,Florida International,2025-10-15T00:00:00+00:00,fanduel,total,2025-10-14T12:00:39+00:00,2025-10-15T01:55:39+00:00,56.5,,,51.5,,,-105.0,-115.0,-108.0,-122.0,,
+2025,8,regular,fbs,401757281,Western Kentucky,Florida International,2025-10-15T00:00:00+00:00,fanduel,moneyline,2025-10-14T12:00:39+00:00,2025-10-15T01:55:39+00:00,,-370.0,295.0,,186.0,-245.0,,,,,,

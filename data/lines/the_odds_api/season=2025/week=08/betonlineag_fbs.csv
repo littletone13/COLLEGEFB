@@ -1,0 +1,10 @@
+season,week,season_type,classification,game_id,home_team,away_team,commence_time,bookmaker,market,open_timestamp,close_timestamp,open_point,open_price_home,open_price_away,close_point,close_price_home,close_price_away,open_price_over,open_price_under,close_price_over,close_price_under,open_price_draw,close_price_draw
+2025,8,regular,fbs,401757282,Liberty,New Mexico State,2025-10-14T23:00:00+00:00,betonlineag,spread,2025-10-14T11:00:40+00:00,2025-10-14T23:15:39+00:00,-10.0,-104.0,-116.0,-10.5,-120.0,100.0,,,,,,
+2025,8,regular,fbs,401757282,Liberty,New Mexico State,2025-10-14T23:00:00+00:00,betonlineag,total,2025-10-14T11:00:40+00:00,2025-10-14T23:15:39+00:00,46.5,,,48.5,,,-110.0,-110.0,-110.0,-110.0,,
+2025,8,regular,fbs,401757282,Liberty,New Mexico State,2025-10-14T23:00:00+00:00,betonlineag,moneyline,2025-10-14T11:00:40+00:00,2025-10-14T23:15:39+00:00,,-400.0,316.0,,-450.0,350.0,,,,,,
+2025,8,regular,fbs,401761628,South Alabama,Arkansas State,2025-10-14T23:30:00+00:00,betonlineag,spread,2025-10-14T11:30:39+00:00,2025-10-14T23:45:39+00:00,-7.5,-110.0,-110.0,-9.0,-110.0,-110.0,,,,,,
+2025,8,regular,fbs,401761628,South Alabama,Arkansas State,2025-10-14T23:30:00+00:00,betonlineag,total,2025-10-14T11:30:39+00:00,2025-10-14T23:45:39+00:00,59.0,,,57.5,,,-105.0,-115.0,-110.0,-110.0,,
+2025,8,regular,fbs,401761628,South Alabama,Arkansas State,2025-10-14T23:30:00+00:00,betonlineag,moneyline,2025-10-14T11:30:39+00:00,2025-10-14T23:45:39+00:00,,-290.0,237.0,,-310.0,252.0,,,,,,
+2025,8,regular,fbs,401757281,Western Kentucky,Florida International,2025-10-15T00:00:00+00:00,betonlineag,spread,2025-10-14T12:00:39+00:00,2025-10-15T00:15:39+00:00,-10.0,-110.0,-110.0,-10.0,-114.0,-106.0,,,,,,
+2025,8,regular,fbs,401757281,Western Kentucky,Florida International,2025-10-15T00:00:00+00:00,betonlineag,total,2025-10-14T12:00:39+00:00,2025-10-15T00:15:39+00:00,56.0,,,56.5,,,-110.0,-110.0,-107.0,-113.0,,
+2025,8,regular,fbs,401757281,Western Kentucky,Florida International,2025-10-15T00:00:00+00:00,betonlineag,moneyline,2025-10-14T12:00:39+00:00,2025-10-15T00:15:39+00:00,,-365.0,292.0,,-365.0,292.0,,,,,,

@@ -194,10 +194,31 @@
         background: rgba(107, 116, 132, 0.12);
         color: var(--muted);
       }
+      .book-line {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .price-source {
+        display: inline-block;
+        margin-left: 6px;
+        padding: 2px 6px;
+        border-radius: 999px;
+        background: rgba(31, 38, 48, 0.1);
+        color: var(--muted);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+      }
       .notes {
         display: flex;
         flex-wrap: wrap;
         gap: 6px;
+      }
+      .footnote {
+        margin-top: 16px;
+        color: var(--muted);
+        font-size: 12px;
       }
       .note {
         display: inline-flex;
@@ -274,10 +295,10 @@
               <th>Kickoff</th>
               <th>Matchup</th>
               <th>Model Spread</th>
-              <th>Market Spread</th>
+              <th>Market Spread / __PRIMARY_BOOK__</th>
               <th>Spread Edge</th>
               <th>Model Total</th>
-              <th>Market Total</th>
+              <th>Market Total / __PRIMARY_BOOK__</th>
               <th>Total Edge</th>
               <th>Home Win</th>
               <th>Home ML</th>
@@ -288,6 +309,7 @@
           </thead>
           <tbody>__FCS_ROWS__</tbody>
         </table>
+        <p class="footnote">__PRIMARY_BOOK__ line and price are shown when available; otherwise the dashboard falls back to the listed market provider or assumes -110. Kelly stakes reflect a quarter-Kelly based on that price.</p>
       </div>
     </main>
     <script id="fcs-data" type="application/json">__FCS_DATA__</script>
@@ -392,6 +414,50 @@
           return `<span class="kelly">${(value * 0.5 * 100).toFixed(1)}%</span>`;
         };
 
+        const formatPriceText = (price) => {
+          if (price === null || price === undefined || Number.isNaN(price)) {
+            return null;
+          }
+          const rounded = Math.round(price);
+          return rounded > 0 ? `+${rounded}` : `${rounded}`;
+        };
+
+        const abbreviateSource = (source, label) => {
+          if (!source) return "";
+          const value = source.trim().toLowerCase();
+          if (!value) return "";
+          if (label && value === label.trim().toLowerCase()) return "";
+          if (value.startsWith("default")) return "DEF";
+          return source
+            .split(/[^A-Za-z0-9]+/)
+            .filter(Boolean)
+            .map((part) => part[0])
+            .join("")
+            .toUpperCase()
+            .slice(0, 3);
+        };
+
+        const formatBookLine = (row, kind) => {
+          const label = row.bookLabel || meta.primaryBook || "__PRIMARY_BOOK__";
+          const lineValue = kind === "spread" ? row.bookSpread : row.bookTotal;
+          const line = Number.isFinite(lineValue) ? formatNumber(lineValue, { signed: kind === "spread" }) : null;
+          const priceValue = kind === "spread" ? row.bookSpreadPrice : row.bookTotalPrice;
+          const price = formatPriceText(priceValue);
+          if (!line && !price) {
+            return (kind === "spread" ? row.bookSpreadPriceSource : row.bookTotalPriceSource) === "Default -110"
+              ? `<div class="book-line">${label} — · —<span class="price-source">DEF</span></div>`
+              : "";
+          }
+          const source = kind === "spread" ? row.bookSpreadPriceSource : row.bookTotalPriceSource;
+          const badge = abbreviateSource(source, label);
+          const badgeHtml = badge ? `<span class="price-source">${badge}</span>` : "";
+          const parts = [];
+          if (line) parts.push(line);
+          if (price) parts.push(price);
+          const content = parts.length ? parts.join(" · ") : "—";
+          return `<div class="book-line">${label} ${content}${badgeHtml}</div>`;
+        };
+
         const toHaystack = (row) =>
           [
             row.game,
@@ -423,10 +489,16 @@
                   <div class="scoreline">${formatScoreline(row)}</div>
                 </td>
                 <td>${formatNumber(row.modelSpread, { signed: true })}</td>
-                <td>${formatNumber(row.marketSpread, { signed: true })}</td>
+                <td>
+                  <div>${formatNumber(row.marketSpread, { signed: true })}</div>
+                  ${formatBookLine(row, "spread")}
+                </td>
                 <td>${spreadBadge}</td>
                 <td>${formatNumber(row.modelTotal, { signed: false })}</td>
-                <td>${formatNumber(row.marketTotal, { signed: false })}</td>
+                <td>
+                  <div>${formatNumber(row.marketTotal, { signed: false })}</div>
+                  ${formatBookLine(row, "total")}
+                </td>
                 <td>${totalBadge}</td>
                 <td class="win-prob">${formatPercent(row.homeWinProb)}<span>Home win</span></td>
                 <td>${formatMoneyline(row.homeWinML)}</td>

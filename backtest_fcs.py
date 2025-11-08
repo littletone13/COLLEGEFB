@@ -69,6 +69,17 @@ def parse_args() -> argparse.Namespace:
         type=str,
         help="Optional comma-separated sportsbook providers to filter when using OddsLogic data.",
     )
+    parser.add_argument(
+        "--odds-api-dir",
+        type=Path,
+        help="Optional path to archived The Odds API history (FanDuel, etc.).",
+    )
+    parser.add_argument(
+        "--bookmaker",
+        type=str,
+        default="fanduel",
+        help="Bookmaker key to use with The Odds API history (default fanduel).",
+    )
     return parser.parse_args()
 
 
@@ -77,6 +88,84 @@ def _parse_providers(value: Optional[str]) -> Optional[list[str]]:
         return None
     providers = [part.strip() for part in value.split(",") if part.strip()]
     return providers or None
+
+
+def build_odds_api_lookup(
+    base_dir: Optional[Path],
+    seasons: Iterable[int],
+    bookmaker: str,
+) -> Dict[Tuple[dt.date, str, str], Dict[str, object]]:
+    if base_dir is None:
+        return {}
+    base_dir = base_dir.expanduser()
+    if not base_dir.exists():
+        return {}
+    mapping: Dict[Tuple[dt.date, str, str], Dict[str, object]] = {}
+    bookmaker_key = bookmaker.strip().lower()
+    for season in seasons:
+        season_dir = base_dir / f"season={season}"
+        if not season_dir.exists():
+            continue
+        for csv_path in season_dir.glob("week=*/*"):
+            if bookmaker_key not in csv_path.name.lower():
+                continue
+            try:
+                df = pd.read_csv(csv_path)
+            except FileNotFoundError:
+                continue
+            if df.empty:
+                continue
+            for row in df.itertuples(index=False):
+                commence = pd.to_datetime(getattr(row, "commence_time", None), utc=True, errors="coerce")
+                if pd.isna(commence):
+                    continue
+                kickoff_date = commence.date()
+                home_team = getattr(row, "home_team", "")
+                away_team = getattr(row, "away_team", "")
+                home_key = oddslogic_loader.normalize_label(home_team or "")
+                away_key = oddslogic_loader.normalize_label(away_team or "")
+                key = (kickoff_date, home_key, away_key)
+                entry = mapping.setdefault(
+                    key,
+                    {
+                        "providers": {},
+                        "sportsbook_name": bookmaker,
+                        "sportsbook_id": None,
+                        "spread_value": None,
+                        "total_value": None,
+                        "spread_price": None,
+                        "total_price": None,
+                    },
+                )
+                providers = entry.setdefault("providers", {})
+                payload = providers.setdefault(bookmaker, {})
+                market = getattr(row, "market", "")
+                if market == "spread":
+                    point = getattr(row, "close_point", None)
+                    if point is not None and not pd.isna(point):
+                        entry["spread_value"] = float(point)
+                        payload["spread_value"] = float(point)
+                    price_home = getattr(row, "close_price_home", None)
+                    if price_home is not None and not pd.isna(price_home):
+                        entry["spread_price"] = float(price_home)
+                        payload["spread_price"] = float(price_home)
+                elif market == "total":
+                    point = getattr(row, "close_point", None)
+                    if point is not None and not pd.isna(point):
+                        entry["total_value"] = float(point)
+                        payload["total_value"] = float(point)
+                    price_over = getattr(row, "close_price_over", None)
+                    if price_over is not None and not pd.isna(price_over):
+                        entry["total_price"] = float(price_over)
+                        payload["total_price"] = float(price_over)
+                elif market == "moneyline":
+                    price_home = getattr(row, "close_price_home", None)
+                    price_away = getattr(row, "close_price_away", None)
+                    if price_home is not None and not pd.isna(price_home):
+                        payload["home_moneyline"] = float(price_home)
+                    if price_away is not None and not pd.isna(price_away):
+                        payload["away_moneyline"] = float(price_away)
+    return mapping
 
 
 def fetch_cfbd_games(year: int, api_key: str, season_type: str) -> List[dict]:
@@ -501,6 +590,23 @@ def main() -> None:
         if not oddslogic_lookup:
             print("Warning: no OddsLogic records matched the requested configuration.")
 
+    closing_lookup: Optional[Dict[Tuple[dt.date, str, str], Dict[str, object]]] = None
+    odds_api_lookup = build_odds_api_lookup(
+        args.odds_api_dir,
+        seasons=range(start, end + 1),
+        bookmaker=args.bookmaker,
+    ) if args.odds_api_dir else {}
+    if odds_api_lookup:
+        closing_lookup = odds_api_lookup
+    if oddslogic_lookup:
+        if closing_lookup is None:
+            closing_lookup = oddslogic_lookup
+        else:
+            merged = dict(closing_lookup)
+            for key, value in oddslogic_lookup.items():
+                merged.setdefault(key, value)
+            closing_lookup = merged
+
     all_rows: List[Dict[str, object]] = []
     total_missing = 0
     metric_rows: List[Dict[str, tuple[int, int, int, int, float]]] = []
@@ -511,7 +617,7 @@ def main() -> None:
             api_key,
             args.season_type,
             max_week=args.max_week,
-            closing_lookup=oddslogic_lookup,
+            closing_lookup=closing_lookup,
             spread_edge_min=spread_edge_min,
             total_edge_min=total_edge_min,
             min_provider_count=min_provider_count,
@@ -539,8 +645,8 @@ def main() -> None:
         summary.to_csv(args.season_summary, index=False)
         print(f"Saved per-season summary to {args.season_summary}")
 
-    if oddslogic_lookup is not None and total_missing:
-        print(f"Warning: {total_missing} games missing OddsLogic closings across requested span.")
+    if closing_lookup is not None and total_missing:
+        print(f"Warning: {total_missing} games missing closing prices across requested span.")
 
     overall = summary.assign(games=summary["games"].astype(int))
     total_games = df.shape[0]

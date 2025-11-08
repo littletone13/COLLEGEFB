@@ -94,6 +94,15 @@ THE_ODDS_API_MARKETS = _coerce_sequence(_THE_ODDS_API_CONFIG.get("markets"), ("s
 _BOOKMAKERS_RAW = _coerce_sequence(_THE_ODDS_API_CONFIG.get("bookmakers"), ())
 THE_ODDS_API_BOOKMAKERS = _BOOKMAKERS_RAW if _BOOKMAKERS_RAW else None
 THE_ODDS_API_FORMAT = str(_THE_ODDS_API_CONFIG.get("odds_format", "american")).strip() or "american"
+THE_ODDS_API_DAYS_FROM_RAW = _THE_ODDS_API_CONFIG.get("days_from")
+THE_ODDS_API_DAYS_FROM = None
+if THE_ODDS_API_DAYS_FROM_RAW is not None:
+    try:
+        THE_ODDS_API_DAYS_FROM = max(0, int(THE_ODDS_API_DAYS_FROM_RAW))
+    except (TypeError, ValueError):
+        THE_ODDS_API_DAYS_FROM = None
+if THE_ODDS_API_DAYS_FROM is None:
+    THE_ODDS_API_DAYS_FROM = 7
 
 
 def _normalize_provider_name(name: Optional[str]) -> str:
@@ -260,9 +269,10 @@ def _merge_the_odds_api_events(
     events: Iterable[dict],
     *,
     provider_filter: Optional[set[str]] = None,
-) -> None:
+) -> set[int]:
+    matched: set[int] = set()
     if not cfbd_entries or not events:
-        return
+        return matched
     for event in events:
         rows = the_odds_api.normalise_prices(event)
         if not rows:
@@ -277,13 +287,13 @@ def _merge_the_odds_api_events(
         record = meta.get("record")
         if not record:
             continue
+        game_id = record.get("game_id")
+        if game_id is not None:
+            matched.add(int(game_id))
         provider_lines = record.setdefault("provider_lines", {})
         provider_weights = record.setdefault("provider_weights", {})
         for row in rows:
             provider_key = _format_bookmaker_name(row.get("bookmaker"))
-            normalized = _normalize_provider_name(provider_key)
-            if provider_filter and normalized not in provider_filter:
-                continue
             existing = provider_lines.get(provider_key, {}).copy()
             existing["source"] = "TheOddsAPI"
             last_update = _datetime_to_iso(row.get("last_update"))
@@ -330,6 +340,40 @@ def _merge_the_odds_api_events(
             if provider_key not in provider_weights:
                 provider_weights[provider_key] = 1.0
         _summarize_provider_lines(record)
+    return matched
+
+
+def _log_missing_odds(
+    records: list[dict],
+    matched: Optional[set[int]],
+    *,
+    label: str = "FCS",
+) -> None:
+    if matched is None:
+        return
+    missing: list[dict] = []
+    for entry in records:
+        record = entry.get("record") if isinstance(entry, dict) else None
+        if not isinstance(record, dict):
+            continue
+        game_id = record.get("game_id")
+        if game_id is not None and matched and int(game_id) in matched:
+            continue
+        missing.append(record)
+    if not missing:
+        return
+    preview = []
+    for record in missing[:3]:
+        home = record.get("home_team") or "Unknown home"
+        away = record.get("away_team") or "Unknown away"
+        preview.append(f"{home} vs {away}")
+    sample = "; ".join(preview)
+    logger.warning(
+        "The Odds API returned no %s odds for %d games (sample: %s); falling back to secondary feeds.",
+        label,
+        len(missing),
+        sample,
+    )
 
 
 def _rating_constants_from_config() -> FCSRatingConstants:
@@ -649,7 +693,7 @@ def fetch_market_lines(
         seen_providers.add(lower)
         normalized_inputs.append(cleaned)
     provider_names_input = normalized_inputs
-    provider_filter = {_normalize_provider_name(name) for name in provider_names_input if name.strip()}
+    provider_filter = None
 
     resp = requests.get(
         CFBD_BASE_URL + "/lines",
@@ -690,8 +734,6 @@ def fetch_market_lines(
             if not provider_name:
                 continue
             normalized_provider = _normalize_provider_name(provider_name)
-            if provider_filter and normalized_provider not in provider_filter:
-                continue
 
             spread_raw = _coerce_float(line.get("spread"))
             total_raw = _coerce_float(line.get("overUnder"))
@@ -713,8 +755,6 @@ def fetch_market_lines(
                 "last_updated": last_updated,
             }
 
-        if provider_filter and not provider_names:
-            continue
         spread_values = [
             -float(info.get("spread_home"))
             for info in provider_lines.values()
@@ -806,9 +846,8 @@ def fetch_market_lines(
         except requests.RequestException:
             pass
 
-    odds_api_provider_filter = (
-        {name for name in provider_filter} if provider_filter else None
-    )
+    odds_api_provider_filter = None
+    matched_odds_api: Optional[set[int]] = None
     if _THE_ODDS_API_ENABLED and THE_ODDS_API_SPORT_KEY:
         try:
             odds_events = the_odds_api.fetch_current_odds(
@@ -817,6 +856,7 @@ def fetch_market_lines(
                 markets=THE_ODDS_API_MARKETS,
                 bookmakers=THE_ODDS_API_BOOKMAKERS,
                 odds_format=THE_ODDS_API_FORMAT,
+                days_from=THE_ODDS_API_DAYS_FROM,
             )
         except the_odds_api.TheOddsAPIError as exc:
             logger.warning("The Odds API fetch failed for FCS: %s", exc)
@@ -825,11 +865,12 @@ def fetch_market_lines(
             logger.warning("Unexpected The Odds API error for FCS: %s", exc)
             odds_events = []
         else:
-            _merge_the_odds_api_events(
+            matched_odds_api = _merge_the_odds_api_events(
                 cfbd_entries,
                 odds_events,
                 provider_filter=odds_api_provider_filter,
             )
+    _log_missing_odds(cfbd_entries, matched_odds_api, label="FCS")
 
     live_lookup: Dict[Tuple[dt.date, str, str], Dict[str, object]] = {}
     if kickoff_dates:

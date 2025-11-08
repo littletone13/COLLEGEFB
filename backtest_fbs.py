@@ -38,6 +38,7 @@ import fbs
 import oddslogic_loader
 from cfb.config import load_config
 from cfb.market import edges as edge_utils
+from cfb.io import odds_history
 
 CFBD_API = "https://api.collegefootballdata.com"
 
@@ -51,7 +52,27 @@ def _fetch_cfbd(path: str, *, api_key: str, params: Optional[Dict[str, str]] = N
     return response.json()
 
 
-def load_closing_lines(path: Optional[Path], provider: str, year: int, api_key: str) -> pd.DataFrame:
+def load_closing_lines(
+    path: Optional[Path],
+    provider: str,
+    year: int,
+    api_key: str,
+    *,
+    odds_api_dir: Optional[Path] = None,
+) -> pd.DataFrame:
+    if odds_api_dir:
+        df = odds_history.load_closing_prices(
+            odds_api_dir,
+            year=year,
+            provider=provider,
+            classification="fbs",
+        )
+        if not df.empty:
+            renamed = df.rename(columns={"Total": "OverUnder"})
+            for column in ["Spread", "OverUnder", "HomeMoneyline", "AwayMoneyline"]:
+                if column not in renamed.columns:
+                    renamed[column] = np.nan
+            return renamed[["Spread", "OverUnder", "HomeMoneyline", "AwayMoneyline"]]
     if path is not None and path.exists():
         df = pd.read_csv(path)
         df.columns = [c.strip().strip('"').replace('\ufeff', '') for c in df.columns]
@@ -133,6 +154,7 @@ def evaluate_season(
     min_provider_count: int = 0,
     total_edge_min: float = 0.0,
     return_rows: bool = False,
+    odds_api_dir: Optional[Path] = None,
 ) -> BacktestResult | tuple[BacktestResult, pd.DataFrame]:
     games = _fetch_cfbd("/games", api_key=api_key, params={"year": year, "seasonType": "regular"})
     if max_week is not None:
@@ -145,7 +167,7 @@ def evaluate_season(
     weather_lookup = {game.get("id"): game.get("weather") for game in games}
     lines = None
     if oddslogic_lookup is None:
-        lines = load_closing_lines(hist_path, provider, year, api_key)
+        lines = load_closing_lines(hist_path, provider, year, api_key, odds_api_dir=odds_api_dir)
 
     rows: list[dict] = []
     pure_ats_wins = pure_ats_losses = pure_pushes = 0
@@ -168,11 +190,83 @@ def evaluate_season(
         min_provider_count=min_provider_count,
     )
 
+    def _provider_price(lines_dict: Optional[Dict[str, dict]], key: str) -> Optional[float]:
+        if not lines_dict:
+            return None
+        for payload in lines_dict.values():
+            value = payload.get(key)
+            if value is None or pd.isna(value):
+                continue
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                continue
+        return None
+
+    def _win_payout(price: Optional[float]) -> float:
+        if price is None:
+            return 0.909
+        try:
+            price = float(price)
+        except (TypeError, ValueError):
+            return 0.909
+        if price < 0:
+            if price == 0:
+                return 0.0
+            return 100.0 / abs(price)
+        return price / 100.0
+
+    def _week_number(entry: dict) -> int:
+        value = entry.get("week")
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
+
+    def _is_fbs_game(entry: dict) -> bool:
+        return (entry.get("homeClassification") or "").lower() == "fbs" and (entry.get("awayClassification") or "").lower() == "fbs"
+
+    games_by_week: Dict[int, list[dict]] = {}
+    for game in games:
+        games_by_week.setdefault(_week_number(game), []).append(game)
+    for weekly_games in games_by_week.values():
+        weekly_games.sort(key=lambda g: ((g.get("startDate") or ""), g.get("id") or 0))
+
+    sorted_weeks = sorted(games_by_week.keys())
+    calibration_lookup: Dict[int, list[dict]] = {}
+    completed_so_far: list[dict] = []
+    for week in sorted_weeks:
+        calibration_lookup[week] = list(completed_so_far)
+        completed_so_far.extend(
+            [
+                dict(entry)
+                for entry in games_by_week[week]
+                if entry.get("completed") and _is_fbs_game(entry)
+            ]
+        )
+
+    book_cache: Dict[int, fbs.RatingBook] = {}
+
+    def _book_for_week(week: int) -> fbs.RatingBook:
+        if week not in book_cache:
+            cal_games = calibration_lookup.get(week) or []
+            adjust_week = week - 1 if week > 1 else None
+            _, week_book = fbs.build_rating_book(
+                year,
+                api_key=api_key,
+                adjust_week=adjust_week,
+                calibration_games=[dict(entry) for entry in cal_games] if cal_games else None,
+            )
+            book_cache[week] = week_book
+        return book_cache[week]
+
     for game in games:
         if game.get("completed") is not True:
             continue
         if game.get("homeClassification") != "fbs" or game.get("awayClassification") != "fbs":
             continue
+        week_number = _week_number(game)
+        book = _book_for_week(week_number)
         home_team = game["homeTeam"]
         away_team = game["awayTeam"]
         home_points = game.get("homePoints")
@@ -190,6 +284,10 @@ def evaluate_season(
         blended_spread_edge = None
         pure_total_edge = None
         blended_total_edge = None
+        spread_price_home = None
+        spread_price_away = None
+        total_price_over = None
+        total_price_under = None
 
         closing = None
         invert = False
@@ -236,6 +334,10 @@ def evaluate_season(
                         payload_copy["spread_value"] = -float(value)
                     adjusted[pname] = payload_copy
                 provider_lines = adjusted
+            spread_price_home = _provider_price(provider_lines, "spread_price_home")
+            spread_price_away = _provider_price(provider_lines, "spread_price_away")
+            total_price_over = _provider_price(provider_lines, "total_price_over")
+            total_price_under = _provider_price(provider_lines, "total_price_under")
         else:
             try:
                 line_row = lines.loc[identifier]
@@ -243,6 +345,14 @@ def evaluate_season(
                 continue
             spread = float(line_row["Spread"]) if not pd.isna(line_row["Spread"]) else None
             total_line = float(line_row["OverUnder"]) if not pd.isna(line_row["OverUnder"]) else None
+            spread_price_home = line_row.get("SpreadPriceHome")
+            spread_price_home = float(spread_price_home) if spread_price_home is not None and not pd.isna(spread_price_home) else None
+            spread_price_away = line_row.get("SpreadPriceAway")
+            spread_price_away = float(spread_price_away) if spread_price_away is not None and not pd.isna(spread_price_away) else None
+            total_price_over = line_row.get("TotalPriceOver")
+            total_price_over = float(total_price_over) if total_price_over is not None and not pd.isna(total_price_over) else None
+            total_price_under = line_row.get("TotalPriceUnder")
+            total_price_under = float(total_price_under) if total_price_under is not None and not pd.isna(total_price_under) else None
             provider_count = 1 if (spread is not None or total_line is not None) else 0
             if provider_count:
                 payload: Dict[str, float] = {}
@@ -255,6 +365,15 @@ def evaluate_season(
 
         if spread is None and total_line is None:
             continue
+
+        if spread_price_home is None:
+            spread_price_home = _provider_price(provider_lines, "spread_price_home")
+        if spread_price_away is None:
+            spread_price_away = _provider_price(provider_lines, "spread_price_away")
+        if total_price_over is None:
+            total_price_over = _provider_price(provider_lines, "total_price_over")
+        if total_price_under is None:
+            total_price_under = _provider_price(provider_lines, "total_price_under")
 
         try:
             pred = book.predict(home_team, away_team, neutral_site=game.get("neutralSite", False))
@@ -300,10 +419,12 @@ def evaluate_season(
                 pure_bets += 1
                 pick_home = pure_spread_edge > 0
                 cover_margin = actual_margin + spread
+                spread_price = spread_price_home if pick_home else spread_price_away
+                win_return = _win_payout(spread_price)
                 if pick_home:
                     if cover_margin > 0:
                         pure_ats_wins += 1
-                        pure_roi += 0.909
+                        pure_roi += win_return
                     elif cover_margin < 0:
                         pure_ats_losses += 1
                         pure_roi -= 1.0
@@ -312,7 +433,7 @@ def evaluate_season(
                 else:
                     if cover_margin < 0:
                         pure_ats_wins += 1
-                        pure_roi += 0.909
+                        pure_roi += win_return
                     elif cover_margin > 0:
                         pure_ats_losses += 1
                         pure_roi -= 1.0
@@ -323,10 +444,12 @@ def evaluate_season(
                 blended_bets += 1
                 pick_home_blended = blended_spread_edge > 0
                 cover_margin = actual_margin + spread
+                blended_price = spread_price_home if pick_home_blended else spread_price_away
+                blended_return = _win_payout(blended_price)
                 if pick_home_blended:
                     if cover_margin > 0:
                         blended_ats_wins += 1
-                        blended_roi += 0.909
+                        blended_roi += blended_return
                     elif cover_margin < 0:
                         blended_ats_losses += 1
                         blended_roi -= 1.0
@@ -335,7 +458,7 @@ def evaluate_season(
                 else:
                     if cover_margin < 0:
                         blended_ats_wins += 1
-                        blended_roi += 0.909
+                        blended_roi += blended_return
                     elif cover_margin > 0:
                         blended_ats_losses += 1
                         blended_roi -= 1.0
@@ -350,10 +473,12 @@ def evaluate_season(
                 pure_total_bets += 1
                 pick_over = pure_total_edge > 0
                 margin = actual_total - total_line
+                total_price = total_price_over if pick_over else total_price_under
+                total_return = _win_payout(total_price)
                 if pick_over:
                     if margin > 0:
                         pure_total_wins += 1
-                        pure_total_roi += 0.909
+                        pure_total_roi += total_return
                     elif margin < 0:
                         pure_total_losses += 1
                         pure_total_roi -= 1.0
@@ -362,7 +487,7 @@ def evaluate_season(
                 else:
                     if margin < 0:
                         pure_total_wins += 1
-                        pure_total_roi += 0.909
+                        pure_total_roi += total_return
                     elif margin > 0:
                         pure_total_losses += 1
                         pure_total_roi -= 1.0
@@ -373,10 +498,12 @@ def evaluate_season(
                 blended_total_bets += 1
                 pick_over_blended = blended_total_edge > 0
                 margin = actual_total - total_line
+                blended_total_price = total_price_over if pick_over_blended else total_price_under
+                blended_total_return = _win_payout(blended_total_price)
                 if pick_over_blended:
                     if margin > 0:
                         blended_total_wins += 1
-                        blended_total_roi += 0.909
+                        blended_total_roi += blended_total_return
                     elif margin < 0:
                         blended_total_losses += 1
                         blended_total_roi -= 1.0
@@ -385,7 +512,7 @@ def evaluate_season(
                 else:
                     if margin < 0:
                         blended_total_wins += 1
-                        blended_total_roi += 0.909
+                        blended_total_roi += blended_total_return
                     elif margin > 0:
                         blended_total_losses += 1
                         blended_total_roi -= 1.0
@@ -474,6 +601,11 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="Optional path to OddsLogic archive output (overrides --historical / CFBD lines).",
     )
+    parser.add_argument(
+        "--odds-api-dir",
+        type=Path,
+        help="Optional directory containing The Odds API history (preferred when available).",
+    )
     return parser.parse_args()
 
 
@@ -511,6 +643,7 @@ def main() -> None:
         spread_edge_min=spread_edge_min,
         min_provider_count=min_provider_count,
         total_edge_min=total_edge_min,
+        odds_api_dir=args.odds_api_dir,
     )
     print(f"Season {args.year} backtest over {result.games} games")
     print(f"Spread MAE (pure): {result.spread_mae:.2f} pts")
@@ -521,19 +654,19 @@ def main() -> None:
     print(f"Brier (market-adjusted): {result.brier_blended:.4f}")
     w, l, p = result.ats_record
     print(f"ATS record (pure): {w}-{l}-{p}")
-    print(f"ATS ROI (pure, per bet, -110 assumed): {result.ats_roi*100:0.2f}%")
+    print(f"ATS ROI (pure, per bet, closing price): {result.ats_roi*100:0.2f}%")
     print(f"Pure bets placed: {result.bets} (spread edge ≥ {spread_edge_min}, providers ≥ {min_provider_count})")
     bw, bl, bp = result.ats_record_blended
     print(f"ATS record (market-adjusted): {bw}-{bl}-{bp}")
-    print(f"ATS ROI (market-adjusted, per bet, -110 assumed): {result.ats_roi_blended*100:0.2f}%")
+    print(f"ATS ROI (market-adjusted, per bet, closing price): {result.ats_roi_blended*100:0.2f}%")
     print(f"Market-adjusted bets placed: {result.bets_blended} (spread edge ≥ {spread_edge_min}, providers ≥ {min_provider_count})")
     tw, tl, tp = result.total_record
     print(f"Totals record (pure): {tw}-{tl}-{tp}")
-    print(f"Totals ROI (pure, per bet, -110 assumed): {result.total_roi*100:0.2f}%")
+    print(f"Totals ROI (pure, per bet, closing price): {result.total_roi*100:0.2f}%")
     print(f"Pure total bets: {result.total_bets} (total edge ≥ {total_edge_min}, providers ≥ {min_provider_count})")
     btw, btl, btp = result.total_record_blended
     print(f"Totals record (market-adjusted): {btw}-{btl}-{btp}")
-    print(f"Totals ROI (market-adjusted, per bet, -110 assumed): {result.total_roi_blended*100:0.2f}%")
+    print(f"Totals ROI (market-adjusted, per bet, closing price): {result.total_roi_blended*100:0.2f}%")
     print(
         f"Market-adjusted total bets: {result.total_bets_blended} "
         f"(total edge ≥ {total_edge_min}, providers ≥ {min_provider_count})"

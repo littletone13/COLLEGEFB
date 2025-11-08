@@ -1,0 +1,10 @@
+season,week,season_type,classification,game_id,home_team,away_team,commence_time,bookmaker,market,open_timestamp,close_timestamp,open_point,open_price_home,open_price_away,close_point,close_price_home,close_price_away,open_price_over,open_price_under,close_price_over,close_price_under,open_price_draw,close_price_draw
+2025,6,regular,fbs,401757275,New Mexico State,Sam Houston,2025-10-03T01:00:00+00:00,betonlineag,spread,2025-10-02T13:00:39+00:00,2025-10-03T01:15:40+00:00,2.5,-105.0,-115.0,1.5,-110.0,-110.0,,,,,,
+2025,6,regular,fbs,401757275,New Mexico State,Sam Houston,2025-10-03T01:00:00+00:00,betonlineag,total,2025-10-02T13:00:39+00:00,2025-10-03T01:15:40+00:00,54.0,,,51.5,,,-105.0,-115.0,-117.0,-103.0,,
+2025,6,regular,fbs,401757275,New Mexico State,Sam Houston,2025-10-03T01:00:00+00:00,betonlineag,moneyline,2025-10-02T13:00:39+00:00,2025-10-03T01:15:40+00:00,,120.0,-140.0,,100.0,-120.0,,,,,,
+2025,6,regular,fbs,401757276,Delaware,Western Kentucky,2025-10-03T23:00:00+00:00,betonlineag,spread,2025-10-03T11:00:39+00:00,2025-10-03T12:50:39+00:00,-2.5,-117.0,-103.0,-2.5,-117.0,-103.0,,,,,,
+2025,6,regular,fbs,401757276,Delaware,Western Kentucky,2025-10-03T23:00:00+00:00,betonlineag,total,2025-10-03T11:00:39+00:00,2025-10-03T12:50:39+00:00,61.5,,,61.5,,,-110.0,-110.0,-110.0,-110.0,,
+2025,6,regular,fbs,401757276,Delaware,Western Kentucky,2025-10-03T23:00:00+00:00,betonlineag,moneyline,2025-10-03T11:00:39+00:00,2025-10-03T12:50:39+00:00,,-135.0,115.0,,-137.0,117.0,,,,,,
+2025,6,regular,fbs,401762475,South Florida,Charlotte,2025-10-03T23:00:00+00:00,betonlineag,spread,2025-10-03T11:00:39+00:00,2025-10-03T12:50:39+00:00,-28.5,-102.0,-118.0,-28.0,-105.0,-115.0,,,,,,
+2025,6,regular,fbs,401762475,South Florida,Charlotte,2025-10-03T23:00:00+00:00,betonlineag,total,2025-10-03T11:00:39+00:00,2025-10-03T12:50:39+00:00,55.0,,,55.0,,,-105.0,-115.0,-105.0,-115.0,,
+2025,6,regular,fbs,401762475,South Florida,Charlotte,2025-10-03T23:00:00+00:00,betonlineag,moneyline,2025-10-03T11:00:39+00:00,2025-10-03T12:50:39+00:00,,-7000.0,1642.0,,-7000.0,1642.0,,,,,,

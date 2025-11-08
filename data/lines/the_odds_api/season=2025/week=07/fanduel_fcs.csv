@@ -1,0 +1,5 @@
+season,week,season_type,classification,game_id,home_team,away_team,commence_time,bookmaker,market,open_timestamp,close_timestamp,open_point,open_price_home,open_price_away,close_point,close_price_home,close_price_away,open_price_over,open_price_under,close_price_over,close_price_under
+2025,7,regular,fcs,401767691,Harvard,Cornell,2025-10-10T23:00:00+00:00,fanduel,spread,2025-10-10T23:10:39+00:00,2025-10-10T23:25:39+00:00,-39.5,-115.0,-113.0,-34.5,-114.0,-114.0,,,,
+2025,7,regular,fcs,401767691,Harvard,Cornell,2025-10-10T23:00:00+00:00,fanduel,total,2025-10-10T23:10:39+00:00,2025-10-10T23:25:39+00:00,63.5,,,57.5,,,-114.0,-114.0,-122.0,-106.0
+2025,7,regular,fcs,401767034,Bryant,Brown,2025-10-10T23:00:00+00:00,fanduel,spread,2025-10-10T23:10:39+00:00,2025-10-10T23:25:39+00:00,3.5,-130.0,100.0,5.5,-115.0,-113.0,,,,
+2025,7,regular,fcs,401767034,Bryant,Brown,2025-10-10T23:00:00+00:00,fanduel,total,2025-10-10T23:10:39+00:00,2025-10-10T23:25:39+00:00,49.5,,,45.5,,,-115.0,-113.0,-110.0,-118.0

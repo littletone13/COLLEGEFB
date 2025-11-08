@@ -1,0 +1,7 @@
+season,week,season_type,classification,game_id,home_team,away_team,commence_time,bookmaker,market,open_timestamp,close_timestamp,open_point,open_price_home,open_price_away,close_point,close_price_home,close_price_away,open_price_over,open_price_under,close_price_over,close_price_under,open_price_draw,close_price_draw
+2025,9,regular,fbs,401757285,Florida International,Kennesaw State,2025-10-21T23:00:00+00:00,betonlineag,spread,2025-10-21T11:00:39+00:00,2025-10-21T23:15:40+00:00,3.0,-108.0,-112.0,3.0,-105.0,-115.0,,,,,,
+2025,9,regular,fbs,401757285,Florida International,Kennesaw State,2025-10-21T23:00:00+00:00,betonlineag,total,2025-10-21T11:00:39+00:00,2025-10-21T23:15:40+00:00,50.0,,,49.0,,,-105.0,-115.0,-115.0,-105.0,,
+2025,9,regular,fbs,401757285,Florida International,Kennesaw State,2025-10-21T23:00:00+00:00,betonlineag,moneyline,2025-10-21T11:00:39+00:00,2025-10-21T23:15:40+00:00,,133.0,-153.0,,135.0,-155.0,,,,,,
+2025,9,regular,fbs,401757286,Louisiana Tech,Western Kentucky,2025-10-21T23:30:00+00:00,betonlineag,spread,2025-10-21T11:30:39+00:00,2025-10-21T23:45:40+00:00,-3.5,-110.0,-110.0,-5.5,-113.0,-107.0,,,,,,
+2025,9,regular,fbs,401757286,Louisiana Tech,Western Kentucky,2025-10-21T23:30:00+00:00,betonlineag,total,2025-10-21T11:30:39+00:00,2025-10-21T23:45:40+00:00,50.0,,,49.0,,,-112.0,-108.0,-110.0,-110.0,,
+2025,9,regular,fbs,401757286,Louisiana Tech,Western Kentucky,2025-10-21T23:30:00+00:00,betonlineag,moneyline,2025-10-21T11:30:39+00:00,2025-10-21T23:45:40+00:00,,-170.0,149.0,,-235.0,195.0,,,,,,

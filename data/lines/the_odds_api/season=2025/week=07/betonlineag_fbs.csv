@@ -1,0 +1,10 @@
+season,week,season_type,classification,game_id,home_team,away_team,commence_time,bookmaker,market,open_timestamp,close_timestamp,open_point,open_price_home,open_price_away,close_point,close_price_home,close_price_away,open_price_over,open_price_under,close_price_over,close_price_under,open_price_draw,close_price_draw
+2025,7,regular,fbs,401757278,Middle Tennessee,Missouri State,2025-10-08T23:30:00+00:00,betonlineag,spread,2025-10-08T11:30:38+00:00,2025-10-08T23:50:39+00:00,2.5,-113.0,-107.0,1.5,-106.0,-114.0,,,,,,
+2025,7,regular,fbs,401757278,Middle Tennessee,Missouri State,2025-10-08T23:30:00+00:00,betonlineag,total,2025-10-08T11:30:38+00:00,2025-10-08T23:50:39+00:00,49.5,,,52.0,,,-110.0,-110.0,-107.0,-113.0,,
+2025,7,regular,fbs,401757278,Middle Tennessee,Missouri State,2025-10-08T23:30:00+00:00,betonlineag,moneyline,2025-10-08T11:30:38+00:00,2025-10-08T23:50:39+00:00,,118.0,-138.0,,112.0,-132.0,,,,,,
+2025,7,regular,fbs,401757277,UTEP,Liberty,2025-10-09T00:00:00+00:00,betonlineag,spread,2025-10-08T12:00:39+00:00,2025-10-09T00:15:39+00:00,1.5,-113.0,-107.0,2.0,-110.0,-110.0,,,,,,
+2025,7,regular,fbs,401757277,UTEP,Liberty,2025-10-09T00:00:00+00:00,betonlineag,total,2025-10-08T12:00:39+00:00,2025-10-09T00:15:39+00:00,47.5,,,46.0,,,-105.0,-115.0,-118.0,-102.0,,
+2025,7,regular,fbs,401757277,UTEP,Liberty,2025-10-09T00:00:00+00:00,betonlineag,moneyline,2025-10-08T12:00:39+00:00,2025-10-09T00:15:39+00:00,,-102.0,-118.0,,105.0,-125.0,,,,,,
+2025,7,regular,fbs,401757280,Kennesaw State,Louisiana Tech,2025-10-09T23:00:00+00:00,betonlineag,spread,2025-10-09T11:00:39+00:00,2025-10-09T11:20:39+00:00,5.5,-110.0,-110.0,5.5,-110.0,-110.0,,,,,,
+2025,7,regular,fbs,401757280,Kennesaw State,Louisiana Tech,2025-10-09T23:00:00+00:00,betonlineag,total,2025-10-09T11:00:39+00:00,2025-10-09T11:20:39+00:00,46.5,,,46.5,,,-107.0,-113.0,-107.0,-113.0,,
+2025,7,regular,fbs,401757280,Kennesaw State,Louisiana Tech,2025-10-09T23:00:00+00:00,betonlineag,moneyline,2025-10-09T11:00:39+00:00,2025-10-09T11:20:39+00:00,,177.0,-205.0,,177.0,-205.0,,,,,,

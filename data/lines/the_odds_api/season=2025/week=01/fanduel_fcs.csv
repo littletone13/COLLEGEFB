@@ -1,0 +1,4 @@
+season,week,season_type,classification,game_id,home_team,away_team,commence_time,bookmaker,market,open_timestamp,close_timestamp,open_point,open_price_home,open_price_away,close_point,close_price_home,close_price_away,open_price_over,open_price_under,close_price_over,close_price_under,open_price_draw,close_price_draw
+2025,1,regular,fbs,401760371,UNLV,Idaho State,2025-08-23T20:00:00+00:00,fanduel,spread,2025-08-23T08:00:40+00:00,2025-08-23T21:55:39+00:00,-30.5,-108.0,-112.0,-10.5,-132.0,100.0,,,,,,
+2025,1,regular,fbs,401760371,UNLV,Idaho State,2025-08-23T20:00:00+00:00,fanduel,total,2025-08-23T08:00:40+00:00,2025-08-23T21:55:39+00:00,65.5,,,62.5,,,-112.0,-108.0,-114.0,-114.0,,
+2025,1,regular,fbs,401760371,UNLV,Idaho State,2025-08-23T20:00:00+00:00,fanduel,moneyline,2025-08-23T08:00:40+00:00,2025-08-23T21:55:39+00:00,,-7000.0,2000.0,,-1100.0,600.0,,,,,,

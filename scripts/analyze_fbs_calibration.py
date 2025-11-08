@@ -56,6 +56,17 @@ def parse_args() -> argparse.Namespace:
         default=Path("out/fbs_calibration_report"),
         help="Base path for output artifacts (extensions added automatically).",
     )
+    parser.add_argument(
+        "--odds-api-dir",
+        type=Path,
+        help="Optional directory of The Odds API history to use for closing lines.",
+    )
+    parser.add_argument(
+        "--bookmaker",
+        type=str,
+        default="fanduel",
+        help="Bookmaker key inside the odds-history archive (default fanduel).",
+    )
     return parser.parse_args()
 
 
@@ -72,6 +83,8 @@ def collect_rows(
     provider: str,
     *,
     api_key: str,
+    odds_api_dir: Optional[Path] = None,
+    bookmaker: Optional[str] = None,
 ) -> Tuple[pd.DataFrame, List[BacktestResult]]:
     frames: List[pd.DataFrame] = []
     results: List[BacktestResult] = []
@@ -80,13 +93,14 @@ def collect_rows(
             year,
             api_key=api_key,
             hist_path=None,
-            provider=provider,
+            provider=bookmaker or provider,
             oddslogic_lookup=None,
             max_week=None,
             spread_edge_min=0.0,
             min_provider_count=0,
             total_edge_min=0.0,
             return_rows=True,
+            odds_api_dir=odds_api_dir,
         )
         df["season"] = year
         df["provider"] = provider
@@ -206,7 +220,13 @@ def main() -> None:
         raise RuntimeError("CFBD API key required (set CFBD_API_KEY or pass --api-key).")
 
     years = list(range(args.start_year, args.end_year + 1))
-    df, _ = collect_rows(years, args.provider, api_key=args.api_key)
+    df, _ = collect_rows(
+        years,
+        args.provider,
+        api_key=args.api_key,
+        odds_api_dir=args.odds_api_dir,
+        bookmaker=args.bookmaker,
+    )
     payload = df[
         [
             "season",

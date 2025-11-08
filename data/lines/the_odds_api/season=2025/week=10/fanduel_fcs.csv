@@ -1,0 +1,3 @@
+season,week,season_type,classification,game_id,home_team,away_team,commence_time,bookmaker,market,open_timestamp,close_timestamp,open_point,open_price_home,open_price_away,close_point,close_price_home,close_price_away,open_price_over,open_price_under,close_price_over,close_price_under
+2025,10,regular,fcs,401767346,Delaware State,Norfolk State,2025-10-30T23:00:00+00:00,fanduel,spread,2025-10-30T23:10:39+00:00,2025-10-30T23:25:40+00:00,-13.5,-114.0,-114.0,-16.5,-120.0,-108.0,,,,
+2025,10,regular,fcs,401767346,Delaware State,Norfolk State,2025-10-30T23:00:00+00:00,fanduel,total,2025-10-30T23:10:39+00:00,2025-10-30T23:25:40+00:00,54.5,,,51.5,,,-120.0,-108.0,-108.0,-120.0
