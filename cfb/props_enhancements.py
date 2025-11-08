@@ -137,6 +137,71 @@ def estimate_overdispersion_k(counts: np.ndarray) -> float:
     return float(1.0 / phi)
 
 
+def default_receiving_phi(
+    route_share: Optional[float],
+    position: Optional[str] = None,
+) -> float:
+    """Heuristic negative-binomial phi for receiving volume."""
+
+    base = 0.30
+    if position:
+        pos = position.strip().upper()
+        if pos == "WR":
+            base = 0.28
+        elif pos == "TE":
+            base = 0.38
+        elif pos == "RB":
+            base = 0.25
+        else:
+            base = 0.32
+    share = 0.0 if route_share is None or not np.isfinite(route_share) else float(route_share)
+    share = float(np.clip(share, 0.0, 1.0))
+    # Higher route share → tighter volume distribution.
+    adjust = 0.18 * (0.35 - share)
+    phi = float(np.clip(base + adjust, 0.05, 0.60))
+    return phi
+
+
+def default_receiving_zero_inflation(
+    route_share: Optional[float],
+    position: Optional[str] = None,
+) -> float:
+    """Heuristic zero-inflation rate for receiving targets."""
+
+    share = 0.0 if route_share is None or not np.isfinite(route_share) else float(route_share)
+    share = float(np.clip(share, 0.0, 1.0))
+    base = max(0.0, 0.40 - 1.3 * share)
+    if position:
+        pos = position.strip().upper()
+        if pos == "WR":
+            base *= 0.85
+        elif pos == "TE":
+            base *= 1.10
+        elif pos == "RB":
+            base *= 0.95
+    return float(np.clip(base, 0.0, 0.60))
+
+
+def default_rushing_phi(
+    position: Optional[str] = None,
+    *,
+    is_qb: bool = False,
+) -> float:
+    """Heuristic negative-binomial phi for rushing attempts."""
+
+    if is_qb:
+        return 0.45
+    if position:
+        pos = position.strip().upper()
+        if pos == "RB":
+            return 0.28
+        if pos in {"WR", "TE"}:
+            return 0.38
+        if pos == "FB":
+            return 0.32
+    return 0.33
+
+
 __all__ = [
     "YardageModel",
     "apply_weather_to_rates",
@@ -146,4 +211,7 @@ __all__ = [
     "dirichlet_room_shares",
     "zero_inflated_targets",
     "estimate_overdispersion_k",
+    "default_receiving_phi",
+    "default_receiving_zero_inflation",
+    "default_rushing_phi",
 ]

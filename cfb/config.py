@@ -6,7 +6,10 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-import yaml
+try:  # Optional dependency: PyYAML is not always available in minimal CI images
+    import yaml
+except ModuleNotFoundError:  # pragma: no cover - exercised indirectly via import failure
+    yaml = None  # type: ignore[assignment]
 
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "defaults.yaml"
 
@@ -38,6 +41,11 @@ def load_config(path: Optional[str | Path] = None, *, env_var: str = "CFB_CONFIG
 
     if not config_path.exists():
         raise FileNotFoundError(f"Configuration file not found: {config_path}")
+
+    if yaml is None:  # pragma: no cover - defensive guard for optional dependency
+        raise ModuleNotFoundError(
+            "PyYAML is required to load configuration files. Install 'pyyaml' to use this helper."
+        )
 
     with config_path.open("r", encoding="utf-8") as handle:
         data = yaml.safe_load(handle) or {}

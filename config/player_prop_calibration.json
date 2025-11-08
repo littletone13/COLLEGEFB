@@ -1,0 +1,110 @@
+{
+  "meta": {
+    "history_rows": 22,
+    "min_samples": 2,
+    "source": "calibrate_player_props.py"
+  },
+  "volume": {
+    "receiving": {
+      "wr1": {
+        "phi": 0.0,
+        "variance_scale": 0.14285714285714285,
+        "zero_inflation": null,
+        "mean_scale": 1.0317051016007743,
+        "samples": 3
+      },
+      "default": {
+        "phi": 0.29467455621301786,
+        "variance_scale": 1.0,
+        "zero_inflation": 0.16666666666666666,
+        "mean_scale": 0.7284791765638554,
+        "samples": 6
+      },
+      "te1": {
+        "phi": 1.3333333333333333,
+        "variance_scale": 1.0,
+        "zero_inflation": 0.5,
+        "mean_scale": 0.22897164565627257,
+        "samples": 2
+      },
+      "rb1": {
+        "phi": 0.0,
+        "variance_scale": 1.0,
+        "zero_inflation": null,
+        "mean_scale": 0.5618466614026396,
+        "samples": 1
+      }
+    },
+    "rushing": {
+      "rb1": {
+        "phi": 0.0,
+        "variance_scale": 0.22033898305084743,
+        "zero_inflation": null,
+        "mean_scale": 1.0220754188196135,
+        "samples": 3
+      },
+      "default": {
+        "phi": 0.09023444088379151,
+        "variance_scale": 1.0,
+        "zero_inflation": null,
+        "mean_scale": 0.9785446037597239,
+        "samples": 5
+      },
+      "qb1": {
+        "phi": 0.0,
+        "variance_scale": 0.2222222222222222,
+        "zero_inflation": null,
+        "mean_scale": 0.9901883222815661,
+        "samples": 2
+      }
+    }
+  },
+  "yardage": {
+    "receiving_yards": {
+      "wr1": {
+        "sigma": 0.45771682198842356,
+        "variance_scale": 0.07773023287510582,
+        "mean_scale": 1.0,
+        "samples": 3
+      },
+      "default": {
+        "sigma": 0.8471988727251688,
+        "variance_scale": 0.20838834464749767,
+        "mean_scale": 1.0,
+        "samples": 6
+      },
+      "te1": {
+        "sigma": 0.8,
+        "variance_scale": 0.00146676233950125,
+        "mean_scale": 1.0,
+        "samples": 2
+      },
+      "rb1": {
+        "sigma": 0.8,
+        "variance_scale": 1.0,
+        "mean_scale": 1.0,
+        "samples": 1
+      }
+    },
+    "rushing_yards": {
+      "rb1": {
+        "sigma": 0.470866828918457,
+        "variance_scale": 0.039578958809043344,
+        "mean_scale": 1.0,
+        "samples": 3
+      },
+      "default": {
+        "sigma": 0.9069373952865603,
+        "variance_scale": 0.13650683203045727,
+        "mean_scale": 1.0,
+        "samples": 5
+      },
+      "qb1": {
+        "sigma": 0.8,
+        "variance_scale": 0.006179904483050974,
+        "mean_scale": 1.0,
+        "samples": 2
+      }
+    }
+  }
+}

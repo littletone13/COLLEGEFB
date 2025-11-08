@@ -99,6 +99,8 @@ def _build_role_params(row: pd.Series) -> sim.RoleParams:
         target_share_kappa=float(row.get("target_share_kappa", 60) or 60),
         rush_share_mean=_float_or_none(row.get("rush_share_mean")),
         rush_share_kappa=float(row.get("rush_share_kappa", 60) or 60),
+        position=_str_or_empty(row.get("position")) or None,
+        role=_str_or_empty(row.get("role")) or None,
     )
 
 

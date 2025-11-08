@@ -14,7 +14,9 @@ from cfb.player_prop_sim import (
     simulate_passing_yards,
     simulate_receiving,
     simulate_rushing_yards,
+    CalibrationMode,
 )
+from cfb.props_calibration import PropCalibrations, get_default_calibrations
 
 
 @dataclass
@@ -90,6 +92,8 @@ def simulate_player(
     corr_strength: float = 0.1,
     team: TeamParams | None = None,
     role: RoleParams | None = None,
+    calibrations: PropCalibrations | None = None,
+    calibration_mode: CalibrationMode = "auto",
 ) -> Dict[str, Dict[str, Any]]:
     rng = np.random.default_rng(seed)
     results: Dict[str, Dict[str, Any]] = {}
@@ -97,6 +101,9 @@ def simulate_player(
 
     price_lookup = over_prices or {}
     line_lookup = lines or Lines()
+    calibration_source: Optional[PropCalibrations] = None
+    if calibration_mode != "heuristic":
+        calibration_source = calibrations or get_default_calibrations()
 
     if passing is not None:
         pass_sim = simulate_passing_yards(
@@ -149,6 +156,8 @@ def simulate_player(
             wind_mph=receiving.wind_mph,
             precip=receiving.precip,
             zero_inflation=receiving.zero_inflation,
+            calibrations=calibration_source,
+            calibration_mode=calibration_mode,
         )
         yards_summary = _add_prob_alias(recv.get("yards"))
         rec_summary = _add_prob_alias(recv.get("receptions"))
@@ -177,6 +186,8 @@ def simulate_player(
             win_prob_q4=rushing.win_prob_q4 if rushing.win_prob_q4 is not None else (team.win_prob_q4 if team and team.win_prob_q4 is not None else None),
             favored=rushing.favored if rushing.favored is not None else (team.favored if team else None),
             is_qb=rushing.is_qb,
+            calibrations=calibration_source,
+            calibration_mode=calibration_mode,
         )
         yards_summary = _add_prob_alias(rush_metrics.get("yards"))
         attempts_summary = _add_prob_alias(rush_metrics.get("attempts"))
